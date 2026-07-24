@@ -1,7 +1,13 @@
-import EdgeLLM
 import Foundation
-import LiteRTLM
 import OSLog
+
+#if canImport(EdgeLLM)
+import EdgeLLM
+#endif
+
+#if canImport(LiteRTLM)
+import LiteRTLM
+#endif
 
 actor LiteRTLMRuntime: LLMRuntime {
     private final class SendableConversation: @unchecked Sendable {
@@ -215,7 +221,9 @@ actor LiteRTLMRuntime: LLMRuntime {
         cancellationTimeoutTask = Task {
             do {
                 try await Task.sleep(
-                    for: .seconds(cancellationTimeoutSeconds)
+                    nanoseconds:
+                        UInt64(cancellationTimeoutSeconds)
+                        * 1_000_000_000
                 )
                 handleCancellationTimeout(id: generationID)
             } catch is CancellationError {
@@ -386,9 +394,9 @@ actor LiteRTLMRuntime: LLMRuntime {
             appropriateFor: nil,
             create: true
         )
-        let cacheURL = baseURL.appending(
-            path: "LiteRTLM",
-            directoryHint: .isDirectory
+        let cacheURL = baseURL.appendingPathComponent(
+            "LiteRTLM",
+            isDirectory: true
         )
         try FileManager.default.createDirectory(
             at: cacheURL,
