@@ -1,0 +1,6 @@
+// Shared signing defaults. Keep developer-specific team IDs out of Git.
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM =
+
+// Each developer may provide this ignored file on their own machine.
+#include? "Signing.local.xcconfig"
