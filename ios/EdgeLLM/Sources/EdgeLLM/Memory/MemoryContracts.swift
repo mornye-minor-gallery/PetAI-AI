@@ -59,7 +59,10 @@ public protocol MemoryObservationStoring: Sendable {
     var securityPolicy: MemoryStoreSecurityPolicy { get }
 
     func initialize() async throws
-    func save(_ observation: MemoryObservation) async throws
+    func save(
+        _ observation: MemoryObservation,
+        embedding: MemoryObservationEmbedding?
+    ) async throws
     func activeObservations(in scope: MemoryScope) async throws
         -> [MemoryObservation]
     func markDeleted(
@@ -68,6 +71,19 @@ public protocol MemoryObservationStoring: Sendable {
         updatedAt: Date
     ) async throws
     func close() async
+}
+
+extension MemoryObservationStoring {
+    public func save(_ observation: MemoryObservation) async throws {
+        try await save(observation, embedding: nil)
+    }
+}
+
+public protocol MemoryEmbeddingCandidateLoading: Sendable {
+    func embeddingCandidates(
+        in scope: MemoryScope,
+        modelID: String
+    ) async throws -> [MemoryEmbeddingCandidate]
 }
 
 public protocol MemoryRetrieving: Sendable {

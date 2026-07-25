@@ -11,6 +11,7 @@ public enum SQLiteObservationStoreError:
     case statementFailed(String)
     case unsupportedSchemaVersion(found: Int, expected: Int)
     case invalidStoredValue(column: String)
+    case invalidEmbedding(String)
     case unknownObservation(String)
 }
 
@@ -27,13 +28,18 @@ extension SQLiteObservationStoreError: LocalizedError {
             "Unsupported EdgeMem schema version \(found); expected \(expected)."
         case let .invalidStoredValue(column):
             "EdgeMem SQLite contains an invalid value for \(column)."
+        case let .invalidEmbedding(message):
+            "EdgeMem cannot store this embedding: \(message)"
         case let .unknownObservation(observationID):
             "EdgeMem observation does not exist or is inactive: \(observationID)"
         }
     }
 }
 
-public actor SQLiteObservationStore: MemoryObservationStoring {
+public actor SQLiteObservationStore:
+    MemoryObservationStoring,
+    MemoryEmbeddingCandidateLoading
+{
     public nonisolated let securityPolicy: MemoryStoreSecurityPolicy =
         .appPrivatePrototype
 
@@ -62,7 +68,7 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
             .appendingPathComponent("edgemem.sqlite3", isDirectory: false)
     }
 
-    init(databaseURL: URL) {
+    public init(databaseURL: URL) {
         self.databaseURL = databaseURL
     }
 
@@ -127,11 +133,17 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
         }
     }
 
-    public func save(_ observation: MemoryObservation) async throws {
+    public func save(
+        _ observation: MemoryObservation,
+        embedding: MemoryObservationEmbedding?
+    ) async throws {
         guard !observation.labels.isEmpty else {
             throw SQLiteObservationStoreError.invalidStoredValue(
                 column: "labels"
             )
+        }
+        if let embedding {
+            try validate(embedding, for: observation)
         }
 
         try transaction {
@@ -208,6 +220,35 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
                     try stepExpectingDone(statement)
                 }
             }
+
+            if let embedding {
+                try withStatement(
+                    """
+                    INSERT INTO memory_observation_embeddings(
+                        observation_id,
+                        model_id,
+                        dimension,
+                        vector,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?);
+                    """
+                ) { statement in
+                    try bind(embedding.observationID, at: 1, to: statement)
+                    try bind(embedding.modelID, at: 2, to: statement)
+                    try bind(embedding.dimension, at: 3, to: statement)
+                    try bind(
+                        vectorData(embedding.vector),
+                        at: 4,
+                        to: statement
+                    )
+                    try bind(
+                        dateString(embedding.createdAt),
+                        at: 5,
+                        to: statement
+                    )
+                    try stepExpectingDone(statement)
+                }
+            }
         }
     }
 
@@ -261,28 +302,112 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
                 forObservationID: row.observationID
             )
             observations.append(
-                MemoryObservation(
-                    id: row.observationID,
-                    sourceMessageID: row.sourceMessageID,
-                    sessionID: row.sessionID,
-                    scope: MemoryScope(
-                        userID: row.userID,
-                        characterID: row.characterID
-                    ),
-                    occurredAt: row.occurredAt,
-                    rawText: row.rawText,
-                    labels: classification.labels,
-                    classifierVersion: classification.version,
-                    state: row.state,
-                    validFrom: row.validFrom,
-                    validUntil: row.validUntil,
-                    supersedesObservationID: row.supersedesObservationID,
-                    createdAt: row.createdAt,
-                    updatedAt: row.updatedAt
-                )
+                observation(from: row, classification: classification)
             )
         }
         return observations
+    }
+
+    public func embeddingCandidates(
+        in scope: MemoryScope,
+        modelID: String
+    ) async throws -> [MemoryEmbeddingCandidate] {
+        let rows = try withStatement(
+            """
+            SELECT
+                o.observation_id,
+                o.source_message_id,
+                o.session_id,
+                o.user_id,
+                o.character_id,
+                o.occurred_at,
+                o.raw_text,
+                o.state,
+                o.valid_from,
+                o.valid_until,
+                o.supersedes_observation_id,
+                o.created_at,
+                o.updated_at,
+                e.model_id,
+                e.dimension,
+                e.vector,
+                e.created_at
+            FROM memory_observations AS o
+            INNER JOIN memory_observation_embeddings AS e
+                ON e.observation_id = o.observation_id
+            WHERE o.user_id = ?
+              AND o.character_id = ?
+              AND o.state = 'active'
+              AND e.model_id = ?
+            ORDER BY o.occurred_at DESC, o.observation_id ASC;
+            """
+        ) { statement in
+            try bind(scope.userID, at: 1, to: statement)
+            try bind(scope.characterID, at: 2, to: statement)
+            try bind(modelID, at: 3, to: statement)
+
+            var rows: [EmbeddingRow] = []
+            while true {
+                let result = sqlite3_step(statement)
+                if result == SQLITE_DONE {
+                    break
+                }
+                guard result == SQLITE_ROW else {
+                    throw statementError()
+                }
+
+                let observation = try observationRow(from: statement)
+                let storedModelID = try text(
+                    at: 13,
+                    from: statement,
+                    column: "model_id"
+                )
+                let dimension = try integer(
+                    at: 14,
+                    from: statement,
+                    column: "dimension"
+                )
+                let vector = try vector(
+                    at: 15,
+                    dimension: dimension,
+                    from: statement
+                )
+                rows.append(
+                    EmbeddingRow(
+                        observation: observation,
+                        embedding: MemoryObservationEmbedding(
+                            observationID: observation.observationID,
+                            modelID: storedModelID,
+                            vector: vector,
+                            createdAt: try date(
+                                at: 16,
+                                from: statement,
+                                column: "embedding_created_at"
+                            )
+                        )
+                    )
+                )
+            }
+            return rows
+        }
+
+        var candidates: [MemoryEmbeddingCandidate] = []
+        candidates.reserveCapacity(rows.count)
+        for row in rows {
+            let classification = try labels(
+                forObservationID: row.observation.observationID
+            )
+            candidates.append(
+                MemoryEmbeddingCandidate(
+                    observation: observation(
+                        from: row.observation,
+                        classification: classification
+                    ),
+                    embedding: row.embedding
+                )
+            )
+        }
+        return candidates
     }
 
     public func markDeleted(
@@ -491,6 +616,61 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
         )
     }
 
+    private func observation(
+        from row: ObservationRow,
+        classification: (labels: [MemoryLabel], version: String)
+    ) -> MemoryObservation {
+        MemoryObservation(
+            id: row.observationID,
+            sourceMessageID: row.sourceMessageID,
+            sessionID: row.sessionID,
+            scope: MemoryScope(
+                userID: row.userID,
+                characterID: row.characterID
+            ),
+            occurredAt: row.occurredAt,
+            rawText: row.rawText,
+            labels: classification.labels,
+            classifierVersion: classification.version,
+            state: row.state,
+            validFrom: row.validFrom,
+            validUntil: row.validUntil,
+            supersedesObservationID: row.supersedesObservationID,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt
+        )
+    }
+
+    private func validate(
+        _ embedding: MemoryObservationEmbedding,
+        for observation: MemoryObservation
+    ) throws {
+        guard embedding.observationID == observation.id else {
+            throw SQLiteObservationStoreError.invalidEmbedding(
+                "observation IDs do not match"
+            )
+        }
+        guard
+            !embedding.modelID.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ).isEmpty
+        else {
+            throw SQLiteObservationStoreError.invalidEmbedding(
+                "model ID is empty"
+            )
+        }
+        guard !embedding.vector.isEmpty else {
+            throw SQLiteObservationStoreError.invalidEmbedding(
+                "vector is empty"
+            )
+        }
+        if let index = embedding.vector.firstIndex(where: { !$0.isFinite }) {
+            throw SQLiteObservationStoreError.invalidEmbedding(
+                "vector contains a non-finite value at index \(index)"
+            )
+        }
+    }
+
     private func execute(_ sql: String) throws {
         let database = try databaseHandle()
         var errorPointer: UnsafeMutablePointer<CChar>?
@@ -577,6 +757,38 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
         try bind(value, at: index, to: statement)
     }
 
+    private func bind(
+        _ value: Int,
+        at index: Int32,
+        to statement: OpaquePointer
+    ) throws {
+        guard
+            sqlite3_bind_int64(statement, index, sqlite3_int64(value))
+                == SQLITE_OK
+        else {
+            throw statementError()
+        }
+    }
+
+    private func bind(
+        _ value: Data,
+        at index: Int32,
+        to statement: OpaquePointer
+    ) throws {
+        let result = value.withUnsafeBytes { bytes in
+            sqlite3_bind_blob(
+                statement,
+                index,
+                bytes.baseAddress,
+                Int32(bytes.count),
+                unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            )
+        }
+        guard result == SQLITE_OK else {
+            throw statementError()
+        }
+    }
+
     private func stepExpectingDone(_ statement: OpaquePointer) throws {
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw statementError()
@@ -605,6 +817,61 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
             return nil
         }
         return try text(at: index, from: statement, column: column)
+    }
+
+    private func integer(
+        at index: Int32,
+        from statement: OpaquePointer,
+        column: String
+    ) throws -> Int {
+        guard sqlite3_column_type(statement, index) == SQLITE_INTEGER else {
+            throw SQLiteObservationStoreError.invalidStoredValue(
+                column: column
+            )
+        }
+        let value = sqlite3_column_int64(statement, index)
+        guard let integer = Int(exactly: value), integer > 0 else {
+            throw SQLiteObservationStoreError.invalidStoredValue(
+                column: column
+            )
+        }
+        return integer
+    }
+
+    private func vector(
+        at index: Int32,
+        dimension: Int,
+        from statement: OpaquePointer
+    ) throws -> [Float] {
+        let byteCount = Int(sqlite3_column_bytes(statement, index))
+        let expectedByteCount = dimension * MemoryLayout<UInt32>.size
+        guard
+            byteCount == expectedByteCount,
+            let bytes = sqlite3_column_blob(statement, index)
+        else {
+            throw SQLiteObservationStoreError.invalidStoredValue(
+                column: "vector"
+            )
+        }
+
+        let data = Data(bytes: bytes, count: byteCount)
+        let vector: [Float] = data.withUnsafeBytes { buffer in
+            (0..<dimension).map { vectorIndex in
+                let bits = buffer.loadUnaligned(
+                    fromByteOffset: vectorIndex * MemoryLayout<UInt32>.size,
+                    as: UInt32.self
+                )
+                return Float(
+                    bitPattern: UInt32(littleEndian: bits)
+                )
+            }
+        }
+        guard vector.allSatisfy(\.isFinite) else {
+            throw SQLiteObservationStoreError.invalidStoredValue(
+                column: "vector"
+            )
+        }
+        return vector
     }
 
     private func date(
@@ -647,6 +914,18 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
 
     private func dateString(_ date: Date) -> String {
         dateFormatter.string(from: date)
+    }
+
+    private func vectorData(_ vector: [Float]) -> Data {
+        var data = Data()
+        data.reserveCapacity(vector.count * MemoryLayout<UInt32>.size)
+        for value in vector {
+            var bits = value.bitPattern.littleEndian
+            withUnsafeBytes(of: &bits) { bytes in
+                data.append(contentsOf: bytes)
+            }
+        }
+        return data
     }
 
     private func databaseHandle() throws -> OpaquePointer {
@@ -695,4 +974,9 @@ private struct ObservationRow {
     let supersedesObservationID: String?
     let createdAt: Date
     let updatedAt: Date
+}
+
+private struct EmbeddingRow {
+    let observation: ObservationRow
+    let embedding: MemoryObservationEmbedding
 }

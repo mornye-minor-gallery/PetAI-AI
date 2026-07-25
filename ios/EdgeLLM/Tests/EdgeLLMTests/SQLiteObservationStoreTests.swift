@@ -2,6 +2,19 @@ import Foundation
 import Testing
 @testable import EdgeLLM
 
+private struct SQLiteDenseTestEmbedder: TextEmbeddingProviding {
+    let modelID = "sqlite-dense-test-v1"
+    let dimension = 3
+
+    func embedQuery(_ text: String) async throws -> [Float] {
+        [1, 0, 0]
+    }
+
+    func embedDocument(_ text: String) async throws -> [Float] {
+        [1, 0, 0]
+    }
+}
+
 @Test
 func sqliteStorePersistsCharacterScopedMemoryAcrossReopen() async throws {
     let temporaryDirectory = FileManager.default.temporaryDirectory
@@ -126,4 +139,56 @@ func encryptedRequirementRejectsThePlainSQLitePrototypeStore() async {
     await #expect(throws: MemoryEngineError.insecureStoreConfiguration) {
         try await engine.prepare()
     }
+}
+
+@Test
+func sqliteStorePersistsEmbeddingsForDenseRetrievalAcrossReopen() async throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let databaseURL = temporaryDirectory
+        .appendingPathComponent("edgemem.sqlite3", isDirectory: false)
+    defer {
+        try? FileManager.default.removeItem(at: temporaryDirectory)
+    }
+
+    let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
+    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+    let store = SQLiteObservationStore(databaseURL: databaseURL)
+    let embedder = SQLiteDenseTestEmbedder()
+    let engine = MemoryEngine(
+        store: store,
+        embedder: embedder,
+        securityRequirement: .allowsUnencryptedAppPrivatePrototype,
+        makeObservationID: { "persisted-embedding" },
+        now: { timestamp }
+    )
+    try await engine.prepare()
+    _ = try await engine.remember(
+        MemoryWriteRequest(
+            sourceMessageID: "message-1",
+            sessionID: "session-1",
+            scope: scope,
+            rawText: "나는 포도를 좋아해",
+            occurredAt: timestamp
+        )
+    )
+    await engine.close()
+
+    let reopenedStore = SQLiteObservationStore(databaseURL: databaseURL)
+    try await reopenedStore.initialize()
+    let retriever = DenseMemoryRetriever(
+        candidateLoader: reopenedStore,
+        embedder: embedder
+    )
+    let results = try await retriever.search(
+        MemorySearchRequest(
+            scope: scope,
+            query: "내가 좋아하는 과일은?"
+        )
+    )
+
+    #expect(results.count == 1)
+    #expect(results[0].observation.id == "persisted-embedding")
+    #expect(results[0].score == 1)
+    await reopenedStore.close()
 }

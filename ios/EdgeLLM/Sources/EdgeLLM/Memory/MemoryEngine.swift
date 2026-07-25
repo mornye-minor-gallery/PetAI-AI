@@ -2,6 +2,8 @@ import Foundation
 
 public enum MemoryEngineError: Error, Equatable, Sendable {
     case invalidIdentifier(field: String)
+    case invalidEmbeddingDimension(expected: Int, actual: Int)
+    case nonFiniteEmbedding(index: Int)
     case insecureStoreConfiguration
     case invalidSearchLimit
     case notPrepared
@@ -12,6 +14,10 @@ extension MemoryEngineError: LocalizedError {
         switch self {
         case let .invalidIdentifier(field):
             "EdgeMem requires a non-empty \(field)."
+        case let .invalidEmbeddingDimension(expected, actual):
+            "EdgeMem expected a \(expected)-value embedding, but received \(actual)."
+        case let .nonFiniteEmbedding(index):
+            "EdgeMem embedding contains a non-finite value at index \(index)."
         case .insecureStoreConfiguration:
             "The EdgeMem store does not satisfy the selected security requirement."
         case .invalidSearchLimit:
@@ -25,6 +31,7 @@ extension MemoryEngineError: LocalizedError {
 public actor MemoryEngine {
     private let store: any MemoryObservationStoring
     private let classifier: any MemoryObservationClassifying
+    private let embedder: (any TextEmbeddingProviding)?
     private let retriever: (any MemoryRetrieving)?
     private let diagnostics: any MemoryDiagnostics
     private let securityRequirement: MemoryStoreSecurityRequirement
@@ -37,6 +44,7 @@ public actor MemoryEngine {
         store: any MemoryObservationStoring,
         classifier: any MemoryObservationClassifying =
             NaivePreferenceEventClassifier(),
+        embedder: (any TextEmbeddingProviding)? = nil,
         retriever: (any MemoryRetrieving)? = nil,
         diagnostics: any MemoryDiagnostics = MemoryDebugDiagnostics(),
         securityRequirement: MemoryStoreSecurityRequirement =
@@ -50,6 +58,7 @@ public actor MemoryEngine {
     ) {
         self.store = store
         self.classifier = classifier
+        self.embedder = embedder
         self.retriever = retriever
         self.diagnostics = diagnostics
         self.securityRequirement = securityRequirement
@@ -110,8 +119,13 @@ public actor MemoryEngine {
             createdAt: timestamp,
             updatedAt: timestamp
         )
+        let embedding = try await makeEmbedding(
+            for: observation,
+            text: trimmedText,
+            createdAt: timestamp
+        )
         try requirePrepared()
-        try await store.save(observation)
+        try await store.save(observation, embedding: embedding)
         return .stored(observation)
     }
 
@@ -175,6 +189,33 @@ public actor MemoryEngine {
         guard isPrepared else {
             throw MemoryEngineError.notPrepared
         }
+    }
+
+    private func makeEmbedding(
+        for observation: MemoryObservation,
+        text: String,
+        createdAt: Date
+    ) async throws -> MemoryObservationEmbedding? {
+        guard let embedder else {
+            return nil
+        }
+        try Self.validateIdentifier(embedder.modelID, field: "embedding modelID")
+        let vector = try await embedder.embedDocument(text)
+        guard vector.count == embedder.dimension else {
+            throw MemoryEngineError.invalidEmbeddingDimension(
+                expected: embedder.dimension,
+                actual: vector.count
+            )
+        }
+        if let index = vector.firstIndex(where: { !$0.isFinite }) {
+            throw MemoryEngineError.nonFiniteEmbedding(index: index)
+        }
+        return MemoryObservationEmbedding(
+            observationID: observation.id,
+            modelID: embedder.modelID,
+            vector: vector,
+            createdAt: createdAt
+        )
     }
 
     private static func validateIdentifier(

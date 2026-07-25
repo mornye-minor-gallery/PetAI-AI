@@ -94,6 +94,42 @@ public struct MemoryObservation: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+public struct MemoryObservationEmbedding: Equatable, Sendable {
+    public let observationID: String
+    public let modelID: String
+    public let vector: [Float]
+    public let createdAt: Date
+
+    public var dimension: Int {
+        vector.count
+    }
+
+    public init(
+        observationID: String,
+        modelID: String,
+        vector: [Float],
+        createdAt: Date
+    ) {
+        self.observationID = observationID
+        self.modelID = modelID
+        self.vector = vector
+        self.createdAt = createdAt
+    }
+}
+
+public struct MemoryEmbeddingCandidate: Equatable, Sendable {
+    public let observation: MemoryObservation
+    public let embedding: MemoryObservationEmbedding
+
+    public init(
+        observation: MemoryObservation,
+        embedding: MemoryObservationEmbedding
+    ) {
+        self.observation = observation
+        self.embedding = embedding
+    }
+}
+
 public enum MemoryIgnoreReason: Equatable, Sendable {
     case emptyText
     case notPreferenceOrEvent
