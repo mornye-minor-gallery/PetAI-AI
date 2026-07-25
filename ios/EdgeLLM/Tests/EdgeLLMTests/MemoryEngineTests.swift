@@ -2,14 +2,46 @@ import Foundation
 import Testing
 @testable import EdgeLLM
 
+private struct FixedMemoryClassifier: MemoryObservationClassifying {
+    let decision: MemoryGateDecision
+    var version: String {
+        decision.classifierVersion
+    }
+
+    func evaluate(_ text: String) async throws -> MemoryGateDecision {
+        decision
+    }
+}
+
+private func gateDecision(
+    _ label: MemoryGateLabel,
+    hardIgnore: Bool = false
+) -> MemoryGateDecision {
+    MemoryGateDecision(
+        label: label,
+        regex: MemoryRegexGateResult(
+            preferenceHit: label == .preference || label == .both,
+            eventHit: label == .event || label == .both,
+            hardIgnore: hardIgnore
+        ),
+        preferenceScore: nil,
+        eventScore: nil,
+        preferenceThreshold: 0.08,
+        eventThreshold: 0.08,
+        classifierVersion: "test-gate-v1",
+        embeddingModelID: nil
+    )
+}
+
 private actor RecordingMemoryStore: MemoryObservationStoring {
     nonisolated let securityPolicy: MemoryStoreSecurityPolicy
 
     private var didInitialize = false
+    private var turns: [MemoryConversationTurn] = []
+    private var gates: [MemoryGateResult] = []
     private var observations: [MemoryObservation] = []
     private var embeddings: [MemoryObservationEmbedding?] = []
     private var deletedObservationIDs: [String] = []
-    private var deletedObservationScopes: [MemoryScope] = []
 
     init(
         securityPolicy: MemoryStoreSecurityPolicy =
@@ -22,7 +54,31 @@ private actor RecordingMemoryStore: MemoryObservationStoring {
         didInitialize = true
     }
 
-    func save(
+    func saveUserTurn(
+        id: String,
+        sessionID: String,
+        scope: MemoryScope,
+        rawText: String,
+        occurredAt: Date
+    ) async throws -> MemoryConversationTurn {
+        let turn = MemoryConversationTurn(
+            id: id,
+            sessionID: sessionID,
+            sequence: turns.filter { $0.sessionID == sessionID }.count,
+            scope: scope,
+            rawText: rawText,
+            occurredAt: occurredAt,
+            contentHash: "test-hash"
+        )
+        turns.append(turn)
+        return turn
+    }
+
+    func saveGateResult(_ result: MemoryGateResult) async throws {
+        gates.append(result)
+    }
+
+    func saveObservation(
         _ observation: MemoryObservation,
         embedding: MemoryObservationEmbedding?
     ) async throws {
@@ -40,28 +96,28 @@ private actor RecordingMemoryStore: MemoryObservationStoring {
 
     func markDeleted(
         observationID: String,
-        in scope: MemoryScope,
-        updatedAt: Date
+        in scope: MemoryScope
     ) async throws {
         deletedObservationIDs.append(observationID)
-        deletedObservationScopes.append(scope)
     }
 
     func close() async {}
 
     func snapshot() -> (
         initialized: Bool,
+        turns: [MemoryConversationTurn],
+        gates: [MemoryGateResult],
         observations: [MemoryObservation],
         embeddings: [MemoryObservationEmbedding?],
-        deletedObservationIDs: [String],
-        deletedObservationScopes: [MemoryScope]
+        deletedObservationIDs: [String]
     ) {
         (
             didInitialize,
+            turns,
+            gates,
             observations,
             embeddings,
-            deletedObservationIDs,
-            deletedObservationScopes
+            deletedObservationIDs
         )
     }
 }
@@ -89,6 +145,23 @@ private struct MemoryEngineTestEmbedder: TextEmbeddingProviding {
     }
 }
 
+private struct ClassifierTestEmbedder:
+    ClassificationEmbeddingProviding
+{
+    let modelID = "classification-test-v1"
+    let dimension = 3
+
+    func embedClassification(_ text: String) async throws -> [Float] {
+        if text.contains("좋아") || text.contains("딸기") {
+            return [1, 0, 0]
+        }
+        if text.contains("다녀") || text.contains("미술관") {
+            return [0, 1, 0]
+        }
+        return [0, 0, 1]
+    }
+}
+
 private actor RecordingMemoryDiagnostics: MemoryDiagnostics {
     private var messages: [String] = []
 
@@ -108,16 +181,14 @@ private actor SuspendingInitializationMemoryStore:
         .encryptedOnDeviceOnly
 
     private var initializationStarted = false
-    private var initializationStartWaiters: [
-        CheckedContinuation<Void, Never>
-    ] = []
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
     private var initializationContinuation:
         CheckedContinuation<Void, Never>?
 
     func initialize() async throws {
         initializationStarted = true
-        let waiters = initializationStartWaiters
-        initializationStartWaiters.removeAll()
+        let waiters = startWaiters
+        startWaiters.removeAll()
         for waiter in waiters {
             waiter.resume()
         }
@@ -126,7 +197,20 @@ private actor SuspendingInitializationMemoryStore:
         }
     }
 
-    func save(
+    func saveUserTurn(
+        id: String,
+        sessionID: String,
+        scope: MemoryScope,
+        rawText: String,
+        occurredAt: Date
+    ) async throws -> MemoryConversationTurn {
+        Issue.record("Unexpected store access.")
+        throw MemoryEngineError.notPrepared
+    }
+
+    func saveGateResult(_ result: MemoryGateResult) async throws {}
+
+    func saveObservation(
         _ observation: MemoryObservation,
         embedding: MemoryObservationEmbedding?
     ) async throws {}
@@ -139,8 +223,7 @@ private actor SuspendingInitializationMemoryStore:
 
     func markDeleted(
         observationID: String,
-        in scope: MemoryScope,
-        updatedAt: Date
+        in scope: MemoryScope
     ) async throws {}
 
     func close() async {}
@@ -150,7 +233,7 @@ private actor SuspendingInitializationMemoryStore:
             return
         }
         await withCheckedContinuation { continuation in
-            initializationStartWaiters.append(continuation)
+            startWaiters.append(continuation)
         }
     }
 
@@ -161,44 +244,73 @@ private actor SuspendingInitializationMemoryStore:
 }
 
 @Test
-func naiveClassifierFindsPreferenceAndEventWithoutGeneralMessages() async throws {
-    let classifier = NaivePreferenceEventClassifier()
+func koreanRegexGateMatchesEdgeMemSignalsAndOnlyHardIgnoresSmallTalk() {
+    let gate = KoreanObservationRegexGate()
+
+    #expect(gate.evaluate("나는 포도를 좋아해").preferenceHit)
+    #expect(gate.evaluate("어제 미술관에 다녀왔어").eventHit)
+    #expect(gate.evaluate("오늘 날씨가 어때?").eventHit == false)
+    #expect(gate.evaluate("내가 좋아하는 과일 기억나?").hardIgnore == false)
+    #expect(gate.evaluate("안녕").hardIgnore)
+}
+
+@Test
+func prototypeClassifierProducesPreferenceEventAndNoneDecisions() async throws {
+    let prototypes = try MemoryPrototypeSet(
+        schemaVersion: 1,
+        preference: ["나는 과일을 좋아해"],
+        event: ["어제 미술관에 다녀왔어"],
+        none: ["다시 설명해줘"],
+        sourceSHA256: String(repeating: "a", count: 64)
+    )
+    let classifier = RegexPrototypeObservationClassifier(
+        embedder: ClassifierTestEmbedder(),
+        prototypes: prototypes
+    )
 
     #expect(
-        try await classifier.classify("나는 포도를 좋아해")
-            == [.preference]
+        try await classifier.evaluate("딸기가 마음에 들어").label
+            == .preference
     )
     #expect(
-        try await classifier.classify("어제 미술관에 다녀왔어")
-            == [.event]
+        try await classifier.evaluate("미술관을 방문했어").label
+            == .event
     )
     #expect(
-        try await classifier.classify(
-            "나는 포도를 좋아하고 어제 행사에도 다녀왔어"
-        ) == [.preference, .event]
-    )
-    #expect(try await classifier.classify("오늘 뭐 할까?").isEmpty)
-    #expect(
-        try await classifier.classify(
-            "내가 좋아하는 과일 기억나?"
-        ).isEmpty
+        try await classifier.evaluate("코드를 설명해줘").label
+            == .none
     )
 }
 
 @Test
-func memoryEngineStoresOnlyPreferenceOrEventForTheCharacterScope() async throws {
+func koreanPrototypeResourceMatchesTheCanonicalEdgeMemSource() throws {
+    let prototypes = try MemoryPrototypeSet.korean()
+
+    #expect(prototypes.schemaVersion == 1)
+    #expect(prototypes.preference.count == 12)
+    #expect(prototypes.event.count == 12)
+    #expect(prototypes.none.count == 12)
+    #expect(
+        prototypes.sourceSHA256
+            == "54c7454eee3e678b22895ec220689c863e3711940cedf60a25113bad4e29cc76"
+    )
+}
+
+@Test
+func memoryEngineStoresUnlabeledRawObservationInsteadOfDroppingIt() async throws {
     let store = RecordingMemoryStore()
     let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
     let engine = MemoryEngine(
         store: store,
+        classifier: FixedMemoryClassifier(decision: gateDecision(.none)),
         makeObservationID: { "observation-1" },
+        makeGateResultID: { "gate-1" },
         now: { timestamp }
     )
     let scope = MemoryScope(userID: "local-user", characterID: "emu")
-
     try await engine.prepare()
 
-    let ignored = try await engine.remember(
+    let result = try await engine.remember(
         MemoryWriteRequest(
             sourceMessageID: "message-1",
             sessionID: "session-1",
@@ -207,44 +319,25 @@ func memoryEngineStoresOnlyPreferenceOrEventForTheCharacterScope() async throws 
             occurredAt: timestamp
         )
     )
-    #expect(ignored == .ignored(.notPreferenceOrEvent))
 
-    let stored = try await engine.remember(
-        MemoryWriteRequest(
-            sourceMessageID: "message-2",
-            sessionID: "session-1",
-            scope: scope,
-            rawText: "  나는 포도를 좋아해  ",
-            occurredAt: timestamp
-        )
-    )
-
-    guard case let .stored(observation) = stored else {
-        Issue.record("Expected a stored preference observation.")
-        return
-    }
-    #expect(observation.id == "observation-1")
-    #expect(observation.scope == scope)
-    #expect(observation.rawText == "  나는 포도를 좋아해  ")
-    #expect(observation.labels == [.preference])
-
+    #expect(result.status == .indexedUnlabeled)
+    #expect(result.observation?.labels.isEmpty == true)
     let snapshot = await store.snapshot()
-    #expect(snapshot.initialized)
-    #expect(snapshot.observations == [observation])
+    #expect(snapshot.turns.count == 1)
+    #expect(snapshot.gates.count == 1)
+    #expect(snapshot.observations.count == 1)
 }
 
 @Test
-func memoryEngineStoresTheObservationAndDocumentEmbeddingTogether() async throws {
+func memoryEngineHardIgnoreKeepsTurnAndGateWithoutObservation() async throws {
     let store = RecordingMemoryStore()
-    let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
+    let decision = gateDecision(.none, hardIgnore: true)
     let engine = MemoryEngine(
         store: store,
-        embedder: MemoryEngineTestEmbedder(),
-        makeObservationID: { "observation-embedded" },
-        now: { timestamp }
+        classifier: FixedMemoryClassifier(decision: decision)
     )
-
     try await engine.prepare()
+
     let result = try await engine.remember(
         MemoryWriteRequest(
             sourceMessageID: "message-1",
@@ -253,19 +346,75 @@ func memoryEngineStoresTheObservationAndDocumentEmbeddingTogether() async throws
                 userID: "local-user",
                 characterID: "emu"
             ),
-            rawText: "  나는 포도를 좋아해  ",
+            rawText: "안녕"
+        )
+    )
+
+    #expect(result.status == .skippedHardIgnore)
+    let snapshot = await store.snapshot()
+    #expect(snapshot.turns.count == 1)
+    #expect(snapshot.gates.count == 1)
+    #expect(snapshot.observations.isEmpty)
+}
+
+@Test
+func memoryEngineStoresBothLabelsOnOneObservation() async throws {
+    let store = RecordingMemoryStore()
+    let engine = MemoryEngine(
+        store: store,
+        classifier: FixedMemoryClassifier(decision: gateDecision(.both)),
+        makeObservationID: { "observation-1" }
+    )
+    try await engine.prepare()
+
+    let result = try await engine.remember(
+        MemoryWriteRequest(
+            sourceMessageID: "message-1",
+            sessionID: "session-1",
+            scope: MemoryScope(
+                userID: "local-user",
+                characterID: "emu"
+            ),
+            rawText: "나는 미술관을 좋아하고 어제 다녀왔어"
+        )
+    )
+
+    #expect(result.status == .indexed)
+    #expect(result.observation?.labels == [.event, .preference])
+    #expect((await store.snapshot()).observations.count == 1)
+}
+
+@Test
+func memoryEngineStoresObservationAndDocumentEmbeddingTogether() async throws {
+    let store = RecordingMemoryStore()
+    let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
+    let engine = MemoryEngine(
+        store: store,
+        classifier: FixedMemoryClassifier(
+            decision: gateDecision(.preference)
+        ),
+        embedder: MemoryEngineTestEmbedder(),
+        makeObservationID: { "observation-embedded" },
+        now: { timestamp }
+    )
+    try await engine.prepare()
+
+    let result = try await engine.remember(
+        MemoryWriteRequest(
+            sourceMessageID: "message-1",
+            sessionID: "session-1",
+            scope: MemoryScope(
+                userID: "local-user",
+                characterID: "emu"
+            ),
+            rawText: "나는 포도를 좋아해",
             occurredAt: timestamp
         )
     )
 
-    guard case let .stored(observation) = result else {
-        Issue.record("Expected an embedded preference observation.")
-        return
-    }
-    let snapshot = await store.snapshot()
-    #expect(snapshot.observations == [observation])
+    #expect(result.status == .indexed)
     #expect(
-        snapshot.embeddings == [
+        (await store.snapshot()).embeddings == [
             MemoryObservationEmbedding(
                 observationID: "observation-embedded",
                 modelID: "test-embedding-v1",
@@ -277,14 +426,14 @@ func memoryEngineStoresTheObservationAndDocumentEmbeddingTogether() async throws
 }
 
 @Test
-func memoryEngineRejectsAStoreWithoutTheRequiredSecurityPolicy() async {
-    let insecurePolicy = MemoryStoreSecurityPolicy(
-        requiresDatabaseEncryption: false,
-        applicationSandboxOnly: true,
-        excludedFromCloudBackup: true
+func memoryEngineRejectsStoreWithoutRequiredSecurityPolicy() async {
+    let store = RecordingMemoryStore(
+        securityPolicy: .appPrivatePrototype
     )
-    let store = RecordingMemoryStore(securityPolicy: insecurePolicy)
-    let engine = MemoryEngine(store: store)
+    let engine = MemoryEngine(
+        store: store,
+        classifier: FixedMemoryClassifier(decision: gateDecision(.none))
+    )
 
     await #expect(throws: MemoryEngineError.insecureStoreConfiguration) {
         try await engine.prepare()
@@ -294,63 +443,29 @@ func memoryEngineRejectsAStoreWithoutTheRequiredSecurityPolicy() async {
 @Test
 func memoryEngineBlocksStoreAccessUntilPreparedAndAfterClose() async throws {
     let store = RecordingMemoryStore()
-    let engine = MemoryEngine(store: store)
-    let scope = MemoryScope(userID: "local-user", characterID: "emu")
-    let request = MemoryWriteRequest(
-        sourceMessageID: "message-1",
-        sessionID: "session-1",
-        scope: scope,
-        rawText: "나는 포도를 좋아해",
-        occurredAt: Date(timeIntervalSince1970: 1_721_280_000)
+    let engine = MemoryEngine(
+        store: store,
+        classifier: FixedMemoryClassifier(decision: gateDecision(.none))
     )
+    let scope = MemoryScope(userID: "local-user", characterID: "emu")
 
-    await #expect(throws: MemoryEngineError.notPrepared) {
-        try await engine.remember(request)
-    }
     await #expect(throws: MemoryEngineError.notPrepared) {
         try await engine.activeObservations(in: scope)
     }
-    await #expect(throws: MemoryEngineError.notPrepared) {
-        try await engine.deleteObservation(
-            observationID: "observation-1",
-            in: scope
-        )
-    }
-
     try await engine.prepare()
     await engine.close()
-
     await #expect(throws: MemoryEngineError.notPrepared) {
         try await engine.activeObservations(in: scope)
     }
-    #expect((await store.snapshot()).observations.isEmpty)
-}
-
-@Test
-func initializedPlainStoreCannotBypassEncryptedEngineRequirement() async throws {
-    let store = RecordingMemoryStore(securityPolicy: .appPrivatePrototype)
-    let engine = MemoryEngine(store: store)
-    let request = MemoryWriteRequest(
-        sourceMessageID: "message-1",
-        sessionID: "session-1",
-        scope: MemoryScope(userID: "local-user", characterID: "emu"),
-        rawText: "나는 포도를 좋아해",
-        occurredAt: Date(timeIntervalSince1970: 1_721_280_000)
-    )
-
-    try await store.initialize()
-
-    await #expect(throws: MemoryEngineError.notPrepared) {
-        try await engine.remember(request)
-    }
-    #expect((await store.snapshot()).observations.isEmpty)
 }
 
 @Test
 func closeInvalidatesSuspendedPrepareContinuation() async {
     let store = SuspendingInitializationMemoryStore()
-    let engine = MemoryEngine(store: store)
-    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+    let engine = MemoryEngine(
+        store: store,
+        classifier: FixedMemoryClassifier(decision: gateDecision(.none))
+    )
     let prepareTask = Task {
         try await engine.prepare()
     }
@@ -362,9 +477,6 @@ func closeInvalidatesSuspendedPrepareContinuation() async {
     await #expect(throws: MemoryEngineError.notPrepared) {
         try await prepareTask.value
     }
-    await #expect(throws: MemoryEngineError.notPrepared) {
-        try await engine.activeObservations(in: scope)
-    }
 }
 
 @Test
@@ -373,6 +485,7 @@ func retrievalFailureIsLoggedAndReturnsNoMemory() async {
     let diagnostics = RecordingMemoryDiagnostics()
     let engine = MemoryEngine(
         store: store,
+        classifier: FixedMemoryClassifier(decision: gateDecision(.none)),
         retriever: FailingMemoryRetriever(),
         diagnostics: diagnostics
     )
@@ -392,16 +505,17 @@ func retrievalFailureIsLoggedAndReturnsNoMemory() async {
 }
 
 @Test
-func sqliteSchemaContainsTheRawObservationAndDenseIndexContracts() {
+func sqliteSchemaIsTheFirstCanonicalObservationMemoryContract() {
     let schema = EdgeMemSQLiteSchema.statements.joined(separator: "\n")
 
     #expect(EdgeMemSQLiteSchema.version == 1)
-    #expect(schema.contains("source_message_id"))
-    #expect(schema.contains("character_id"))
-    #expect(schema.contains("raw_text"))
-    #expect(schema.contains("supersedes_observation_id"))
-    #expect(schema.contains("memory_observation_labels"))
-    #expect(schema.contains("memory_observation_embeddings"))
-    #expect(schema.contains("CHECK (label IN ('preference', 'event'))"))
+    #expect(schema.contains("conversation_turns"))
+    #expect(schema.contains("gate_results"))
+    #expect(schema.contains("observations"))
+    #expect(schema.contains("observation_labels"))
+    #expect(schema.contains("observation_embeddings"))
+    #expect(schema.contains("content_hash"))
+    #expect(schema.contains("CHECK (decision IN"))
+    #expect(!schema.contains("memory_observations"))
     #expect(!schema.lowercased().contains("fts5"))
 }

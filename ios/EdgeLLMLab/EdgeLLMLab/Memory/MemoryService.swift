@@ -85,8 +85,13 @@ actor MemoryService {
         candidateLoader: store,
         embedder: embedder
       )
+      let classifier = RegexPrototypeObservationClassifier(
+        embedder: embedder,
+        prototypes: try MemoryPrototypeSet.korean()
+      )
       let candidate = MemoryEngine(
         store: store,
+        classifier: classifier,
         embedder: embedder,
         retriever: retriever,
         securityRequirement: .allowsUnencryptedAppPrivatePrototype
@@ -182,10 +187,15 @@ actor MemoryService {
       applicationSupport
       .appendingPathComponent("EdgeLLM", isDirectory: true)
       .appendingPathComponent("Memory", isDirectory: true)
+      .appendingPathComponent("edgemem.sqlite3", isDirectory: false)
+    let legacyDatabaseURL =
+      databaseURL
+      .deletingLastPathComponent()
       .appendingPathComponent(
         "edgemem-dense-spike.sqlite3",
         isDirectory: false
       )
+    try SQLiteObservationStore.removeDatabase(at: legacyDatabaseURL)
     return SQLiteObservationStore(databaseURL: databaseURL)
   }
 }

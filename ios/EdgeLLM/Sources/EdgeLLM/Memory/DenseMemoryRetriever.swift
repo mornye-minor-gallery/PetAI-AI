@@ -71,6 +71,9 @@ public struct DenseMemoryRetriever: MemoryRetrieving {
       !request.excludedObservationIDs.contains(
         candidate.observation.id
       )
+      && !request.excludedTurnIDs.contains(
+        candidate.observation.turnID
+      )
       && !request.excludedSessionIDs.contains(
         candidate.observation.sessionID
       )
@@ -98,8 +101,15 @@ public struct DenseMemoryRetriever: MemoryRetrieving {
       return left.observation.id < right.observation.id
     }
 
+    var seenTexts: Set<String> = []
+    let deduplicated = scoredCandidates.filter { candidate in
+      seenTexts.insert(
+        normalizedText(candidate.observation.rawText)
+      ).inserted
+    }
+
     return
-      scoredCandidates
+      deduplicated
       .prefix(request.topK)
       .enumerated()
       .map { index, candidate in
@@ -109,6 +119,13 @@ public struct DenseMemoryRetriever: MemoryRetrieving {
           rank: index + 1
         )
       }
+  }
+
+  private func normalizedText(_ text: String) -> String {
+    text
+      .precomposedStringWithCompatibilityMapping
+      .split(whereSeparator: \.isWhitespace)
+      .joined(separator: " ")
   }
 }
 
