@@ -1,0 +1,199 @@
+import Foundation
+import Testing
+@testable import EdgeLLM
+
+private actor RecordingMemoryStore: MemoryObservationStoring {
+    nonisolated let securityPolicy: MemoryStoreSecurityPolicy
+
+    private var didInitialize = false
+    private var observations: [MemoryObservation] = []
+    private var deletedObservationIDs: [String] = []
+
+    init(
+        securityPolicy: MemoryStoreSecurityPolicy =
+            .encryptedOnDeviceOnly
+    ) {
+        self.securityPolicy = securityPolicy
+    }
+
+    func initialize() async throws {
+        didInitialize = true
+    }
+
+    func save(_ observation: MemoryObservation) async throws {
+        observations.append(observation)
+    }
+
+    func activeObservations(
+        in scope: MemoryScope
+    ) async throws -> [MemoryObservation] {
+        observations.filter {
+            $0.scope == scope && $0.state == .active
+        }
+    }
+
+    func markDeleted(
+        observationID: String,
+        updatedAt: Date
+    ) async throws {
+        deletedObservationIDs.append(observationID)
+    }
+
+    func close() async {}
+
+    func snapshot() -> (
+        initialized: Bool,
+        observations: [MemoryObservation],
+        deletedObservationIDs: [String]
+    ) {
+        (
+            didInitialize,
+            observations,
+            deletedObservationIDs
+        )
+    }
+}
+
+private struct FailingMemoryRetriever: MemoryRetrieving {
+    struct SearchFailure: Error {}
+
+    func search(
+        _ request: MemorySearchRequest
+    ) async throws -> [RetrievedMemoryObservation] {
+        throw SearchFailure()
+    }
+}
+
+private actor RecordingMemoryDiagnostics: MemoryDiagnostics {
+    private var messages: [String] = []
+
+    func logSearchFailure(_ message: String) async {
+        messages.append(message)
+    }
+
+    func recordedMessages() -> [String] {
+        messages
+    }
+}
+
+@Test
+func naiveClassifierFindsPreferenceAndEventWithoutGeneralMessages() async throws {
+    let classifier = NaivePreferenceEventClassifier()
+
+    #expect(
+        try await classifier.classify("나는 포도를 좋아해")
+            == [.preference]
+    )
+    #expect(
+        try await classifier.classify("어제 미술관에 다녀왔어")
+            == [.event]
+    )
+    #expect(
+        try await classifier.classify(
+            "나는 포도를 좋아하고 어제 행사에도 다녀왔어"
+        ) == [.preference, .event]
+    )
+    #expect(try await classifier.classify("오늘 뭐 할까?").isEmpty)
+}
+
+@Test
+func memoryEngineStoresOnlyPreferenceOrEventForTheCharacterScope() async throws {
+    let store = RecordingMemoryStore()
+    let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
+    let engine = MemoryEngine(
+        store: store,
+        makeObservationID: { "observation-1" },
+        now: { timestamp }
+    )
+    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+
+    try await engine.prepare()
+
+    let ignored = try await engine.remember(
+        MemoryWriteRequest(
+            sourceMessageID: "message-1",
+            sessionID: "session-1",
+            scope: scope,
+            rawText: "오늘 뭐 할까?",
+            occurredAt: timestamp
+        )
+    )
+    #expect(ignored == .ignored(.notPreferenceOrEvent))
+
+    let stored = try await engine.remember(
+        MemoryWriteRequest(
+            sourceMessageID: "message-2",
+            sessionID: "session-1",
+            scope: scope,
+            rawText: "  나는 포도를 좋아해  ",
+            occurredAt: timestamp
+        )
+    )
+
+    guard case let .stored(observation) = stored else {
+        Issue.record("Expected a stored preference observation.")
+        return
+    }
+    #expect(observation.id == "observation-1")
+    #expect(observation.scope == scope)
+    #expect(observation.rawText == "  나는 포도를 좋아해  ")
+    #expect(observation.labels == [.preference])
+
+    let snapshot = await store.snapshot()
+    #expect(snapshot.initialized)
+    #expect(snapshot.observations == [observation])
+}
+
+@Test
+func memoryEngineRejectsAStoreWithoutTheRequiredSecurityPolicy() async {
+    let insecurePolicy = MemoryStoreSecurityPolicy(
+        requiresDatabaseEncryption: false,
+        applicationSandboxOnly: true,
+        excludedFromCloudBackup: true
+    )
+    let store = RecordingMemoryStore(securityPolicy: insecurePolicy)
+    let engine = MemoryEngine(store: store)
+
+    await #expect(throws: MemoryEngineError.insecureStoreConfiguration) {
+        try await engine.prepare()
+    }
+}
+
+@Test
+func retrievalFailureIsLoggedAndReturnsNoMemory() async {
+    let store = RecordingMemoryStore()
+    let diagnostics = RecordingMemoryDiagnostics()
+    let engine = MemoryEngine(
+        store: store,
+        retriever: FailingMemoryRetriever(),
+        diagnostics: diagnostics
+    )
+
+    let results = await engine.recall(
+        MemorySearchRequest(
+            scope: MemoryScope(
+                userID: "local-user",
+                characterID: "emu"
+            ),
+            query: "내가 좋아하는 과일이 뭐였지?"
+        )
+    )
+
+    #expect(results.isEmpty)
+    #expect(await diagnostics.recordedMessages().count == 1)
+}
+
+@Test
+func sqliteSchemaContainsTheRawObservationAndDenseIndexContracts() {
+    let schema = EdgeMemSQLiteSchema.statements.joined(separator: "\n")
+
+    #expect(EdgeMemSQLiteSchema.version == 1)
+    #expect(schema.contains("source_message_id"))
+    #expect(schema.contains("character_id"))
+    #expect(schema.contains("raw_text"))
+    #expect(schema.contains("supersedes_observation_id"))
+    #expect(schema.contains("memory_observation_labels"))
+    #expect(schema.contains("memory_observation_embeddings"))
+    #expect(schema.contains("CHECK (label IN ('preference', 'event'))"))
+    #expect(!schema.lowercased().contains("fts5"))
+}
