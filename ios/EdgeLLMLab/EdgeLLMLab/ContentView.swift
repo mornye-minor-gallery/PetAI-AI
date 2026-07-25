@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @State private var runtime = LiteRTLMRuntime()
+    @State private var memoryService = MemoryService()
     @State private var isModelImporterPresented = false
     @State private var selectedModelURL: URL?
     @State private var prompt = "Hello! Introduce yourself briefly."
@@ -32,7 +33,7 @@ struct ContentView: View {
                     Label("Chat", systemImage: "bubble.left.and.bubble.right")
                 }
 
-            EmbeddingTestView()
+            EmbeddingTestView(memoryService: memoryService)
                 .tabItem {
                     Label("Embedding", systemImage: "point.3.connected.trianglepath.dotted")
                 }

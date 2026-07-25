@@ -3,7 +3,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct EmbeddingTestView: View {
-  @State private var embedder = EmbeddingGemmaEmbedder()
+  let memoryService: MemoryService
+
   @State private var assetStore = EmbeddingAssetStore()
   @State private var importKind: EmbeddingAssetKind?
   @State private var isImporterPresented = false
@@ -223,7 +224,7 @@ struct EmbeddingTestView: View {
 
     Task {
       do {
-        await embedder.unload()
+        await memoryService.close()
         let installedURL = try await assetStore.importAsset(
           from: sourceURL,
           kind: kind
@@ -268,7 +269,7 @@ struct EmbeddingTestView: View {
 
     Task {
       do {
-        try await embedder.prepare(
+        try await memoryService.prepare(
           modelURL: modelURL,
           tokenizerURL: tokenizerURL
         )
@@ -291,23 +292,15 @@ struct EmbeddingTestView: View {
     Task {
       let startedAt = Date()
       do {
-        let queryVector = try await embedder.embedQuery(query)
-        let similarVector = try await embedder.embedDocument(
-          similarDocument
-        )
-        let differentVector = try await embedder.embedDocument(
-          differentDocument
+        let comparison = try await memoryService.compare(
+          query: query,
+          similarDocument: similarDocument,
+          differentDocument: differentDocument
         )
 
-        vectorDimension = queryVector.count
-        similarScore = try EmbeddingVectorMath.cosineSimilarity(
-          queryVector,
-          similarVector
-        )
-        differentScore = try EmbeddingVectorMath.cosineSimilarity(
-          queryVector,
-          differentVector
-        )
+        vectorDimension = comparison.dimension
+        similarScore = comparison.similarScore
+        differentScore = comparison.differentScore
         elapsedSeconds = Date().timeIntervalSince(startedAt)
         status = "Complete · CPU"
       } catch {
@@ -339,66 +332,32 @@ struct EmbeddingTestView: View {
   }
 
   private func performMemoryRetrieval() async throws -> MemoryRunOutput {
-    let applicationSupport = try FileManager.default.url(
-      for: .applicationSupportDirectory,
-      in: .userDomainMask,
-      appropriateFor: nil,
-      create: true
+    let scope = MemoryScope(
+      userID: "local-user",
+      characterID: "emu"
     )
-    let databaseURL =
-      applicationSupport
-      .appendingPathComponent("EdgeLLM", isDirectory: true)
-      .appendingPathComponent("Memory", isDirectory: true)
-      .appendingPathComponent(
-        "edgemem-dense-spike.sqlite3",
-        isDirectory: false
+    try await seedMissingMemories(in: scope)
+    let storedCount = try await memoryService.activeObservations(
+      in: scope
+    ).count
+    let results = try await memoryService.recall(
+      MemorySearchRequest(
+        scope: scope,
+        query: memoryQuery,
+        topK: 3
       )
-    let store = SQLiteObservationStore(databaseURL: databaseURL)
-    let retriever = DenseMemoryRetriever(
-      candidateLoader: store,
-      embedder: embedder
     )
-    let engine = MemoryEngine(
-      store: store,
-      embedder: embedder,
-      retriever: retriever,
-      securityRequirement: .allowsUnencryptedAppPrivatePrototype
+    return MemoryRunOutput(
+      storedCount: storedCount,
+      results: results
     )
-
-    do {
-      try await engine.prepare()
-      let scope = MemoryScope(
-        userID: "local-user",
-        characterID: "emu"
-      )
-      try await seedMissingMemories(in: scope, using: engine)
-      let storedCount = try await engine.activeObservations(
-        in: scope
-      ).count
-      let results = await engine.recall(
-        MemorySearchRequest(
-          scope: scope,
-          query: memoryQuery,
-          topK: 3
-        )
-      )
-      await engine.close()
-      return MemoryRunOutput(
-        storedCount: storedCount,
-        results: results
-      )
-    } catch {
-      await engine.close()
-      throw error
-    }
   }
 
   private func seedMissingMemories(
-    in scope: MemoryScope,
-    using engine: MemoryEngine
+    in scope: MemoryScope
   ) async throws {
     let existingSourceIDs = Set(
-      try await engine.activeObservations(in: scope)
+      try await memoryService.activeObservations(in: scope)
         .map(\.sourceMessageID)
     )
     let seeds = [
@@ -414,7 +373,7 @@ struct EmbeddingTestView: View {
 
     for seed in seeds
     where !existingSourceIDs.contains(seed.sourceMessageID) {
-      _ = try await engine.remember(
+      _ = try await memoryService.remember(
         MemoryWriteRequest(
           sourceMessageID: seed.sourceMessageID,
           sessionID: "dense-spike-seed",
