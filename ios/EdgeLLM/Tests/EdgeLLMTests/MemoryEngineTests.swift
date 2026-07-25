@@ -178,6 +178,11 @@ func naiveClassifierFindsPreferenceAndEventWithoutGeneralMessages() async throws
         ) == [.preference, .event]
     )
     #expect(try await classifier.classify("오늘 뭐 할까?").isEmpty)
+    #expect(
+        try await classifier.classify(
+            "내가 좋아하는 과일 기억나?"
+        ).isEmpty
+    )
 }
 
 @Test

@@ -8,11 +8,13 @@
 
 import SwiftUI
 import EdgeLLM
+import OSLog
 import UniformTypeIdentifiers
 
 struct ContentView: View {
     @State private var runtime = LiteRTLMRuntime()
     @State private var memoryService = MemoryService()
+    @State private var embeddingAssetStore = EmbeddingAssetStore()
     @State private var isModelImporterPresented = false
     @State private var selectedModelURL: URL?
     @State private var prompt = "Hello! Introduce yourself briefly."
@@ -25,6 +27,19 @@ struct ContentView: View {
     @State private var generationEndedAt: Date?
     @State private var receivedCharacterCount = 0
     @State private var requiresAppRestart = false
+    @State private var memoryStatus = "Not prepared"
+    @State private var memoryWriteStatus = "Not run"
+    @State private var retrievedMemories: [RetrievedMemoryObservation] = []
+    @State private var memorySessionID = UUID().uuidString.lowercased()
+
+    private let memoryScope = MemoryScope(
+        userID: "local-user",
+        characterID: "emu"
+    )
+    private let memoryLogger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "EdgeLLMLab",
+        category: "ChatMemory"
+    )
 
     var body: some View {
         TabView {
@@ -80,17 +95,43 @@ struct ContentView: View {
                         Button("Generate") {
                             generate()
                         }
+                        .buttonStyle(.borderedProminent)
                         .disabled(isWorking || !isModelReady)
 
                         Button("Cancel", role: .destructive) {
                             cancelGeneration()
                         }
+                        .buttonStyle(.bordered)
                         .disabled(!isWorking)
 
                         Button("Unload") {
                             unload()
                         }
+                        .buttonStyle(.bordered)
                         .disabled(isWorking || !isModelReady)
+                    }
+                }
+
+                Section("Memory") {
+                    LabeledContent("Status", value: memoryStatus)
+                    LabeledContent(
+                        "Retrieved",
+                        value: "\(retrievedMemories.count)"
+                    )
+                    LabeledContent("Last write", value: memoryWriteStatus)
+
+                    ForEach(
+                        retrievedMemories,
+                        id: \.observation.id
+                    ) { result in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(
+                                "#\(result.rank) · \(formattedMemoryScore(result.score))"
+                            )
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            Text(result.observation.rawText)
+                        }
                     }
                 }
 
@@ -154,17 +195,32 @@ struct ContentView: View {
     }
 
     private func generate() {
+        let userMessage = prompt
+        let sourceMessageID = UUID().uuidString.lowercased()
         isWorking = true
         response = ""
         status = "Generating"
+        memoryWriteStatus = "Not run"
+        retrievedMemories = []
         generationStartedAt = Date()
         firstChunkReceivedAt = nil
         generationEndedAt = nil
         receivedCharacterCount = 0
 
         Task {
+            let memoryReady = await prepareMemoryIfNeeded()
+            let memories = memoryReady
+                ? await recallMemories(for: userMessage)
+                : []
+            let generationPrompt = MemoryPromptBuilder.build(
+                userMessage: userMessage,
+                memories: memories
+            )
+
             do {
-                let stream = try await runtime.generateStream(prompt: prompt)
+                let stream = try await runtime.generateStream(
+                    prompt: generationPrompt
+                )
                 for try await chunk in stream {
                     if firstChunkReceivedAt == nil {
                         firstChunkReceivedAt = Date()
@@ -174,6 +230,12 @@ struct ContentView: View {
                     receivedCharacterCount += chunk.count
                 }
                 status = "Ready"
+                if memoryReady {
+                    await rememberUserMessage(
+                        userMessage,
+                        sourceMessageID: sourceMessageID
+                    )
+                }
             } catch {
                 status = error.localizedDescription
                 if let runtimeError = error as? RuntimeError,
@@ -187,6 +249,93 @@ struct ContentView: View {
             }
             generationEndedAt = Date()
             isWorking = false
+        }
+    }
+
+    private func prepareMemoryIfNeeded() async -> Bool {
+        if await memoryService.isPrepared() {
+            memoryStatus = "Ready"
+            return true
+        }
+
+        memoryStatus = "Preparing EmbeddingGemma"
+        do {
+            let assets = try await embeddingAssetStore.installedAssets()
+            guard
+                let modelURL = assets.modelURL,
+                let tokenizerURL = assets.tokenizerURL
+            else {
+                memoryStatus = "Embedding assets required · chat continues"
+                return false
+            }
+
+            try await memoryService.prepareIfNeeded(
+                modelURL: modelURL,
+                tokenizerURL: tokenizerURL
+            )
+            memoryStatus = "Ready"
+            return true
+        } catch {
+            memoryStatus = "Unavailable · chat continues without memory"
+            memoryLogger.error(
+                "Memory preparation failed: \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
+    }
+
+    private func recallMemories(
+        for userMessage: String
+    ) async -> [RetrievedMemoryObservation] {
+        do {
+            let results = try await memoryService.recall(
+                MemorySearchRequest(
+                    scope: memoryScope,
+                    query: userMessage,
+                    topK: 3
+                )
+            )
+            retrievedMemories = results
+            memoryStatus = "Ready · \(results.count) retrieved"
+            return results
+        } catch {
+            memoryStatus = "Search failed · chat continues"
+            memoryLogger.error(
+                "Memory recall failed: \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
+    }
+
+    private func rememberUserMessage(
+        _ userMessage: String,
+        sourceMessageID: String
+    ) async {
+        do {
+            let result = try await memoryService.remember(
+                MemoryWriteRequest(
+                    sourceMessageID: sourceMessageID,
+                    sessionID: memorySessionID,
+                    scope: memoryScope,
+                    rawText: userMessage
+                )
+            )
+            switch result {
+            case .stored(let observation):
+                let labels = observation.labels
+                    .map(\.rawValue)
+                    .joined(separator: ", ")
+                memoryWriteStatus = "Stored · \(labels)"
+            case .ignored(.emptyText):
+                memoryWriteStatus = "Ignored · empty"
+            case .ignored(.notPreferenceOrEvent):
+                memoryWriteStatus = "Ignored · not preference/event"
+            }
+        } catch {
+            memoryWriteStatus = "Save failed · response kept"
+            memoryLogger.error(
+                "Memory save failed: \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 
@@ -251,6 +400,12 @@ struct ContentView: View {
         firstChunkReceivedAt = nil
         generationEndedAt = nil
         receivedCharacterCount = 0
+    }
+
+    private func formattedMemoryScore(_ score: Float) -> String {
+        score.formatted(
+            .number.precision(.fractionLength(4))
+        )
     }
 }
 

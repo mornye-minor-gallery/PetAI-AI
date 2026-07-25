@@ -35,6 +35,18 @@ public struct NaivePreferenceEventClassifier:
         "헤어졌",
     ]
 
+    private static let questionSignals = [
+        "?",
+        "뭐",
+        "무엇",
+        "어디",
+        "언제",
+        "누구",
+        "어떻게",
+        "왜",
+        "기억나",
+    ]
+
     public init() {}
 
     public func classify(_ text: String) async throws -> Set<MemoryLabel> {
@@ -44,6 +56,11 @@ public struct NaivePreferenceEventClassifier:
             .lowercased()
 
         guard !normalized.isEmpty else {
+            return []
+        }
+        guard
+            !Self.questionSignals.contains(where: normalized.contains)
+        else {
             return []
         }
 
