@@ -26,6 +26,20 @@ struct ContentView: View {
     @State private var requiresAppRestart = false
 
     var body: some View {
+        TabView {
+            chatView
+                .tabItem {
+                    Label("Chat", systemImage: "bubble.left.and.bubble.right")
+                }
+
+            EmbeddingTestView()
+                .tabItem {
+                    Label("Embedding", systemImage: "point.3.connected.trianglepath.dotted")
+                }
+        }
+    }
+
+    private var chatView: some View {
         NavigationStack {
             Form {
                 Section("Runtime") {

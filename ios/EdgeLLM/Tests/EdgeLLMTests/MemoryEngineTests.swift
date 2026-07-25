@@ -7,6 +7,7 @@ private actor RecordingMemoryStore: MemoryObservationStoring {
 
     private var didInitialize = false
     private var observations: [MemoryObservation] = []
+    private var embeddings: [MemoryObservationEmbedding?] = []
     private var deletedObservationIDs: [String] = []
     private var deletedObservationScopes: [MemoryScope] = []
 
@@ -21,8 +22,12 @@ private actor RecordingMemoryStore: MemoryObservationStoring {
         didInitialize = true
     }
 
-    func save(_ observation: MemoryObservation) async throws {
+    func save(
+        _ observation: MemoryObservation,
+        embedding: MemoryObservationEmbedding?
+    ) async throws {
         observations.append(observation)
+        embeddings.append(embedding)
     }
 
     func activeObservations(
@@ -47,12 +52,14 @@ private actor RecordingMemoryStore: MemoryObservationStoring {
     func snapshot() -> (
         initialized: Bool,
         observations: [MemoryObservation],
+        embeddings: [MemoryObservationEmbedding?],
         deletedObservationIDs: [String],
         deletedObservationScopes: [MemoryScope]
     ) {
         (
             didInitialize,
             observations,
+            embeddings,
             deletedObservationIDs,
             deletedObservationScopes
         )
@@ -66,6 +73,19 @@ private struct FailingMemoryRetriever: MemoryRetrieving {
         _ request: MemorySearchRequest
     ) async throws -> [RetrievedMemoryObservation] {
         throw SearchFailure()
+    }
+}
+
+private struct MemoryEngineTestEmbedder: TextEmbeddingProviding {
+    let modelID = "test-embedding-v1"
+    let dimension = 3
+
+    func embedQuery(_ text: String) async throws -> [Float] {
+        [0, 1, 0]
+    }
+
+    func embedDocument(_ text: String) async throws -> [Float] {
+        [1, 0, 0]
     }
 }
 
@@ -106,7 +126,10 @@ private actor SuspendingInitializationMemoryStore:
         }
     }
 
-    func save(_ observation: MemoryObservation) async throws {}
+    func save(
+        _ observation: MemoryObservation,
+        embedding: MemoryObservationEmbedding?
+    ) async throws {}
 
     func activeObservations(
         in scope: MemoryScope
@@ -203,6 +226,49 @@ func memoryEngineStoresOnlyPreferenceOrEventForTheCharacterScope() async throws 
     let snapshot = await store.snapshot()
     #expect(snapshot.initialized)
     #expect(snapshot.observations == [observation])
+}
+
+@Test
+func memoryEngineStoresTheObservationAndDocumentEmbeddingTogether() async throws {
+    let store = RecordingMemoryStore()
+    let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
+    let engine = MemoryEngine(
+        store: store,
+        embedder: MemoryEngineTestEmbedder(),
+        makeObservationID: { "observation-embedded" },
+        now: { timestamp }
+    )
+
+    try await engine.prepare()
+    let result = try await engine.remember(
+        MemoryWriteRequest(
+            sourceMessageID: "message-1",
+            sessionID: "session-1",
+            scope: MemoryScope(
+                userID: "local-user",
+                characterID: "emu"
+            ),
+            rawText: "  나는 포도를 좋아해  ",
+            occurredAt: timestamp
+        )
+    )
+
+    guard case let .stored(observation) = result else {
+        Issue.record("Expected an embedded preference observation.")
+        return
+    }
+    let snapshot = await store.snapshot()
+    #expect(snapshot.observations == [observation])
+    #expect(
+        snapshot.embeddings == [
+            MemoryObservationEmbedding(
+                observationID: "observation-embedded",
+                modelID: "test-embedding-v1",
+                vector: [1, 0, 0],
+                createdAt: timestamp
+            )
+        ]
+    )
 }
 
 @Test

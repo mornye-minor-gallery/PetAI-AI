@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		E11D000130135A00006F4D84 /* EdgeLLM in Frameworks */ = {isa = PBXBuildFile; productRef = E11D000330135A00006F4D84 /* EdgeLLM */; };
 		E11D000430135A00006F4D84 /* LiteRTLM in Frameworks */ = {isa = PBXBuildFile; productRef = E11D000630135A00006F4D84 /* LiteRTLM */; };
+		E11D002130135A00006F4D84 /* EmbeddingGemmaNative in Frameworks */ = {isa = PBXBuildFile; productRef = E11D002330135A00006F4D84 /* EmbeddingGemmaNative */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 			files = (
 				E11D000130135A00006F4D84 /* EdgeLLM in Frameworks */,
 				E11D000430135A00006F4D84 /* LiteRTLM in Frameworks */,
+				E11D002130135A00006F4D84 /* EmbeddingGemmaNative in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,6 +146,7 @@
 			packageProductDependencies = (
 				E11D000330135A00006F4D84 /* EdgeLLM */,
 				E11D000630135A00006F4D84 /* LiteRTLM */,
+				E11D002330135A00006F4D84 /* EmbeddingGemmaNative */,
 			);
 			productName = EdgeLLMLab;
 			productReference = 0C25E896301359C8006F4D84 /* EdgeLLMLab.app */;
@@ -230,6 +233,7 @@
 			packageReferences = (
 				E11D000230135A00006F4D84 /* XCLocalSwiftPackageReference "../EdgeLLM" */,
 				E11D000530135A00006F4D84 /* XCLocalSwiftPackageReference "../ThirdParty/LiteRTLM" */,
+				E11D002230135A00006F4D84 /* XCLocalSwiftPackageReference "../ThirdParty/EmbeddingGemmaNative" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0C25E897301359C8006F4D84 /* Products */;
@@ -612,6 +616,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../ThirdParty/LiteRTLM;
 		};
+		E11D002230135A00006F4D84 /* XCLocalSwiftPackageReference "../ThirdParty/EmbeddingGemmaNative" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ThirdParty/EmbeddingGemmaNative;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -624,6 +632,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E11D000530135A00006F4D84 /* XCLocalSwiftPackageReference "../ThirdParty/LiteRTLM" */;
 			productName = LiteRTLM;
+		};
+		E11D002330135A00006F4D84 /* EmbeddingGemmaNative */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E11D002230135A00006F4D84 /* XCLocalSwiftPackageReference "../ThirdParty/EmbeddingGemmaNative" */;
+			productName = EmbeddingGemmaNative;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
