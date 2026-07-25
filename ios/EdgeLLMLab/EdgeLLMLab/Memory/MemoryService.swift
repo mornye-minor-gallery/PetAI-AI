@@ -23,18 +23,62 @@ struct EmbeddingComparison: Sendable {
 actor MemoryService {
   private let embedder = EmbeddingGemmaEmbedder()
   private var engine: MemoryEngine?
+  private var preparationTask: Task<Void, Error>?
 
   func prepare(
     modelURL: URL,
     tokenizerURL: URL
   ) async throws {
     await close()
+    try await prepareIfNeeded(
+      modelURL: modelURL,
+      tokenizerURL: tokenizerURL
+    )
+  }
 
+  func prepareIfNeeded(
+    modelURL: URL,
+    tokenizerURL: URL
+  ) async throws {
+    if engine != nil {
+      return
+    }
+    if let preparationTask {
+      try await preparationTask.value
+      return
+    }
+
+    let task = Task {
+      try await prepareComponents(
+        modelURL: modelURL,
+        tokenizerURL: tokenizerURL
+      )
+    }
+    preparationTask = task
+
+    do {
+      try await task.value
+      preparationTask = nil
+    } catch {
+      preparationTask = nil
+      throw error
+    }
+  }
+
+  func isPrepared() -> Bool {
+    engine != nil
+  }
+
+  private func prepareComponents(
+    modelURL: URL,
+    tokenizerURL: URL
+  ) async throws {
     do {
       try await embedder.prepare(
         modelURL: modelURL,
         tokenizerURL: tokenizerURL
       )
+      try Task.checkCancellation()
 
       let store = try makeStore()
       let retriever = DenseMemoryRetriever(
@@ -50,6 +94,7 @@ actor MemoryService {
 
       do {
         try await candidate.prepare()
+        try Task.checkCancellation()
       } catch {
         await candidate.close()
         throw error
@@ -111,6 +156,8 @@ actor MemoryService {
   }
 
   func close() async {
+    preparationTask?.cancel()
+    preparationTask = nil
     let activeEngine = engine
     engine = nil
     await activeEngine?.close()
