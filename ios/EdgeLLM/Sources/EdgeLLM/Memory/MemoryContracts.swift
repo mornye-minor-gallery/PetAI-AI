@@ -64,6 +64,7 @@ public protocol MemoryObservationStoring: Sendable {
         -> [MemoryObservation]
     func markDeleted(
         observationID: String,
+        in scope: MemoryScope,
         updatedAt: Date
     ) async throws
     func close() async

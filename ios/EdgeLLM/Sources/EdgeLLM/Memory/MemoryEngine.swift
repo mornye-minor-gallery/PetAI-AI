@@ -4,6 +4,7 @@ public enum MemoryEngineError: Error, Equatable, Sendable {
     case invalidIdentifier(field: String)
     case insecureStoreConfiguration
     case invalidSearchLimit
+    case notPrepared
 }
 
 extension MemoryEngineError: LocalizedError {
@@ -15,6 +16,8 @@ extension MemoryEngineError: LocalizedError {
             "The EdgeMem store does not satisfy the selected security requirement."
         case .invalidSearchLimit:
             "EdgeMem search topK must be greater than zero."
+        case .notPrepared:
+            "EdgeMem must be prepared before accessing its store."
         }
     }
 }
@@ -27,6 +30,7 @@ public actor MemoryEngine {
     private let securityRequirement: MemoryStoreSecurityRequirement
     private let makeObservationID: @Sendable () -> String
     private let now: @Sendable () -> Date
+    private var isPrepared = false
 
     public init(
         store: any MemoryObservationStoring,
@@ -57,11 +61,13 @@ public actor MemoryEngine {
             throw MemoryEngineError.insecureStoreConfiguration
         }
         try await store.initialize()
+        isPrepared = true
     }
 
     public func remember(
         _ request: MemoryWriteRequest
     ) async throws -> MemoryRememberResult {
+        try requirePrepared()
         try Self.validateIdentifier(
             request.sourceMessageID,
             field: "sourceMessageID"
@@ -99,6 +105,7 @@ public actor MemoryEngine {
             createdAt: timestamp,
             updatedAt: timestamp
         )
+        try requirePrepared()
         try await store.save(observation)
         return .stored(observation)
     }
@@ -131,24 +138,37 @@ public actor MemoryEngine {
     public func activeObservations(
         in scope: MemoryScope
     ) async throws -> [MemoryObservation] {
-        try await store.activeObservations(in: scope)
+        try requirePrepared()
+        return try await store.activeObservations(in: scope)
     }
 
     public func deleteObservation(
-        observationID: String
+        observationID: String,
+        in scope: MemoryScope
     ) async throws {
+        try requirePrepared()
         try Self.validateIdentifier(
             observationID,
             field: "observationID"
         )
+        try Self.validateIdentifier(scope.userID, field: "userID")
+        try Self.validateIdentifier(scope.characterID, field: "characterID")
         try await store.markDeleted(
             observationID: observationID,
+            in: scope,
             updatedAt: now()
         )
     }
 
     public func close() async {
+        isPrepared = false
         await store.close()
+    }
+
+    private func requirePrepared() throws {
+        guard isPrepared else {
+            throw MemoryEngineError.notPrepared
+        }
     }
 
     private static func validateIdentifier(

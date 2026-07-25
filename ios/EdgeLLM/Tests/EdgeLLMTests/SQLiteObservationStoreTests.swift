@@ -84,8 +84,24 @@ func sqliteStorePersistsCharacterScopedMemoryAcrossReopen() async throws {
             == 1
     )
 
+    await #expect(
+        throws: SQLiteObservationStoreError.unknownObservation(
+            storedObservation.id
+        )
+    ) {
+        try await reopenedEngine.deleteObservation(
+            observationID: storedObservation.id,
+            in: otherScope
+        )
+    }
+    #expect(
+        try await reopenedEngine.activeObservations(in: emuScope)
+            == [storedObservation]
+    )
+
     try await reopenedEngine.deleteObservation(
-        observationID: storedObservation.id
+        observationID: storedObservation.id,
+        in: emuScope
     )
     #expect(
         try await reopenedEngine.activeObservations(in: emuScope).isEmpty

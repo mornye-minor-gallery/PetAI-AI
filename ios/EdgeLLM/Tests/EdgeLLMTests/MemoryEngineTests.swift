@@ -8,6 +8,7 @@ private actor RecordingMemoryStore: MemoryObservationStoring {
     private var didInitialize = false
     private var observations: [MemoryObservation] = []
     private var deletedObservationIDs: [String] = []
+    private var deletedObservationScopes: [MemoryScope] = []
 
     init(
         securityPolicy: MemoryStoreSecurityPolicy =
@@ -34,9 +35,11 @@ private actor RecordingMemoryStore: MemoryObservationStoring {
 
     func markDeleted(
         observationID: String,
+        in scope: MemoryScope,
         updatedAt: Date
     ) async throws {
         deletedObservationIDs.append(observationID)
+        deletedObservationScopes.append(scope)
     }
 
     func close() async {}
@@ -44,12 +47,14 @@ private actor RecordingMemoryStore: MemoryObservationStoring {
     func snapshot() -> (
         initialized: Bool,
         observations: [MemoryObservation],
-        deletedObservationIDs: [String]
+        deletedObservationIDs: [String],
+        deletedObservationScopes: [MemoryScope]
     ) {
         (
             didInitialize,
             observations,
-            deletedObservationIDs
+            deletedObservationIDs,
+            deletedObservationScopes
         )
     }
 }
@@ -157,6 +162,61 @@ func memoryEngineRejectsAStoreWithoutTheRequiredSecurityPolicy() async {
     await #expect(throws: MemoryEngineError.insecureStoreConfiguration) {
         try await engine.prepare()
     }
+}
+
+@Test
+func memoryEngineBlocksStoreAccessUntilPreparedAndAfterClose() async throws {
+    let store = RecordingMemoryStore()
+    let engine = MemoryEngine(store: store)
+    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+    let request = MemoryWriteRequest(
+        sourceMessageID: "message-1",
+        sessionID: "session-1",
+        scope: scope,
+        rawText: "나는 포도를 좋아해",
+        occurredAt: Date(timeIntervalSince1970: 1_721_280_000)
+    )
+
+    await #expect(throws: MemoryEngineError.notPrepared) {
+        try await engine.remember(request)
+    }
+    await #expect(throws: MemoryEngineError.notPrepared) {
+        try await engine.activeObservations(in: scope)
+    }
+    await #expect(throws: MemoryEngineError.notPrepared) {
+        try await engine.deleteObservation(
+            observationID: "observation-1",
+            in: scope
+        )
+    }
+
+    try await engine.prepare()
+    await engine.close()
+
+    await #expect(throws: MemoryEngineError.notPrepared) {
+        try await engine.activeObservations(in: scope)
+    }
+    #expect((await store.snapshot()).observations.isEmpty)
+}
+
+@Test
+func initializedPlainStoreCannotBypassEncryptedEngineRequirement() async throws {
+    let store = RecordingMemoryStore(securityPolicy: .appPrivatePrototype)
+    let engine = MemoryEngine(store: store)
+    let request = MemoryWriteRequest(
+        sourceMessageID: "message-1",
+        sessionID: "session-1",
+        scope: MemoryScope(userID: "local-user", characterID: "emu"),
+        rawText: "나는 포도를 좋아해",
+        occurredAt: Date(timeIntervalSince1970: 1_721_280_000)
+    )
+
+    try await store.initialize()
+
+    await #expect(throws: MemoryEngineError.notPrepared) {
+        try await engine.remember(request)
+    }
+    #expect((await store.snapshot()).observations.isEmpty)
 }
 
 @Test

@@ -287,6 +287,7 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
 
     public func markDeleted(
         observationID: String,
+        in scope: MemoryScope,
         updatedAt: Date
     ) async throws {
         try transaction {
@@ -294,11 +295,16 @@ public actor SQLiteObservationStore: MemoryObservationStoring {
                 """
                 UPDATE memory_observations
                 SET state = 'deleted', updated_at = ?
-                WHERE observation_id = ? AND state = 'active';
+                WHERE observation_id = ?
+                  AND user_id = ?
+                  AND character_id = ?
+                  AND state = 'active';
                 """
             ) { statement in
                 try bind(dateString(updatedAt), at: 1, to: statement)
                 try bind(observationID, at: 2, to: statement)
+                try bind(scope.userID, at: 3, to: statement)
+                try bind(scope.characterID, at: 4, to: statement)
                 try stepExpectingDone(statement)
             }
 
