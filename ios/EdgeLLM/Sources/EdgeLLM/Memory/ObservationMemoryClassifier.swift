@@ -65,8 +65,13 @@ public struct MemoryPrototypeSet: Equatable, Sendable {
     }
 
     public static func korean() throws -> MemoryPrototypeSet {
+#if SWIFT_PACKAGE
+        let resourceBundle = Bundle.module
+#else
+        let resourceBundle = Bundle.main
+#endif
         guard
-            let url = Bundle.module.url(
+            let url = resourceBundle.url(
                 forResource: "prototypes.ko",
                 withExtension: "json"
             )

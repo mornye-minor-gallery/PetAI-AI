@@ -1,5 +1,8 @@
-import EdgeLLM
 import Foundation
+
+#if canImport(EdgeLLM)
+import EdgeLLM
+#endif
 
 enum MemoryServiceError: Error, Equatable {
   case notPrepared
@@ -116,7 +119,7 @@ actor MemoryService {
     similarDocument: String,
     differentDocument: String
   ) async throws -> EmbeddingComparison {
-    try requirePrepared()
+    _ = try requirePrepared()
 
     let queryVector = try await embedder.embedQuery(query)
     let similarVector = try await embedder.embedDocument(

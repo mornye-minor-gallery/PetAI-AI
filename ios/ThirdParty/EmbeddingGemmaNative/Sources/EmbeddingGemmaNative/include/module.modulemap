@@ -1,0 +1,4 @@
+module EmbeddingGemmaNative {
+  umbrella header "EmbeddingGemmaNative.h"
+  export *
+}

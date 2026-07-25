@@ -1,6 +1,12 @@
-import EdgeLLM
-import EmbeddingGemmaNative
 import Foundation
+
+#if canImport(EdgeLLM)
+import EdgeLLM
+#endif
+
+#if canImport(EmbeddingGemmaNative)
+import EmbeddingGemmaNative
+#endif
 
 enum EmbeddingGemmaRuntimeError: Error {
   case emptyText

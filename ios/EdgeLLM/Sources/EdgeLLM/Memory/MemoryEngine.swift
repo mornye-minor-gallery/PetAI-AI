@@ -132,6 +132,15 @@ public actor MemoryEngine {
             )
         }
 
+        guard !decision.observationLabels.isEmpty else {
+            return MemoryRememberResult(
+                status: .skippedNoMemorySignal,
+                turn: turn,
+                gate: decision,
+                observation: nil
+            )
+        }
+
         let observation = MemoryObservation(
             id: makeObservationID(),
             turnID: turn.id,

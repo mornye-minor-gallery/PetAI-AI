@@ -126,7 +126,7 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
 }
 
 @Test
-func sqliteStorePersistsUnlabeledObservationAndEmbedding() async throws {
+func sqliteStoreDoesNotPersistUnlabeledObservationOrEmbedding() async throws {
     let directory = temporaryMemoryDirectory()
     let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
     defer {
@@ -152,7 +152,8 @@ func sqliteStorePersistsUnlabeledObservationAndEmbedding() async throws {
             rawText: "다시 쉽게 설명해줘"
         )
     )
-    #expect(result.status == .indexedUnlabeled)
+    #expect(result.status == .skippedNoMemorySignal)
+    #expect(result.observation == nil)
     await engine.close()
 
     let reopenedStore = SQLiteObservationStore(databaseURL: databaseURL)
@@ -168,9 +169,7 @@ func sqliteStorePersistsUnlabeledObservationAndEmbedding() async throws {
         )
     )
 
-    #expect(results.count == 1)
-    #expect(results[0].observation.labels.isEmpty)
-    #expect(results[0].score == 1)
+    #expect(results.isEmpty)
     await reopenedStore.close()
 }
 

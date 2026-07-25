@@ -135,6 +135,17 @@ cp \
   "${LITERT_ROOT}/bazel-bin/litert/swift/CLiteRT.xcframework.zip" \
   "${ARTIFACT_ROOT}/CLiteRT.xcframework.zip"
 
+rm -rf "${ARTIFACT_ROOT}/CLiteRT.xcframework"
+if command -v ditto >/dev/null 2>&1; then
+  ditto -x -k \
+    "${ARTIFACT_ROOT}/CLiteRT.xcframework.zip" \
+    "${ARTIFACT_ROOT}"
+else
+  unzip -q \
+    "${ARTIFACT_ROOT}/CLiteRT.xcframework.zip" \
+    -d "${ARTIFACT_ROOT}"
+fi
+
 SENTENCEPIECE_ROOT="${TEMP_ROOT}/sentencepiece"
 echo "Fetching SentencePiece ${SENTENCEPIECE_REVISION}..."
 clone_revision \
@@ -183,4 +194,5 @@ xcodebuild -create-xcframework \
 
 echo "Prepared:"
 echo "  ${ARTIFACT_ROOT}/CLiteRT.xcframework.zip"
+echo "  ${ARTIFACT_ROOT}/CLiteRT.xcframework"
 echo "  ${ARTIFACT_ROOT}/CSentencePiece.xcframework"
