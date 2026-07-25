@@ -31,6 +31,7 @@ public actor MemoryEngine {
     private let makeObservationID: @Sendable () -> String
     private let now: @Sendable () -> Date
     private var isPrepared = false
+    private var lifecycleGeneration: UInt = 0
 
     public init(
         store: any MemoryObservationStoring,
@@ -60,7 +61,11 @@ public actor MemoryEngine {
         guard securityRequirement.accepts(store.securityPolicy) else {
             throw MemoryEngineError.insecureStoreConfiguration
         }
+        let generation = lifecycleGeneration
         try await store.initialize()
+        guard generation == lifecycleGeneration else {
+            throw MemoryEngineError.notPrepared
+        }
         isPrepared = true
     }
 
@@ -161,6 +166,7 @@ public actor MemoryEngine {
     }
 
     public func close() async {
+        lifecycleGeneration &+= 1
         isPrepared = false
         await store.close()
     }

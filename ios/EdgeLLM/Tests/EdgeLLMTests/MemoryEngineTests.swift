@@ -81,6 +81,62 @@ private actor RecordingMemoryDiagnostics: MemoryDiagnostics {
     }
 }
 
+private actor SuspendingInitializationMemoryStore:
+    MemoryObservationStoring
+{
+    nonisolated let securityPolicy: MemoryStoreSecurityPolicy =
+        .encryptedOnDeviceOnly
+
+    private var initializationStarted = false
+    private var initializationStartWaiters: [
+        CheckedContinuation<Void, Never>
+    ] = []
+    private var initializationContinuation:
+        CheckedContinuation<Void, Never>?
+
+    func initialize() async throws {
+        initializationStarted = true
+        let waiters = initializationStartWaiters
+        initializationStartWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
+        await withCheckedContinuation { continuation in
+            initializationContinuation = continuation
+        }
+    }
+
+    func save(_ observation: MemoryObservation) async throws {}
+
+    func activeObservations(
+        in scope: MemoryScope
+    ) async throws -> [MemoryObservation] {
+        []
+    }
+
+    func markDeleted(
+        observationID: String,
+        in scope: MemoryScope,
+        updatedAt: Date
+    ) async throws {}
+
+    func close() async {}
+
+    func waitUntilInitializationStarts() async {
+        guard !initializationStarted else {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            initializationStartWaiters.append(continuation)
+        }
+    }
+
+    func resumeInitialization() {
+        initializationContinuation?.resume()
+        initializationContinuation = nil
+    }
+}
+
 @Test
 func naiveClassifierFindsPreferenceAndEventWithoutGeneralMessages() async throws {
     let classifier = NaivePreferenceEventClassifier()
@@ -217,6 +273,27 @@ func initializedPlainStoreCannotBypassEncryptedEngineRequirement() async throws 
         try await engine.remember(request)
     }
     #expect((await store.snapshot()).observations.isEmpty)
+}
+
+@Test
+func closeInvalidatesSuspendedPrepareContinuation() async {
+    let store = SuspendingInitializationMemoryStore()
+    let engine = MemoryEngine(store: store)
+    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+    let prepareTask = Task {
+        try await engine.prepare()
+    }
+
+    await store.waitUntilInitializationStarts()
+    await engine.close()
+    await store.resumeInitialization()
+
+    await #expect(throws: MemoryEngineError.notPrepared) {
+        try await prepareTask.value
+    }
+    await #expect(throws: MemoryEngineError.notPrepared) {
+        try await engine.activeObservations(in: scope)
+    }
 }
 
 @Test
