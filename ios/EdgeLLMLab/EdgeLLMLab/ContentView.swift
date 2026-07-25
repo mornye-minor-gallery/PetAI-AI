@@ -29,6 +29,7 @@ struct ContentView: View {
     @State private var requiresAppRestart = false
     @State private var memoryStatus = "Not prepared"
     @State private var memoryWriteStatus = "Not run"
+    @State private var memoryGateStatus = "Not run"
     @State private var retrievedMemories: [RetrievedMemoryObservation] = []
     @State private var memorySessionID = UUID().uuidString.lowercased()
 
@@ -118,6 +119,7 @@ struct ContentView: View {
                         "Retrieved",
                         value: "\(retrievedMemories.count)"
                     )
+                    LabeledContent("Last gate", value: memoryGateStatus)
                     LabeledContent("Last write", value: memoryWriteStatus)
 
                     ForEach(
@@ -201,6 +203,7 @@ struct ContentView: View {
         response = ""
         status = "Generating"
         memoryWriteStatus = "Not run"
+        memoryGateStatus = "Not run"
         retrievedMemories = []
         generationStartedAt = Date()
         firstChunkReceivedAt = nil
@@ -320,16 +323,19 @@ struct ContentView: View {
                     rawText: userMessage
                 )
             )
-            switch result {
-            case .stored(let observation):
-                let labels = observation.labels
+            memoryGateStatus = formattedGate(result.gate)
+            switch result.status {
+            case .indexed:
+                let labels = result.observation?.labels
                     .map(\.rawValue)
-                    .joined(separator: ", ")
+                    .joined(separator: ", ") ?? "unknown"
                 memoryWriteStatus = "Stored · \(labels)"
-            case .ignored(.emptyText):
+            case .indexedUnlabeled:
+                memoryWriteStatus = "Stored · unlabeled"
+            case .skippedHardIgnore:
+                memoryWriteStatus = "Skipped · hard ignore"
+            case .ignoredEmpty:
                 memoryWriteStatus = "Ignored · empty"
-            case .ignored(.notPreferenceOrEvent):
-                memoryWriteStatus = "Ignored · not preference/event"
             }
         } catch {
             memoryWriteStatus = "Save failed · response kept"
@@ -406,6 +412,20 @@ struct ContentView: View {
         score.formatted(
             .number.precision(.fractionLength(4))
         )
+    }
+
+    private func formattedGate(
+        _ gate: MemoryGateDecision?
+    ) -> String {
+        guard let gate else {
+            return "Not run"
+        }
+        let preference = gate.preferenceScore.map(formattedMemoryScore)
+            ?? "n/a"
+        let event = gate.eventScore.map(formattedMemoryScore)
+            ?? "n/a"
+        return
+            "\(gate.label.rawValue) · pref \(preference) · event \(event)"
     }
 }
 

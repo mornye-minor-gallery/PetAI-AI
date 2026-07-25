@@ -5,9 +5,23 @@ public enum MemoryLabel: String, Codable, CaseIterable, Sendable {
     case event
 }
 
+public enum MemoryGateLabel: String, Codable, Sendable {
+    case none
+    case preference
+    case event
+    case both
+}
+
 public enum MemoryObservationState: String, Codable, Sendable {
     case active
     case deleted
+}
+
+public enum MemoryLabelSource: String, Codable, Sendable {
+    case regex
+    case prototype
+    case regexAndPrototype = "regex+prototype"
+    case futureMLP = "future_mlp"
 }
 
 public struct MemoryScope: Codable, Equatable, Hashable, Sendable {
@@ -26,71 +40,216 @@ public struct MemoryWriteRequest: Equatable, Sendable {
     public let scope: MemoryScope
     public let rawText: String
     public let occurredAt: Date
-    public let supersedesObservationID: String?
 
     public init(
         sourceMessageID: String,
         sessionID: String,
         scope: MemoryScope,
         rawText: String,
-        occurredAt: Date = Date(),
-        supersedesObservationID: String? = nil
+        occurredAt: Date = Date()
     ) {
         self.sourceMessageID = sourceMessageID
         self.sessionID = sessionID
         self.scope = scope
         self.rawText = rawText
         self.occurredAt = occurredAt
-        self.supersedesObservationID = supersedesObservationID
+    }
+}
+
+public struct MemoryConversationTurn: Codable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let sessionID: String
+    public let sequence: Int
+    public let scope: MemoryScope
+    public let rawText: String
+    public let occurredAt: Date
+    public let contentHash: String
+
+    public init(
+        id: String,
+        sessionID: String,
+        sequence: Int,
+        scope: MemoryScope,
+        rawText: String,
+        occurredAt: Date,
+        contentHash: String
+    ) {
+        self.id = id
+        self.sessionID = sessionID
+        self.sequence = sequence
+        self.scope = scope
+        self.rawText = rawText
+        self.occurredAt = occurredAt
+        self.contentHash = contentHash
+    }
+}
+
+public struct MemoryRegexGateResult: Codable, Equatable, Sendable {
+    public let preferenceHit: Bool
+    public let eventHit: Bool
+    public let hardIgnore: Bool
+    public let matchedPatterns: [String]
+
+    public init(
+        preferenceHit: Bool,
+        eventHit: Bool,
+        hardIgnore: Bool = false,
+        matchedPatterns: [String] = []
+    ) {
+        self.preferenceHit = preferenceHit
+        self.eventHit = eventHit
+        self.hardIgnore = hardIgnore
+        self.matchedPatterns = matchedPatterns
+    }
+}
+
+public struct MemoryGateDecision: Codable, Equatable, Sendable {
+    public let label: MemoryGateLabel
+    public let regex: MemoryRegexGateResult
+    public let preferenceScore: Float?
+    public let eventScore: Float?
+    public let preferenceThreshold: Float
+    public let eventThreshold: Float
+    public let classifierVersion: String
+    public let embeddingModelID: String?
+
+    public var observationLabels: [MemoryLabel] {
+        switch label {
+        case .none:
+            []
+        case .preference:
+            [.preference]
+        case .event:
+            [.event]
+        case .both:
+            [.preference, .event]
+        }
+    }
+
+    public init(
+        label: MemoryGateLabel,
+        regex: MemoryRegexGateResult,
+        preferenceScore: Float?,
+        eventScore: Float?,
+        preferenceThreshold: Float,
+        eventThreshold: Float,
+        classifierVersion: String,
+        embeddingModelID: String?
+    ) {
+        self.label = label
+        self.regex = regex
+        self.preferenceScore = preferenceScore
+        self.eventScore = eventScore
+        self.preferenceThreshold = preferenceThreshold
+        self.eventThreshold = eventThreshold
+        self.classifierVersion = classifierVersion
+        self.embeddingModelID = embeddingModelID
+    }
+
+    public func evidence(for label: MemoryLabel) -> MemoryLabelEvidence {
+        let regexHit = label == .preference
+            ? regex.preferenceHit
+            : regex.eventHit
+        let score = label == .preference
+            ? preferenceScore
+            : eventScore
+        let source: MemoryLabelSource
+        if classifierVersion.hasPrefix("mlp:") {
+            source = .futureMLP
+        } else if regexHit, score != nil {
+            source = .regexAndPrototype
+        } else if regexHit {
+            source = .regex
+        } else {
+            source = .prototype
+        }
+        return MemoryLabelEvidence(
+            label: label,
+            score: score,
+            source: source,
+            classifierVersion: classifierVersion
+        )
+    }
+}
+
+public struct MemoryGateResult: Codable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let turnID: String
+    public let decision: MemoryGateDecision
+    public let createdAt: Date
+
+    public init(
+        id: String,
+        turnID: String,
+        decision: MemoryGateDecision,
+        createdAt: Date
+    ) {
+        self.id = id
+        self.turnID = turnID
+        self.decision = decision
+        self.createdAt = createdAt
+    }
+}
+
+public struct MemoryLabelEvidence: Codable, Equatable, Sendable {
+    public let label: MemoryLabel
+    public let score: Float?
+    public let source: MemoryLabelSource
+    public let classifierVersion: String
+
+    public init(
+        label: MemoryLabel,
+        score: Float?,
+        source: MemoryLabelSource,
+        classifierVersion: String
+    ) {
+        self.label = label
+        self.score = score
+        self.source = source
+        self.classifierVersion = classifierVersion
     }
 }
 
 public struct MemoryObservation: Codable, Equatable, Identifiable, Sendable {
     public let id: String
-    public let sourceMessageID: String
+    public let turnID: String
     public let sessionID: String
+    public let sequence: Int
     public let scope: MemoryScope
     public let occurredAt: Date
     public let rawText: String
-    public let labels: [MemoryLabel]
-    public let classifierVersion: String
+    public let labelEvidence: [MemoryLabelEvidence]
     public let state: MemoryObservationState
-    public let validFrom: Date?
-    public let validUntil: Date?
-    public let supersedesObservationID: String?
     public let createdAt: Date
-    public let updatedAt: Date
+
+    public var labels: [MemoryLabel] {
+        labelEvidence.map(\.label)
+    }
 
     public init(
         id: String,
-        sourceMessageID: String,
+        turnID: String,
         sessionID: String,
+        sequence: Int,
         scope: MemoryScope,
         occurredAt: Date,
         rawText: String,
-        labels: some Sequence<MemoryLabel>,
-        classifierVersion: String,
+        labelEvidence: some Sequence<MemoryLabelEvidence>,
         state: MemoryObservationState = .active,
-        validFrom: Date? = nil,
-        validUntil: Date? = nil,
-        supersedesObservationID: String? = nil,
-        createdAt: Date,
-        updatedAt: Date
+        createdAt: Date
     ) {
         self.id = id
-        self.sourceMessageID = sourceMessageID
+        self.turnID = turnID
         self.sessionID = sessionID
+        self.sequence = sequence
         self.scope = scope
         self.occurredAt = occurredAt
         self.rawText = rawText
-        self.labels = Array(Set(labels)).sorted { $0.rawValue < $1.rawValue }
-        self.classifierVersion = classifierVersion
+        self.labelEvidence = Array(labelEvidence).sorted {
+            $0.label.rawValue < $1.label.rawValue
+        }
         self.state = state
-        self.validFrom = validFrom
-        self.validUntil = validUntil
-        self.supersedesObservationID = supersedesObservationID
         self.createdAt = createdAt
-        self.updatedAt = updatedAt
     }
 }
 
@@ -130,14 +289,37 @@ public struct MemoryEmbeddingCandidate: Equatable, Sendable {
     }
 }
 
-public enum MemoryIgnoreReason: Equatable, Sendable {
-    case emptyText
-    case notPreferenceOrEvent
+public enum MemoryRememberStatus: String, Codable, Sendable {
+    case indexed
+    case indexedUnlabeled
+    case skippedHardIgnore
+    case ignoredEmpty
 }
 
-public enum MemoryRememberResult: Equatable, Sendable {
-    case stored(MemoryObservation)
-    case ignored(MemoryIgnoreReason)
+public struct MemoryRememberResult: Equatable, Sendable {
+    public let status: MemoryRememberStatus
+    public let turn: MemoryConversationTurn?
+    public let gate: MemoryGateDecision?
+    public let observation: MemoryObservation?
+
+    public init(
+        status: MemoryRememberStatus,
+        turn: MemoryConversationTurn?,
+        gate: MemoryGateDecision?,
+        observation: MemoryObservation?
+    ) {
+        self.status = status
+        self.turn = turn
+        self.gate = gate
+        self.observation = observation
+    }
+
+    public static let ignoredEmpty = MemoryRememberResult(
+        status: .ignoredEmpty,
+        turn: nil,
+        gate: nil,
+        observation: nil
+    )
 }
 
 public struct MemorySearchRequest: Equatable, Sendable {
@@ -145,6 +327,7 @@ public struct MemorySearchRequest: Equatable, Sendable {
     public let query: String
     public let topK: Int
     public let excludedObservationIDs: Set<String>
+    public let excludedTurnIDs: Set<String>
     public let excludedSessionIDs: Set<String>
 
     public init(
@@ -152,12 +335,14 @@ public struct MemorySearchRequest: Equatable, Sendable {
         query: String,
         topK: Int = 3,
         excludedObservationIDs: Set<String> = [],
+        excludedTurnIDs: Set<String> = [],
         excludedSessionIDs: Set<String> = []
     ) {
         self.scope = scope
         self.query = query
         self.topK = topK
         self.excludedObservationIDs = excludedObservationIDs
+        self.excludedTurnIDs = excludedTurnIDs
         self.excludedSessionIDs = excludedSessionIDs
     }
 }

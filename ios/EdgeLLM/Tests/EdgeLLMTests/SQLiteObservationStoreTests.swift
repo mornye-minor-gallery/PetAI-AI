@@ -1,6 +1,28 @@
 import Foundation
+import SQLite3
 import Testing
 @testable import EdgeLLM
+
+private struct SQLiteTestClassifier: MemoryObservationClassifying {
+    let version = "sqlite-test-gate-v1"
+    let label: MemoryGateLabel
+
+    func evaluate(_ text: String) async throws -> MemoryGateDecision {
+        MemoryGateDecision(
+            label: label,
+            regex: MemoryRegexGateResult(
+                preferenceHit: label == .preference || label == .both,
+                eventHit: label == .event || label == .both
+            ),
+            preferenceScore: nil,
+            eventScore: nil,
+            preferenceThreshold: 0.08,
+            eventThreshold: 0.08,
+            classifierVersion: version,
+            embeddingModelID: nil
+        )
+    }
+}
 
 private struct SQLiteDenseTestEmbedder: TextEmbeddingProviding {
     let modelID = "sqlite-dense-test-v1"
@@ -16,13 +38,11 @@ private struct SQLiteDenseTestEmbedder: TextEmbeddingProviding {
 }
 
 @Test
-func sqliteStorePersistsCharacterScopedMemoryAcrossReopen() async throws {
-    let temporaryDirectory = FileManager.default.temporaryDirectory
-        .appendingPathComponent(UUID().uuidString, isDirectory: true)
-    let databaseURL = temporaryDirectory
-        .appendingPathComponent("edgemem.sqlite3", isDirectory: false)
+func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
+    let directory = temporaryMemoryDirectory()
+    let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
     defer {
-        try? FileManager.default.removeItem(at: temporaryDirectory)
+        try? FileManager.default.removeItem(at: directory)
     }
 
     let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
@@ -34,17 +54,16 @@ func sqliteStorePersistsCharacterScopedMemoryAcrossReopen() async throws {
         userID: "local-user",
         characterID: "other-character"
     )
-
     let store = SQLiteObservationStore(databaseURL: databaseURL)
     let engine = MemoryEngine(
         store: store,
+        classifier: SQLiteTestClassifier(label: .preference),
         securityRequirement: .allowsUnencryptedAppPrivatePrototype,
-        makeObservationID: { "observation-emu" },
         now: { timestamp }
     )
     try await engine.prepare()
 
-    let result = try await engine.remember(
+    let emuResult = try await engine.remember(
         MemoryWriteRequest(
             sourceMessageID: "message-emu",
             sessionID: "session-1",
@@ -53,125 +72,87 @@ func sqliteStorePersistsCharacterScopedMemoryAcrossReopen() async throws {
             occurredAt: timestamp
         )
     )
-    guard case let .stored(storedObservation) = result else {
-        Issue.record("Expected the preference observation to be stored.")
-        return
-    }
-
-    try await store.save(
-        MemoryObservation(
-            id: "observation-other",
+    let otherResult = try await engine.remember(
+        MemoryWriteRequest(
             sourceMessageID: "message-other",
             sessionID: "session-1",
             scope: otherScope,
-            occurredAt: timestamp,
-            rawText: "어제 미술관에 다녀왔어",
-            labels: [MemoryLabel.event],
-            classifierVersion: "test-classifier-v1",
-            createdAt: timestamp,
-            updatedAt: timestamp
+            rawText: "나는 딸기를 좋아해",
+            occurredAt: timestamp
         )
     )
-
-    let emuObservations = try await engine.activeObservations(in: emuScope)
-    #expect(emuObservations == [storedObservation])
-    #expect(emuObservations[0].rawText == "  나는 포도를 좋아해  ")
-    #expect(emuObservations[0].classifierVersion == "naive-keyword-ko-v1")
+    let emuObservation = try #require(emuResult.observation)
+    #expect(otherResult.observation != nil)
+    #expect(
+        try await engine.activeObservations(in: emuScope)
+            == [emuObservation]
+    )
+    #expect(
+        try await engine.activeObservations(in: otherScope).count == 1
+    )
     #expect(FileManager.default.fileExists(atPath: databaseURL.path))
-
     await engine.close()
 
     let reopenedStore = SQLiteObservationStore(databaseURL: databaseURL)
     let reopenedEngine = MemoryEngine(
         store: reopenedStore,
+        classifier: SQLiteTestClassifier(label: .preference),
         securityRequirement: .allowsUnencryptedAppPrivatePrototype
     )
     try await reopenedEngine.prepare()
 
     #expect(
         try await reopenedEngine.activeObservations(in: emuScope)
-            == [storedObservation]
+            == [emuObservation]
     )
-    #expect(
-        try await reopenedEngine.activeObservations(in: otherScope).count
-            == 1
-    )
-
     await #expect(
         throws: SQLiteObservationStoreError.unknownObservation(
-            storedObservation.id
+            emuObservation.id
         )
     ) {
         try await reopenedEngine.deleteObservation(
-            observationID: storedObservation.id,
+            observationID: emuObservation.id,
             in: otherScope
         )
     }
-    #expect(
-        try await reopenedEngine.activeObservations(in: emuScope)
-            == [storedObservation]
-    )
-
     try await reopenedEngine.deleteObservation(
-        observationID: storedObservation.id,
+        observationID: emuObservation.id,
         in: emuScope
     )
     #expect(
         try await reopenedEngine.activeObservations(in: emuScope).isEmpty
     )
-
     await reopenedEngine.close()
 }
 
 @Test
-func encryptedRequirementRejectsThePlainSQLitePrototypeStore() async {
-    let temporaryDirectory = FileManager.default.temporaryDirectory
-        .appendingPathComponent(UUID().uuidString, isDirectory: true)
-    let databaseURL = temporaryDirectory
-        .appendingPathComponent("edgemem.sqlite3", isDirectory: false)
+func sqliteStorePersistsUnlabeledObservationAndEmbedding() async throws {
+    let directory = temporaryMemoryDirectory()
+    let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
     defer {
-        try? FileManager.default.removeItem(at: temporaryDirectory)
+        try? FileManager.default.removeItem(at: directory)
     }
 
-    let store = SQLiteObservationStore(databaseURL: databaseURL)
-    let engine = MemoryEngine(store: store)
-
-    await #expect(throws: MemoryEngineError.insecureStoreConfiguration) {
-        try await engine.prepare()
-    }
-}
-
-@Test
-func sqliteStorePersistsEmbeddingsForDenseRetrievalAcrossReopen() async throws {
-    let temporaryDirectory = FileManager.default.temporaryDirectory
-        .appendingPathComponent(UUID().uuidString, isDirectory: true)
-    let databaseURL = temporaryDirectory
-        .appendingPathComponent("edgemem.sqlite3", isDirectory: false)
-    defer {
-        try? FileManager.default.removeItem(at: temporaryDirectory)
-    }
-
-    let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
     let scope = MemoryScope(userID: "local-user", characterID: "emu")
     let store = SQLiteObservationStore(databaseURL: databaseURL)
     let embedder = SQLiteDenseTestEmbedder()
     let engine = MemoryEngine(
         store: store,
+        classifier: SQLiteTestClassifier(label: .none),
         embedder: embedder,
-        securityRequirement: .allowsUnencryptedAppPrivatePrototype,
-        makeObservationID: { "persisted-embedding" },
-        now: { timestamp }
+        securityRequirement: .allowsUnencryptedAppPrivatePrototype
     )
     try await engine.prepare()
-    _ = try await engine.remember(
+
+    let result = try await engine.remember(
         MemoryWriteRequest(
             sourceMessageID: "message-1",
             sessionID: "session-1",
             scope: scope,
-            rawText: "나는 포도를 좋아해",
-            occurredAt: timestamp
+            rawText: "다시 쉽게 설명해줘"
         )
     )
+    #expect(result.status == .indexedUnlabeled)
     await engine.close()
 
     let reopenedStore = SQLiteObservationStore(databaseURL: databaseURL)
@@ -183,12 +164,119 @@ func sqliteStorePersistsEmbeddingsForDenseRetrievalAcrossReopen() async throws {
     let results = try await retriever.search(
         MemorySearchRequest(
             scope: scope,
-            query: "내가 좋아하는 과일은?"
+            query: "설명"
         )
     )
 
     #expect(results.count == 1)
-    #expect(results[0].observation.id == "persisted-embedding")
+    #expect(results[0].observation.labels.isEmpty)
     #expect(results[0].score == 1)
     await reopenedStore.close()
+}
+
+@Test
+func canonicalStoreResetsTheOldPrototypeSchema() async throws {
+    let directory = temporaryMemoryDirectory()
+    let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
+    defer {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    var database: OpaquePointer?
+    #expect(sqlite3_open(databaseURL.path, &database) == SQLITE_OK)
+    let legacySQL =
+        """
+        CREATE TABLE schema_metadata (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+        INSERT INTO schema_metadata VALUES ('schema_version', '1');
+        CREATE TABLE memory_observations (
+            observation_id TEXT PRIMARY KEY,
+            raw_text TEXT NOT NULL
+        );
+        INSERT INTO memory_observations VALUES ('legacy', 'test memory');
+        """
+    #expect(sqlite3_exec(database, legacySQL, nil, nil, nil) == SQLITE_OK)
+    sqlite3_close_v2(database)
+
+    let store = SQLiteObservationStore(databaseURL: databaseURL)
+    try await store.initialize()
+    #expect(
+        try await store.activeObservations(
+            in: MemoryScope(
+                userID: "local-user",
+                characterID: "emu"
+            )
+        ).isEmpty
+    )
+    await store.close()
+
+    var reopened: OpaquePointer?
+    #expect(sqlite3_open(databaseURL.path, &reopened) == SQLITE_OK)
+    defer {
+        sqlite3_close_v2(reopened)
+    }
+    #expect(tableExists("conversation_turns", in: reopened))
+    #expect(!tableExists("memory_observations", in: reopened))
+}
+
+@Test
+func encryptedRequirementRejectsPlainSQLiteStore() async {
+    let directory = temporaryMemoryDirectory()
+    let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
+    defer {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    let engine = MemoryEngine(
+        store: SQLiteObservationStore(databaseURL: databaseURL),
+        classifier: SQLiteTestClassifier(label: .none)
+    )
+
+    await #expect(throws: MemoryEngineError.insecureStoreConfiguration) {
+        try await engine.prepare()
+    }
+}
+
+private func temporaryMemoryDirectory() -> URL {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try! FileManager.default.createDirectory(
+        at: directory,
+        withIntermediateDirectories: true
+    )
+    return directory
+}
+
+private func tableExists(
+    _ name: String,
+    in database: OpaquePointer?
+) -> Bool {
+    var statement: OpaquePointer?
+    guard
+        sqlite3_prepare_v2(
+            database,
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?;",
+            -1,
+            &statement,
+            nil
+        ) == SQLITE_OK,
+        let statement
+    else {
+        return false
+    }
+    defer {
+        sqlite3_finalize(statement)
+    }
+    name.withCString {
+        sqlite3_bind_text(
+            statement,
+            1,
+            $0,
+            -1,
+            unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        )
+    }
+    return sqlite3_step(statement) == SQLITE_ROW
 }

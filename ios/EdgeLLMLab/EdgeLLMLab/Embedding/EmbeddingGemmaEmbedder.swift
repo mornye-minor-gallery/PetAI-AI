@@ -33,7 +33,10 @@ extension EmbeddingGemmaRuntimeError: LocalizedError {
   }
 }
 
-actor EmbeddingGemmaEmbedder: TextEmbeddingProviding {
+actor EmbeddingGemmaEmbedder:
+  TextEmbeddingProviding,
+  ClassificationEmbeddingProviding
+{
   nonisolated let modelID =
     "litert-community/embeddinggemma-300m-seq256-mixed-precision"
   nonisolated let dimension = 768
@@ -78,6 +81,13 @@ actor EmbeddingGemmaEmbedder: TextEmbeddingProviding {
     try embed(
       text,
       prefix: "title: none | text: "
+    )
+  }
+
+  func embedClassification(_ text: String) throws -> [Float] {
+    try embed(
+      text,
+      prefix: "task: classification | query: "
     )
   }
 

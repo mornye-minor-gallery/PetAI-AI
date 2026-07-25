@@ -1,9 +1,8 @@
 public enum EdgeMemSQLiteSchema {
+    /// This is the first canonical product schema. Earlier prototype tables
+    /// are intentionally reset instead of migrated.
     public static let version = 1
 
-    /// This schema does not open or encrypt a database by itself. The current
-    /// prototype store is app-private but unencrypted. A production store must
-    /// add database encryption without changing this logical schema.
     public static let statements = [
         """
         PRAGMA foreign_keys = ON;
@@ -15,56 +14,103 @@ public enum EdgeMemSQLiteSchema {
         );
         """,
         """
-        CREATE TABLE IF NOT EXISTS memory_observations (
-            observation_id TEXT PRIMARY KEY,
-            source_message_id TEXT NOT NULL UNIQUE,
-            session_id TEXT NOT NULL,
+        CREATE TABLE IF NOT EXISTS conversation_turns (
+            id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             character_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            sequence INTEGER NOT NULL CHECK (sequence >= 0),
+            role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+            text TEXT NOT NULL CHECK (length(trim(text)) > 0),
             occurred_at TEXT NOT NULL,
-            raw_text TEXT NOT NULL CHECK (length(trim(raw_text)) > 0),
-            state TEXT NOT NULL CHECK (state IN ('active', 'deleted')),
-            valid_from TEXT,
-            valid_until TEXT,
-            supersedes_observation_id TEXT
-                REFERENCES memory_observations(observation_id),
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            content_hash TEXT NOT NULL,
+            deleted_at TEXT,
+            UNIQUE(session_id, sequence)
         );
         """,
         """
-        CREATE INDEX IF NOT EXISTS idx_memory_observations_scope
-        ON memory_observations(
+        CREATE INDEX IF NOT EXISTS idx_turns_session_sequence
+        ON conversation_turns(session_id, sequence);
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_turns_scope_time
+        ON conversation_turns(
             user_id,
             character_id,
-            state,
             occurred_at
         );
         """,
         """
-        CREATE INDEX IF NOT EXISTS idx_memory_observations_session
-        ON memory_observations(session_id, occurred_at);
+        CREATE TABLE IF NOT EXISTS gate_results (
+            id TEXT PRIMARY KEY,
+            turn_id TEXT NOT NULL
+                REFERENCES conversation_turns(id)
+                ON DELETE CASCADE,
+            regex_preference_hit INTEGER NOT NULL
+                CHECK (regex_preference_hit IN (0, 1)),
+            regex_event_hit INTEGER NOT NULL
+                CHECK (regex_event_hit IN (0, 1)),
+            regex_hard_ignore INTEGER NOT NULL
+                CHECK (regex_hard_ignore IN (0, 1)),
+            matched_patterns_json TEXT NOT NULL,
+            preference_score REAL,
+            event_score REAL,
+            decision TEXT NOT NULL
+                CHECK (decision IN ('none', 'preference', 'event', 'both')),
+            preference_threshold REAL NOT NULL,
+            event_threshold REAL NOT NULL,
+            classifier_version TEXT NOT NULL,
+            embedding_model_id TEXT,
+            created_at TEXT NOT NULL
+        );
         """,
         """
-        CREATE TABLE IF NOT EXISTS memory_observation_labels (
+        CREATE INDEX IF NOT EXISTS idx_gate_results_turn
+        ON gate_results(turn_id);
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS observations (
+            id TEXT PRIMARY KEY,
+            turn_id TEXT NOT NULL UNIQUE
+                REFERENCES conversation_turns(id)
+                ON DELETE CASCADE,
+            state TEXT NOT NULL CHECK (state IN ('active', 'deleted')),
+            created_at TEXT NOT NULL
+        );
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_observations_state
+        ON observations(state);
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS observation_labels (
             observation_id TEXT NOT NULL
-                REFERENCES memory_observations(observation_id)
+                REFERENCES observations(id)
                 ON DELETE CASCADE,
             label TEXT NOT NULL
                 CHECK (label IN ('preference', 'event')),
+            score REAL,
+            source TEXT NOT NULL
+                CHECK (
+                    source IN (
+                        'regex',
+                        'prototype',
+                        'regex+prototype',
+                        'future_mlp'
+                    )
+                ),
             classifier_version TEXT NOT NULL,
-            created_at TEXT NOT NULL,
             PRIMARY KEY (observation_id, label)
         );
         """,
         """
-        CREATE INDEX IF NOT EXISTS idx_memory_observation_labels_label
-        ON memory_observation_labels(label, observation_id);
+        CREATE INDEX IF NOT EXISTS idx_observation_labels_label
+        ON observation_labels(label, observation_id);
         """,
         """
-        CREATE TABLE IF NOT EXISTS memory_observation_embeddings (
+        CREATE TABLE IF NOT EXISTS observation_embeddings (
             observation_id TEXT NOT NULL
-                REFERENCES memory_observations(observation_id)
+                REFERENCES observations(id)
                 ON DELETE CASCADE,
             model_id TEXT NOT NULL,
             dimension INTEGER NOT NULL CHECK (dimension > 0),

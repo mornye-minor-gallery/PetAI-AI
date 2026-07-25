@@ -358,15 +358,15 @@ struct EmbeddingTestView: View {
   ) async throws {
     let existingSourceIDs = Set(
       try await memoryService.activeObservations(in: scope)
-        .map(\.sourceMessageID)
+        .map(\.turnID)
     )
     let seeds = [
       MemorySeed(
-        sourceMessageID: "dense-spike-preference-1",
+        sourceMessageID: "edgemem-preference-1",
         rawText: "나는 딸기를 좋아해."
       ),
       MemorySeed(
-        sourceMessageID: "dense-spike-event-1",
+        sourceMessageID: "edgemem-event-1",
         rawText: "어제 에무와 함께 미술관에 다녀왔어."
       ),
     ]
@@ -376,7 +376,7 @@ struct EmbeddingTestView: View {
       _ = try await memoryService.remember(
         MemoryWriteRequest(
           sourceMessageID: seed.sourceMessageID,
-          sessionID: "dense-spike-seed",
+          sessionID: "edgemem-seed",
           scope: scope,
           rawText: seed.rawText
         )

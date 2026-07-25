@@ -63,15 +63,21 @@ private func makeRetrievedMemory(
     return RetrievedMemoryObservation(
         observation: MemoryObservation(
             id: id,
-            sourceMessageID: "message-\(id)",
+            turnID: "message-\(id)",
             sessionID: "past-session",
+            sequence: rank,
             scope: scope,
             occurredAt: timestamp,
             rawText: text,
-            labels: [MemoryLabel.preference],
-            classifierVersion: "test-v1",
-            createdAt: timestamp,
-            updatedAt: timestamp
+            labelEvidence: [
+                MemoryLabelEvidence(
+                    label: .preference,
+                    score: 0.8,
+                    source: .prototype,
+                    classifierVersion: "test-v1"
+                )
+            ],
+            createdAt: timestamp
         ),
         score: 0.8,
         rank: rank

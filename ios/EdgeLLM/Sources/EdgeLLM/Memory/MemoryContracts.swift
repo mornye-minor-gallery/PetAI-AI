@@ -52,14 +52,22 @@ public enum MemoryStoreSecurityRequirement: Equatable, Sendable {
 public protocol MemoryObservationClassifying: Sendable {
     var version: String { get }
 
-    func classify(_ text: String) async throws -> Set<MemoryLabel>
+    func evaluate(_ text: String) async throws -> MemoryGateDecision
 }
 
 public protocol MemoryObservationStoring: Sendable {
     var securityPolicy: MemoryStoreSecurityPolicy { get }
 
     func initialize() async throws
-    func save(
+    func saveUserTurn(
+        id: String,
+        sessionID: String,
+        scope: MemoryScope,
+        rawText: String,
+        occurredAt: Date
+    ) async throws -> MemoryConversationTurn
+    func saveGateResult(_ result: MemoryGateResult) async throws
+    func saveObservation(
         _ observation: MemoryObservation,
         embedding: MemoryObservationEmbedding?
     ) async throws
@@ -67,15 +75,16 @@ public protocol MemoryObservationStoring: Sendable {
         -> [MemoryObservation]
     func markDeleted(
         observationID: String,
-        in scope: MemoryScope,
-        updatedAt: Date
+        in scope: MemoryScope
     ) async throws
     func close() async
 }
 
 extension MemoryObservationStoring {
-    public func save(_ observation: MemoryObservation) async throws {
-        try await save(observation, embedding: nil)
+    public func saveObservation(
+        _ observation: MemoryObservation
+    ) async throws {
+        try await saveObservation(observation, embedding: nil)
     }
 }
 

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SQLite3
 
@@ -20,17 +21,17 @@ extension SQLiteObservationStoreError: LocalizedError {
         switch self {
         case .databaseNotInitialized:
             "EdgeMem SQLite database is not initialized."
-        case let .openFailed(message):
+        case .openFailed(let message):
             "Could not open the EdgeMem SQLite database: \(message)"
-        case let .statementFailed(message):
+        case .statementFailed(let message):
             "EdgeMem SQLite statement failed: \(message)"
-        case let .unsupportedSchemaVersion(found, expected):
+        case .unsupportedSchemaVersion(let found, let expected):
             "Unsupported EdgeMem schema version \(found); expected \(expected)."
-        case let .invalidStoredValue(column):
+        case .invalidStoredValue(let column):
             "EdgeMem SQLite contains an invalid value for \(column)."
-        case let .invalidEmbedding(message):
+        case .invalidEmbedding(let message):
             "EdgeMem cannot store this embedding: \(message)"
-        case let .unknownObservation(observationID):
+        case .unknownObservation(let observationID):
             "EdgeMem observation does not exist or is inactive: \(observationID)"
         }
     }
@@ -72,6 +73,18 @@ public actor SQLiteObservationStore:
         self.databaseURL = databaseURL
     }
 
+    public nonisolated static func removeDatabase(at url: URL) throws {
+        let manager = FileManager.default
+        for path in [
+            url.path,
+            url.path + "-wal",
+            url.path + "-shm",
+            url.path + "-journal",
+        ] where manager.fileExists(atPath: path) {
+            try manager.removeItem(atPath: path)
+        }
+    }
+
     public func initialize() async throws {
         guard connection.handle == nil else {
             return
@@ -84,27 +97,16 @@ public actor SQLiteObservationStore:
         )
         try excludeFromCloudBackup(directory)
 
-        var openedDatabase: OpaquePointer?
-        let openResult = sqlite3_open_v2(
-            databaseURL.path,
-            &openedDatabase,
-            SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX,
-            nil
-        )
-        guard openResult == SQLITE_OK, let openedDatabase else {
-            let message = openedDatabase.map {
-                String(cString: sqlite3_errmsg($0))
-            } ?? "unknown SQLite open error"
-            if let openedDatabase {
-                sqlite3_close_v2(openedDatabase)
-            }
-            throw SQLiteObservationStoreError.openFailed(message)
+        try openDatabase()
+        if try isLegacyPrototypeDatabase() {
+            closeDatabase()
+            try Self.removeDatabase(at: databaseURL)
+            try openDatabase()
         }
 
-        connection.handle = openedDatabase
         do {
+            try execute("PRAGMA foreign_keys = ON;")
             try execute("PRAGMA journal_mode = WAL;")
-            try execute(EdgeMemSQLiteSchema.statements[0])
             try execute(EdgeMemSQLiteSchema.statements[1])
 
             if let existingVersion = try existingSchemaVersion(),
@@ -127,21 +129,118 @@ public actor SQLiteObservationStore:
                 )
             }
         } catch {
-            sqlite3_close_v2(openedDatabase)
-            connection.handle = nil
+            closeDatabase()
             throw error
         }
     }
 
-    public func save(
+    public func saveUserTurn(
+        id: String,
+        sessionID: String,
+        scope: MemoryScope,
+        rawText: String,
+        occurredAt: Date
+    ) async throws -> MemoryConversationTurn {
+        let sequence = try nextSequence(in: sessionID)
+        let contentHash = SHA256.hash(data: Data(rawText.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+
+        try withStatement(
+            """
+            INSERT INTO conversation_turns(
+                id,
+                user_id,
+                character_id,
+                session_id,
+                sequence,
+                role,
+                text,
+                occurred_at,
+                content_hash
+            ) VALUES (?, ?, ?, ?, ?, 'user', ?, ?, ?);
+            """
+        ) { statement in
+            try bind(id, at: 1, to: statement)
+            try bind(scope.userID, at: 2, to: statement)
+            try bind(scope.characterID, at: 3, to: statement)
+            try bind(sessionID, at: 4, to: statement)
+            try bind(sequence, at: 5, to: statement)
+            try bind(rawText, at: 6, to: statement)
+            try bind(dateString(occurredAt), at: 7, to: statement)
+            try bind(contentHash, at: 8, to: statement)
+            try stepExpectingDone(statement)
+        }
+
+        return MemoryConversationTurn(
+            id: id,
+            sessionID: sessionID,
+            sequence: sequence,
+            scope: scope,
+            rawText: rawText,
+            occurredAt: occurredAt,
+            contentHash: contentHash
+        )
+    }
+
+    public func saveGateResult(
+        _ result: MemoryGateResult
+    ) async throws {
+        let decision = result.decision
+        let patternsData = try JSONEncoder().encode(
+            decision.regex.matchedPatterns
+        )
+        guard let patternsJSON = String(
+            data: patternsData,
+            encoding: .utf8
+        ) else {
+            throw SQLiteObservationStoreError.invalidStoredValue(
+                column: "matched_patterns_json"
+            )
+        }
+
+        try withStatement(
+            """
+            INSERT INTO gate_results(
+                id,
+                turn_id,
+                regex_preference_hit,
+                regex_event_hit,
+                regex_hard_ignore,
+                matched_patterns_json,
+                preference_score,
+                event_score,
+                decision,
+                preference_threshold,
+                event_threshold,
+                classifier_version,
+                embedding_model_id,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """
+        ) { statement in
+            try bind(result.id, at: 1, to: statement)
+            try bind(result.turnID, at: 2, to: statement)
+            try bind(decision.regex.preferenceHit, at: 3, to: statement)
+            try bind(decision.regex.eventHit, at: 4, to: statement)
+            try bind(decision.regex.hardIgnore, at: 5, to: statement)
+            try bind(patternsJSON, at: 6, to: statement)
+            try bind(decision.preferenceScore, at: 7, to: statement)
+            try bind(decision.eventScore, at: 8, to: statement)
+            try bind(decision.label.rawValue, at: 9, to: statement)
+            try bind(decision.preferenceThreshold, at: 10, to: statement)
+            try bind(decision.eventThreshold, at: 11, to: statement)
+            try bind(decision.classifierVersion, at: 12, to: statement)
+            try bind(decision.embeddingModelID, at: 13, to: statement)
+            try bind(dateString(result.createdAt), at: 14, to: statement)
+            try stepExpectingDone(statement)
+        }
+    }
+
+    public func saveObservation(
         _ observation: MemoryObservation,
         embedding: MemoryObservationEmbedding?
     ) async throws {
-        guard !observation.labels.isEmpty else {
-            throw SQLiteObservationStoreError.invalidStoredValue(
-                column: "labels"
-            )
-        }
         if let embedding {
             try validate(embedding, for: observation)
         }
@@ -149,72 +248,52 @@ public actor SQLiteObservationStore:
         try transaction {
             try withStatement(
                 """
-                INSERT INTO memory_observations(
-                    observation_id,
-                    source_message_id,
-                    session_id,
-                    user_id,
-                    character_id,
-                    occurred_at,
-                    raw_text,
+                INSERT INTO observations(
+                    id,
+                    turn_id,
                     state,
-                    valid_from,
-                    valid_until,
-                    supersedes_observation_id,
-                    created_at,
-                    updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    created_at
+                ) VALUES (?, ?, ?, ?);
                 """
             ) { statement in
                 try bind(observation.id, at: 1, to: statement)
-                try bind(observation.sourceMessageID, at: 2, to: statement)
-                try bind(observation.sessionID, at: 3, to: statement)
-                try bind(observation.scope.userID, at: 4, to: statement)
-                try bind(observation.scope.characterID, at: 5, to: statement)
-                try bind(dateString(observation.occurredAt), at: 6, to: statement)
-                try bind(observation.rawText, at: 7, to: statement)
-                try bind(observation.state.rawValue, at: 8, to: statement)
+                try bind(observation.turnID, at: 2, to: statement)
+                try bind(observation.state.rawValue, at: 3, to: statement)
                 try bind(
-                    observation.validFrom.map(dateString),
-                    at: 9,
+                    dateString(observation.createdAt),
+                    at: 4,
                     to: statement
                 )
-                try bind(
-                    observation.validUntil.map(dateString),
-                    at: 10,
-                    to: statement
-                )
-                try bind(
-                    observation.supersedesObservationID,
-                    at: 11,
-                    to: statement
-                )
-                try bind(dateString(observation.createdAt), at: 12, to: statement)
-                try bind(dateString(observation.updatedAt), at: 13, to: statement)
                 try stepExpectingDone(statement)
             }
 
-            for label in observation.labels {
+            for evidence in observation.labelEvidence {
                 try withStatement(
                     """
-                    INSERT INTO memory_observation_labels(
+                    INSERT INTO observation_labels(
                         observation_id,
                         label,
-                        classifier_version,
-                        created_at
-                    ) VALUES (?, ?, ?, ?);
+                        score,
+                        source,
+                        classifier_version
+                    ) VALUES (?, ?, ?, ?, ?);
                     """
                 ) { statement in
                     try bind(observation.id, at: 1, to: statement)
-                    try bind(label.rawValue, at: 2, to: statement)
                     try bind(
-                        observation.classifierVersion,
-                        at: 3,
+                        evidence.label.rawValue,
+                        at: 2,
+                        to: statement
+                    )
+                    try bind(evidence.score, at: 3, to: statement)
+                    try bind(
+                        evidence.source.rawValue,
+                        at: 4,
                         to: statement
                     )
                     try bind(
-                        dateString(observation.createdAt),
-                        at: 4,
+                        evidence.classifierVersion,
+                        at: 5,
                         to: statement
                     )
                     try stepExpectingDone(statement)
@@ -224,7 +303,7 @@ public actor SQLiteObservationStore:
             if let embedding {
                 try withStatement(
                     """
-                    INSERT INTO memory_observation_embeddings(
+                    INSERT INTO observation_embeddings(
                         observation_id,
                         model_id,
                         dimension,
@@ -233,7 +312,11 @@ public actor SQLiteObservationStore:
                     ) VALUES (?, ?, ?, ?, ?);
                     """
                 ) { statement in
-                    try bind(embedding.observationID, at: 1, to: statement)
+                    try bind(
+                        embedding.observationID,
+                        at: 1,
+                        to: statement
+                    )
                     try bind(embedding.modelID, at: 2, to: statement)
                     try bind(embedding.dimension, at: 3, to: statement)
                     try bind(
@@ -255,29 +338,274 @@ public actor SQLiteObservationStore:
     public func activeObservations(
         in scope: MemoryScope
     ) async throws -> [MemoryObservation] {
+        let rows = try observationRows(
+            sql:
+                """
+                SELECT
+                    o.id,
+                    o.turn_id,
+                    t.session_id,
+                    t.sequence,
+                    t.user_id,
+                    t.character_id,
+                    t.occurred_at,
+                    t.text,
+                    o.state,
+                    o.created_at
+                FROM observations AS o
+                INNER JOIN conversation_turns AS t
+                    ON t.id = o.turn_id
+                WHERE t.user_id = ?
+                  AND t.character_id = ?
+                  AND o.state = 'active'
+                ORDER BY t.occurred_at DESC, o.id ASC;
+                """,
+            scope: scope
+        )
+        return try rows.map(makeObservation)
+    }
+
+    public func embeddingCandidates(
+        in scope: MemoryScope,
+        modelID: String
+    ) async throws -> [MemoryEmbeddingCandidate] {
         let rows = try withStatement(
             """
             SELECT
-                observation_id,
-                source_message_id,
-                session_id,
-                user_id,
-                character_id,
-                occurred_at,
-                raw_text,
-                state,
-                valid_from,
-                valid_until,
-                supersedes_observation_id,
-                created_at,
-                updated_at
-            FROM memory_observations
-            WHERE user_id = ?
-              AND character_id = ?
-              AND state = 'active'
-            ORDER BY occurred_at DESC, observation_id ASC;
+                o.id,
+                o.turn_id,
+                t.session_id,
+                t.sequence,
+                t.user_id,
+                t.character_id,
+                t.occurred_at,
+                t.text,
+                o.state,
+                o.created_at,
+                e.model_id,
+                e.dimension,
+                e.vector,
+                e.created_at
+            FROM observations AS o
+            INNER JOIN conversation_turns AS t
+                ON t.id = o.turn_id
+            INNER JOIN observation_embeddings AS e
+                ON e.observation_id = o.id
+            WHERE t.user_id = ?
+              AND t.character_id = ?
+              AND o.state = 'active'
+              AND e.model_id = ?
+            ORDER BY t.occurred_at DESC, o.id ASC;
             """
         ) { statement in
+            try bind(scope.userID, at: 1, to: statement)
+            try bind(scope.characterID, at: 2, to: statement)
+            try bind(modelID, at: 3, to: statement)
+
+            var rows: [(ObservationRow, MemoryObservationEmbedding)] = []
+            while true {
+                let result = sqlite3_step(statement)
+                if result == SQLITE_DONE {
+                    break
+                }
+                guard result == SQLITE_ROW else {
+                    throw statementError()
+                }
+                let row = try observationRow(from: statement)
+                let dimension = try positiveInteger(
+                    at: 11,
+                    from: statement,
+                    column: "dimension"
+                )
+                rows.append(
+                    (
+                        row,
+                        MemoryObservationEmbedding(
+                            observationID: row.observationID,
+                            modelID: try text(
+                                at: 10,
+                                from: statement,
+                                column: "model_id"
+                            ),
+                            vector: try vector(
+                                at: 12,
+                                dimension: dimension,
+                                from: statement
+                            ),
+                            createdAt: try date(
+                                at: 13,
+                                from: statement,
+                                column: "embedding_created_at"
+                            )
+                        )
+                    )
+                )
+            }
+            return rows
+        }
+
+        return try rows.map { row, embedding in
+            MemoryEmbeddingCandidate(
+                observation: try makeObservation(row),
+                embedding: embedding
+            )
+        }
+    }
+
+    public func markDeleted(
+        observationID: String,
+        in scope: MemoryScope
+    ) async throws {
+        try transaction {
+            try withStatement(
+                """
+                UPDATE observations
+                SET state = 'deleted'
+                WHERE id = ?
+                  AND state = 'active'
+                  AND turn_id IN (
+                      SELECT id
+                      FROM conversation_turns
+                      WHERE user_id = ?
+                        AND character_id = ?
+                  );
+                """
+            ) { statement in
+                try bind(observationID, at: 1, to: statement)
+                try bind(scope.userID, at: 2, to: statement)
+                try bind(scope.characterID, at: 3, to: statement)
+                try stepExpectingDone(statement)
+            }
+
+            guard sqlite3_changes(try databaseHandle()) == 1 else {
+                throw SQLiteObservationStoreError.unknownObservation(
+                    observationID
+                )
+            }
+
+            try withStatement(
+                """
+                DELETE FROM observation_embeddings
+                WHERE observation_id = ?;
+                """
+            ) { statement in
+                try bind(observationID, at: 1, to: statement)
+                try stepExpectingDone(statement)
+            }
+        }
+    }
+
+    public func close() async {
+        closeDatabase()
+    }
+
+    private func openDatabase() throws {
+        var openedDatabase: OpaquePointer?
+        let result = sqlite3_open_v2(
+            databaseURL.path,
+            &openedDatabase,
+            SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX,
+            nil
+        )
+        guard result == SQLITE_OK, let openedDatabase else {
+            let message = openedDatabase.map {
+                String(cString: sqlite3_errmsg($0))
+            } ?? "unknown SQLite open error"
+            if let openedDatabase {
+                sqlite3_close_v2(openedDatabase)
+            }
+            throw SQLiteObservationStoreError.openFailed(message)
+        }
+        connection.handle = openedDatabase
+    }
+
+    private func closeDatabase() {
+        guard let database = connection.handle else {
+            return
+        }
+        sqlite3_close_v2(database)
+        connection.handle = nil
+    }
+
+    private func isLegacyPrototypeDatabase() throws -> Bool {
+        try tableExists("memory_observations")
+            && !tableExists("conversation_turns")
+    }
+
+    private func tableExists(_ name: String) throws -> Bool {
+        try withStatement(
+            """
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name = ?;
+            """
+        ) { statement in
+            try bind(name, at: 1, to: statement)
+            let result = sqlite3_step(statement)
+            guard result == SQLITE_ROW || result == SQLITE_DONE else {
+                throw statementError()
+            }
+            return result == SQLITE_ROW
+        }
+    }
+
+    private func existingSchemaVersion() throws -> Int? {
+        try withStatement(
+            """
+            SELECT value
+            FROM schema_metadata
+            WHERE key = 'schema_version';
+            """
+        ) { statement in
+            let result = sqlite3_step(statement)
+            if result == SQLITE_DONE {
+                return nil
+            }
+            guard result == SQLITE_ROW else {
+                throw statementError()
+            }
+            let stored = try text(
+                at: 0,
+                from: statement,
+                column: "schema_version"
+            )
+            guard let version = Int(stored) else {
+                throw SQLiteObservationStoreError.invalidStoredValue(
+                    column: "schema_version"
+                )
+            }
+            return version
+        }
+    }
+
+    private func nextSequence(in sessionID: String) throws -> Int {
+        try withStatement(
+            """
+            SELECT COALESCE(MAX(sequence), -1) + 1
+            FROM conversation_turns
+            WHERE session_id = ?;
+            """
+        ) { statement in
+            try bind(sessionID, at: 1, to: statement)
+            guard sqlite3_step(statement) == SQLITE_ROW else {
+                throw statementError()
+            }
+            let value = sqlite3_column_int64(statement, 0)
+            guard let sequence = Int(exactly: value), sequence >= 0 else {
+                throw SQLiteObservationStoreError.invalidStoredValue(
+                    column: "sequence"
+                )
+            }
+            return sequence
+        }
+    }
+
+    private func observationRows(
+        sql: String,
+        scope: MemoryScope
+    ) throws -> [ObservationRow] {
+        try withStatement(sql) { statement in
             try bind(scope.userID, at: 1, to: statement)
             try bind(scope.characterID, at: 2, to: statement)
 
@@ -294,211 +622,107 @@ public actor SQLiteObservationStore:
             }
             return rows
         }
+    }
 
-        var observations: [MemoryObservation] = []
-        observations.reserveCapacity(rows.count)
-        for row in rows {
-            let classification = try labels(
+    private func observationRow(
+        from statement: OpaquePointer
+    ) throws -> ObservationRow {
+        let stateValue = try text(
+            at: 8,
+            from: statement,
+            column: "state"
+        )
+        guard let state = MemoryObservationState(rawValue: stateValue) else {
+            throw SQLiteObservationStoreError.invalidStoredValue(
+                column: "state"
+            )
+        }
+        return ObservationRow(
+            observationID: try text(
+                at: 0,
+                from: statement,
+                column: "observation_id"
+            ),
+            turnID: try text(
+                at: 1,
+                from: statement,
+                column: "turn_id"
+            ),
+            sessionID: try text(
+                at: 2,
+                from: statement,
+                column: "session_id"
+            ),
+            sequence: try nonnegativeInteger(
+                at: 3,
+                from: statement,
+                column: "sequence"
+            ),
+            userID: try text(
+                at: 4,
+                from: statement,
+                column: "user_id"
+            ),
+            characterID: try text(
+                at: 5,
+                from: statement,
+                column: "character_id"
+            ),
+            occurredAt: try date(
+                at: 6,
+                from: statement,
+                column: "occurred_at"
+            ),
+            rawText: try text(
+                at: 7,
+                from: statement,
+                column: "text"
+            ),
+            state: state,
+            createdAt: try date(
+                at: 9,
+                from: statement,
+                column: "created_at"
+            )
+        )
+    }
+
+    private func makeObservation(
+        _ row: ObservationRow
+    ) throws -> MemoryObservation {
+        MemoryObservation(
+            id: row.observationID,
+            turnID: row.turnID,
+            sessionID: row.sessionID,
+            sequence: row.sequence,
+            scope: MemoryScope(
+                userID: row.userID,
+                characterID: row.characterID
+            ),
+            occurredAt: row.occurredAt,
+            rawText: row.rawText,
+            labelEvidence: try labelEvidence(
                 forObservationID: row.observationID
-            )
-            observations.append(
-                observation(from: row, classification: classification)
-            )
-        }
-        return observations
+            ),
+            state: row.state,
+            createdAt: row.createdAt
+        )
     }
 
-    public func embeddingCandidates(
-        in scope: MemoryScope,
-        modelID: String
-    ) async throws -> [MemoryEmbeddingCandidate] {
-        let rows = try withStatement(
-            """
-            SELECT
-                o.observation_id,
-                o.source_message_id,
-                o.session_id,
-                o.user_id,
-                o.character_id,
-                o.occurred_at,
-                o.raw_text,
-                o.state,
-                o.valid_from,
-                o.valid_until,
-                o.supersedes_observation_id,
-                o.created_at,
-                o.updated_at,
-                e.model_id,
-                e.dimension,
-                e.vector,
-                e.created_at
-            FROM memory_observations AS o
-            INNER JOIN memory_observation_embeddings AS e
-                ON e.observation_id = o.observation_id
-            WHERE o.user_id = ?
-              AND o.character_id = ?
-              AND o.state = 'active'
-              AND e.model_id = ?
-            ORDER BY o.occurred_at DESC, o.observation_id ASC;
-            """
-        ) { statement in
-            try bind(scope.userID, at: 1, to: statement)
-            try bind(scope.characterID, at: 2, to: statement)
-            try bind(modelID, at: 3, to: statement)
-
-            var rows: [EmbeddingRow] = []
-            while true {
-                let result = sqlite3_step(statement)
-                if result == SQLITE_DONE {
-                    break
-                }
-                guard result == SQLITE_ROW else {
-                    throw statementError()
-                }
-
-                let observation = try observationRow(from: statement)
-                let storedModelID = try text(
-                    at: 13,
-                    from: statement,
-                    column: "model_id"
-                )
-                let dimension = try integer(
-                    at: 14,
-                    from: statement,
-                    column: "dimension"
-                )
-                let vector = try vector(
-                    at: 15,
-                    dimension: dimension,
-                    from: statement
-                )
-                rows.append(
-                    EmbeddingRow(
-                        observation: observation,
-                        embedding: MemoryObservationEmbedding(
-                            observationID: observation.observationID,
-                            modelID: storedModelID,
-                            vector: vector,
-                            createdAt: try date(
-                                at: 16,
-                                from: statement,
-                                column: "embedding_created_at"
-                            )
-                        )
-                    )
-                )
-            }
-            return rows
-        }
-
-        var candidates: [MemoryEmbeddingCandidate] = []
-        candidates.reserveCapacity(rows.count)
-        for row in rows {
-            let classification = try labels(
-                forObservationID: row.observation.observationID
-            )
-            candidates.append(
-                MemoryEmbeddingCandidate(
-                    observation: observation(
-                        from: row.observation,
-                        classification: classification
-                    ),
-                    embedding: row.embedding
-                )
-            )
-        }
-        return candidates
-    }
-
-    public func markDeleted(
-        observationID: String,
-        in scope: MemoryScope,
-        updatedAt: Date
-    ) async throws {
-        try transaction {
-            try withStatement(
-                """
-                UPDATE memory_observations
-                SET state = 'deleted', updated_at = ?
-                WHERE observation_id = ?
-                  AND user_id = ?
-                  AND character_id = ?
-                  AND state = 'active';
-                """
-            ) { statement in
-                try bind(dateString(updatedAt), at: 1, to: statement)
-                try bind(observationID, at: 2, to: statement)
-                try bind(scope.userID, at: 3, to: statement)
-                try bind(scope.characterID, at: 4, to: statement)
-                try stepExpectingDone(statement)
-            }
-
-            let database = try databaseHandle()
-            guard sqlite3_changes(database) == 1 else {
-                throw SQLiteObservationStoreError.unknownObservation(
-                    observationID
-                )
-            }
-
-            try withStatement(
-                """
-                DELETE FROM memory_observation_embeddings
-                WHERE observation_id = ?;
-                """
-            ) { statement in
-                try bind(observationID, at: 1, to: statement)
-                try stepExpectingDone(statement)
-            }
-        }
-    }
-
-    public func close() async {
-        guard let database = connection.handle else {
-            return
-        }
-        sqlite3_close_v2(database)
-        connection.handle = nil
-    }
-
-    private func existingSchemaVersion() throws -> Int? {
-        try withStatement(
-            """
-            SELECT value FROM schema_metadata
-            WHERE key = 'schema_version';
-            """
-        ) { statement in
-            let result = sqlite3_step(statement)
-            if result == SQLITE_DONE {
-                return nil
-            }
-            guard result == SQLITE_ROW else {
-                throw statementError()
-            }
-            let value = try text(at: 0, from: statement, column: "schema_version")
-            guard let version = Int(value) else {
-                throw SQLiteObservationStoreError.invalidStoredValue(
-                    column: "schema_version"
-                )
-            }
-            return version
-        }
-    }
-
-    private func labels(
+    private func labelEvidence(
         forObservationID observationID: String
-    ) throws -> (labels: [MemoryLabel], version: String) {
+    ) throws -> [MemoryLabelEvidence] {
         try withStatement(
             """
-            SELECT label, classifier_version
-            FROM memory_observation_labels
+            SELECT label, score, source, classifier_version
+            FROM observation_labels
             WHERE observation_id = ?
             ORDER BY label ASC;
             """
         ) { statement in
             try bind(observationID, at: 1, to: statement)
 
-            var labels: [MemoryLabel] = []
-            var versions: Set<String> = []
+            var evidence: [MemoryLabelEvidence] = []
             while true {
                 let result = sqlite3_step(statement)
                 if result == SQLITE_DONE {
@@ -512,133 +736,37 @@ public actor SQLiteObservationStore:
                     from: statement,
                     column: "label"
                 )
-                guard let label = MemoryLabel(rawValue: labelValue) else {
+                let sourceValue = try text(
+                    at: 2,
+                    from: statement,
+                    column: "source"
+                )
+                guard
+                    let label = MemoryLabel(rawValue: labelValue),
+                    let source = MemoryLabelSource(rawValue: sourceValue)
+                else {
                     throw SQLiteObservationStoreError.invalidStoredValue(
-                        column: "label"
+                        column: "observation_labels"
                     )
                 }
-                labels.append(label)
-                versions.insert(
-                    try text(
-                        at: 1,
-                        from: statement,
-                        column: "classifier_version"
+                evidence.append(
+                    MemoryLabelEvidence(
+                        label: label,
+                        score: optionalFloat(
+                            at: 1,
+                            from: statement
+                        ),
+                        source: source,
+                        classifierVersion: try text(
+                            at: 3,
+                            from: statement,
+                            column: "classifier_version"
+                        )
                     )
                 )
             }
-
-            guard !labels.isEmpty, versions.count == 1,
-                  let version = versions.first else {
-                throw SQLiteObservationStoreError.invalidStoredValue(
-                    column: "classifier_version"
-                )
-            }
-            return (labels, version)
+            return evidence
         }
-    }
-
-    private func observationRow(
-        from statement: OpaquePointer
-    ) throws -> ObservationRow {
-        let stateValue = try text(
-            at: 7,
-            from: statement,
-            column: "state"
-        )
-        guard let state = MemoryObservationState(rawValue: stateValue) else {
-            throw SQLiteObservationStoreError.invalidStoredValue(
-                column: "state"
-            )
-        }
-
-        return ObservationRow(
-            observationID: try text(
-                at: 0,
-                from: statement,
-                column: "observation_id"
-            ),
-            sourceMessageID: try text(
-                at: 1,
-                from: statement,
-                column: "source_message_id"
-            ),
-            sessionID: try text(
-                at: 2,
-                from: statement,
-                column: "session_id"
-            ),
-            userID: try text(
-                at: 3,
-                from: statement,
-                column: "user_id"
-            ),
-            characterID: try text(
-                at: 4,
-                from: statement,
-                column: "character_id"
-            ),
-            occurredAt: try date(
-                at: 5,
-                from: statement,
-                column: "occurred_at"
-            ),
-            rawText: try text(
-                at: 6,
-                from: statement,
-                column: "raw_text"
-            ),
-            state: state,
-            validFrom: try optionalDate(
-                at: 8,
-                from: statement,
-                column: "valid_from"
-            ),
-            validUntil: try optionalDate(
-                at: 9,
-                from: statement,
-                column: "valid_until"
-            ),
-            supersedesObservationID: try optionalText(
-                at: 10,
-                from: statement,
-                column: "supersedes_observation_id"
-            ),
-            createdAt: try date(
-                at: 11,
-                from: statement,
-                column: "created_at"
-            ),
-            updatedAt: try date(
-                at: 12,
-                from: statement,
-                column: "updated_at"
-            )
-        )
-    }
-
-    private func observation(
-        from row: ObservationRow,
-        classification: (labels: [MemoryLabel], version: String)
-    ) -> MemoryObservation {
-        MemoryObservation(
-            id: row.observationID,
-            sourceMessageID: row.sourceMessageID,
-            sessionID: row.sessionID,
-            scope: MemoryScope(
-                userID: row.userID,
-                characterID: row.characterID
-            ),
-            occurredAt: row.occurredAt,
-            rawText: row.rawText,
-            labels: classification.labels,
-            classifierVersion: classification.version,
-            state: row.state,
-            validFrom: row.validFrom,
-            validUntil: row.validUntil,
-            supersedesObservationID: row.supersedesObservationID,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt
-        )
     }
 
     private func validate(
@@ -684,8 +812,7 @@ public actor SQLiteObservationStore:
         guard result == SQLITE_OK else {
             let message = errorPointer.map {
                 String(cString: $0)
-            }
-                ?? String(cString: sqlite3_errmsg(database))
+            } ?? String(cString: sqlite3_errmsg(database))
             sqlite3_free(errorPointer)
             throw SQLiteObservationStoreError.statementFailed(message)
         }
@@ -771,6 +898,39 @@ public actor SQLiteObservationStore:
     }
 
     private func bind(
+        _ value: Bool,
+        at index: Int32,
+        to statement: OpaquePointer
+    ) throws {
+        try bind(value ? 1 : 0, at: index, to: statement)
+    }
+
+    private func bind(
+        _ value: Float,
+        at index: Int32,
+        to statement: OpaquePointer
+    ) throws {
+        guard sqlite3_bind_double(statement, index, Double(value)) == SQLITE_OK
+        else {
+            throw statementError()
+        }
+    }
+
+    private func bind(
+        _ value: Float?,
+        at index: Int32,
+        to statement: OpaquePointer
+    ) throws {
+        guard let value else {
+            guard sqlite3_bind_null(statement, index) == SQLITE_OK else {
+                throw statementError()
+            }
+            return
+        }
+        try bind(value, at: index, to: statement)
+    }
+
+    private func bind(
         _ value: Data,
         at index: Int32,
         to statement: OpaquePointer
@@ -808,18 +968,7 @@ public actor SQLiteObservationStore:
         return String(cString: value)
     }
 
-    private func optionalText(
-        at index: Int32,
-        from statement: OpaquePointer,
-        column: String
-    ) throws -> String? {
-        if sqlite3_column_type(statement, index) == SQLITE_NULL {
-            return nil
-        }
-        return try text(at: index, from: statement, column: column)
-    }
-
-    private func integer(
+    private func nonnegativeInteger(
         at index: Int32,
         from statement: OpaquePointer,
         column: String
@@ -830,12 +979,40 @@ public actor SQLiteObservationStore:
             )
         }
         let value = sqlite3_column_int64(statement, index)
-        guard let integer = Int(exactly: value), integer > 0 else {
+        guard let integer = Int(exactly: value), integer >= 0 else {
             throw SQLiteObservationStoreError.invalidStoredValue(
                 column: column
             )
         }
         return integer
+    }
+
+    private func positiveInteger(
+        at index: Int32,
+        from statement: OpaquePointer,
+        column: String
+    ) throws -> Int {
+        let integer = try nonnegativeInteger(
+            at: index,
+            from: statement,
+            column: column
+        )
+        guard integer > 0 else {
+            throw SQLiteObservationStoreError.invalidStoredValue(
+                column: column
+            )
+        }
+        return integer
+    }
+
+    private func optionalFloat(
+        at index: Int32,
+        from statement: OpaquePointer
+    ) -> Float? {
+        guard sqlite3_column_type(statement, index) != SQLITE_NULL else {
+            return nil
+        }
+        return Float(sqlite3_column_double(statement, index))
     }
 
     private func vector(
@@ -858,12 +1035,11 @@ public actor SQLiteObservationStore:
         let vector: [Float] = data.withUnsafeBytes { buffer in
             (0..<dimension).map { vectorIndex in
                 let bits = buffer.loadUnaligned(
-                    fromByteOffset: vectorIndex * MemoryLayout<UInt32>.size,
+                    fromByteOffset:
+                        vectorIndex * MemoryLayout<UInt32>.size,
                     as: UInt32.self
                 )
-                return Float(
-                    bitPattern: UInt32(littleEndian: bits)
-                )
+                return Float(bitPattern: UInt32(littleEndian: bits))
             }
         }
         guard vector.allSatisfy(\.isFinite) else {
@@ -884,26 +1060,6 @@ public actor SQLiteObservationStore:
             from: statement,
             column: column
         )
-        guard let date = dateFormatter.date(from: storedValue) else {
-            throw SQLiteObservationStoreError.invalidStoredValue(
-                column: column
-            )
-        }
-        return date
-    }
-
-    private func optionalDate(
-        at index: Int32,
-        from statement: OpaquePointer,
-        column: String
-    ) throws -> Date? {
-        guard let storedValue = try optionalText(
-            at: index,
-            from: statement,
-            column: column
-        ) else {
-            return nil
-        }
         guard let date = dateFormatter.date(from: storedValue) else {
             throw SQLiteObservationStoreError.invalidStoredValue(
                 column: column
@@ -962,21 +1118,13 @@ private final class SQLiteConnection: @unchecked Sendable {
 
 private struct ObservationRow {
     let observationID: String
-    let sourceMessageID: String
+    let turnID: String
     let sessionID: String
+    let sequence: Int
     let userID: String
     let characterID: String
     let occurredAt: Date
     let rawText: String
     let state: MemoryObservationState
-    let validFrom: Date?
-    let validUntil: Date?
-    let supersedesObservationID: String?
     let createdAt: Date
-    let updatedAt: Date
-}
-
-private struct EmbeddingRow {
-    let observation: ObservationRow
-    let embedding: MemoryObservationEmbedding
 }

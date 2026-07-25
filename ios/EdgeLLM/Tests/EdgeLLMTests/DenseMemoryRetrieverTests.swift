@@ -109,24 +109,75 @@ func denseRetrieverRanksScopedMemoriesAndAppliesExclusions() async throws {
   #expect(request.modelID == "dense-test-v1")
 }
 
+@Test
+func denseRetrieverExcludesTurnsAndDeduplicatesExactRawText() async throws {
+  let scope = MemoryScope(userID: "local-user", characterID: "emu")
+  let loader = DenseTestCandidateLoader(
+    candidates: [
+      makeCandidate(
+        id: "duplicate-high",
+        sessionID: "session-1",
+        scope: scope,
+        vector: [1, 0, 0],
+        rawText: "나는  딸기를 좋아해"
+      ),
+      makeCandidate(
+        id: "duplicate-low",
+        sessionID: "session-2",
+        scope: scope,
+        vector: [0.9, 0.1, 0],
+        rawText: "나는 딸기를 좋아해"
+      ),
+      makeCandidate(
+        id: "excluded-turn",
+        sessionID: "session-3",
+        scope: scope,
+        vector: [1, 0, 0]
+      ),
+    ]
+  )
+  let retriever = DenseMemoryRetriever(
+    candidateLoader: loader,
+    embedder: DenseTestEmbedder()
+  )
+
+  let results = try await retriever.search(
+    MemorySearchRequest(
+      scope: scope,
+      query: "좋아하는 과일",
+      topK: 3,
+      excludedTurnIDs: ["message-excluded-turn"]
+    )
+  )
+
+  #expect(results.map(\.observation.id) == ["duplicate-high"])
+}
+
 private func makeCandidate(
   id: String,
   sessionID: String,
   scope: MemoryScope,
-  vector: [Float]
+  vector: [Float],
+  rawText: String? = nil
 ) -> MemoryEmbeddingCandidate {
   let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
   let observation = MemoryObservation(
     id: id,
-    sourceMessageID: "message-\(id)",
+    turnID: "message-\(id)",
     sessionID: sessionID,
+    sequence: 0,
     scope: scope,
     occurredAt: timestamp,
-    rawText: id,
-    labels: [MemoryLabel.preference],
-    classifierVersion: "test-v1",
-    createdAt: timestamp,
-    updatedAt: timestamp
+    rawText: rawText ?? id,
+    labelEvidence: [
+      MemoryLabelEvidence(
+        label: .preference,
+        score: 0.8,
+        source: .prototype,
+        classifierVersion: "test-v1"
+      )
+    ],
+    createdAt: timestamp
   )
   return MemoryEmbeddingCandidate(
     observation: observation,

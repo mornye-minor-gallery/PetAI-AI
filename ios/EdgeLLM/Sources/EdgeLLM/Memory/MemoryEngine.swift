@@ -36,20 +36,23 @@ public actor MemoryEngine {
     private let diagnostics: any MemoryDiagnostics
     private let securityRequirement: MemoryStoreSecurityRequirement
     private let makeObservationID: @Sendable () -> String
+    private let makeGateResultID: @Sendable () -> String
     private let now: @Sendable () -> Date
     private var isPrepared = false
     private var lifecycleGeneration: UInt = 0
 
     public init(
         store: any MemoryObservationStoring,
-        classifier: any MemoryObservationClassifying =
-            NaivePreferenceEventClassifier(),
+        classifier: any MemoryObservationClassifying,
         embedder: (any TextEmbeddingProviding)? = nil,
         retriever: (any MemoryRetrieving)? = nil,
         diagnostics: any MemoryDiagnostics = MemoryDebugDiagnostics(),
         securityRequirement: MemoryStoreSecurityRequirement =
             .encryptedOnDeviceOnly,
         makeObservationID: @escaping @Sendable () -> String = {
+            UUID().uuidString.lowercased()
+        },
+        makeGateResultID: @escaping @Sendable () -> String = {
             UUID().uuidString.lowercased()
         },
         now: @escaping @Sendable () -> Date = {
@@ -63,6 +66,7 @@ public actor MemoryEngine {
         self.diagnostics = diagnostics
         self.securityRequirement = securityRequirement
         self.makeObservationID = makeObservationID
+        self.makeGateResultID = makeGateResultID
         self.now = now
     }
 
@@ -97,27 +101,49 @@ public actor MemoryEngine {
             in: .whitespacesAndNewlines
         )
         guard !trimmedText.isEmpty else {
-            return .ignored(.emptyText)
+            return .ignoredEmpty
         }
 
-        let labels = try await classifier.classify(request.rawText)
-        guard !labels.isEmpty else {
-            return .ignored(.notPreferenceOrEvent)
-        }
-
-        let timestamp = now()
-        let observation = MemoryObservation(
-            id: makeObservationID(),
-            sourceMessageID: request.sourceMessageID,
+        let turn = try await store.saveUserTurn(
+            id: request.sourceMessageID,
             sessionID: request.sessionID,
             scope: request.scope,
-            occurredAt: request.occurredAt,
             rawText: request.rawText,
-            labels: labels,
-            classifierVersion: classifier.version,
-            supersedesObservationID: request.supersedesObservationID,
-            createdAt: timestamp,
-            updatedAt: timestamp
+            occurredAt: request.occurredAt
+        )
+        let decision = try await classifier.evaluate(request.rawText)
+        let timestamp = now()
+        try requirePrepared()
+        try await store.saveGateResult(
+            MemoryGateResult(
+                id: makeGateResultID(),
+                turnID: turn.id,
+                decision: decision,
+                createdAt: timestamp
+            )
+        )
+
+        guard !decision.regex.hardIgnore else {
+            return MemoryRememberResult(
+                status: .skippedHardIgnore,
+                turn: turn,
+                gate: decision,
+                observation: nil
+            )
+        }
+
+        let observation = MemoryObservation(
+            id: makeObservationID(),
+            turnID: turn.id,
+            sessionID: turn.sessionID,
+            sequence: turn.sequence,
+            scope: turn.scope,
+            occurredAt: turn.occurredAt,
+            rawText: turn.rawText,
+            labelEvidence: decision.observationLabels.map(
+                decision.evidence(for:)
+            ),
+            createdAt: timestamp
         )
         let embedding = try await makeEmbedding(
             for: observation,
@@ -125,8 +151,18 @@ public actor MemoryEngine {
             createdAt: timestamp
         )
         try requirePrepared()
-        try await store.save(observation, embedding: embedding)
-        return .stored(observation)
+        try await store.saveObservation(
+            observation,
+            embedding: embedding
+        )
+        return MemoryRememberResult(
+            status: observation.labels.isEmpty
+                ? .indexedUnlabeled
+                : .indexed,
+            turn: turn,
+            gate: decision,
+            observation: observation
+        )
     }
 
     public func recall(
@@ -174,8 +210,7 @@ public actor MemoryEngine {
         try Self.validateIdentifier(scope.characterID, field: "characterID")
         try await store.markDeleted(
             observationID: observationID,
-            in: scope,
-            updatedAt: now()
+            in: scope
         )
     }
 
