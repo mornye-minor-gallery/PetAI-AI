@@ -293,6 +293,7 @@ public enum MemoryRememberStatus: String, Codable, Sendable {
     case indexed
     case indexedUnlabeled
     case skippedHardIgnore
+    case skippedNoMemorySignal
     case ignoredEmpty
 }
 

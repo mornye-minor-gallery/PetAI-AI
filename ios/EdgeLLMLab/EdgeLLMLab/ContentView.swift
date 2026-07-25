@@ -334,6 +334,8 @@ struct ContentView: View {
                 memoryWriteStatus = "Stored · unlabeled"
             case .skippedHardIgnore:
                 memoryWriteStatus = "Skipped · hard ignore"
+            case .skippedNoMemorySignal:
+                memoryWriteStatus = "Skipped · no memory signal"
             case .ignoredEmpty:
                 memoryWriteStatus = "Ignored · empty"
             }

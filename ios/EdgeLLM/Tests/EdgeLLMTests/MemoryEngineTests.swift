@@ -297,7 +297,7 @@ func koreanPrototypeResourceMatchesTheCanonicalEdgeMemSource() throws {
 }
 
 @Test
-func memoryEngineStoresUnlabeledRawObservationInsteadOfDroppingIt() async throws {
+func memoryEngineSkipsObservationWhenClassifierReturnsNone() async throws {
     let store = RecordingMemoryStore()
     let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
     let engine = MemoryEngine(
@@ -320,12 +320,13 @@ func memoryEngineStoresUnlabeledRawObservationInsteadOfDroppingIt() async throws
         )
     )
 
-    #expect(result.status == .indexedUnlabeled)
-    #expect(result.observation?.labels.isEmpty == true)
+    #expect(result.status == .skippedNoMemorySignal)
+    #expect(result.observation == nil)
     let snapshot = await store.snapshot()
     #expect(snapshot.turns.count == 1)
     #expect(snapshot.gates.count == 1)
-    #expect(snapshot.observations.count == 1)
+    #expect(snapshot.observations.isEmpty)
+    #expect(snapshot.embeddings.isEmpty)
 }
 
 @Test
