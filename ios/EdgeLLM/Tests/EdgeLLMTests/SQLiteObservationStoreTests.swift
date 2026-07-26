@@ -24,6 +24,16 @@ private struct SQLiteTestClassifier: MemoryObservationClassifying {
     }
 }
 
+private struct SQLiteFailingClassifier: MemoryObservationClassifying {
+    struct UnexpectedEvaluation: Error {}
+
+    let version = "must-not-run"
+
+    func evaluate(_ text: String) async throws -> MemoryGateDecision {
+        throw UnexpectedEvaluation()
+    }
+}
+
 private struct SQLiteDenseTestEmbedder: TextEmbeddingProviding {
     let modelID = "sqlite-dense-test-v1"
     let dimension = 3
@@ -174,6 +184,73 @@ func sqliteStoreDoesNotPersistUnlabeledObservationOrEmbedding() async throws {
 }
 
 @Test
+func taggedChatAxesPersistExactSQLiteLabelsWithoutClassifierFallback()
+    async throws
+{
+    let directory = temporaryMemoryDirectory()
+    let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
+    defer {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+    let engine = MemoryEngine(
+        store: SQLiteObservationStore(databaseURL: databaseURL),
+        classifier: SQLiteFailingClassifier(),
+        securityRequirement: .allowsUnencryptedAppPrivatePrototype
+    )
+    try await engine.prepare()
+
+    let cases: [
+        (
+            id: String,
+            label: MemoryGateLabel,
+            expected: [MemoryLabel]?
+        )
+    ] = [
+        ("message-none", MemoryGateLabel.none, nil),
+        ("message-preference", .preference, [.preference]),
+        ("message-event", .event, [.event]),
+        ("message-both", .both, [.event, .preference]),
+    ]
+
+    for item in cases {
+        let result = try await engine.remember(
+            MemoryWriteRequest(
+                sourceMessageID: item.id,
+                sessionID: "session-axes",
+                scope: scope,
+                rawText: "축분해 저장 테스트 \(item.id)"
+            ),
+            decision: .taggedChat(item.label)
+        )
+
+        if let expected = item.expected {
+            #expect(result.status == .indexed)
+            #expect(result.observation?.labels == expected)
+        } else {
+            #expect(result.status == .skippedNoMemorySignal)
+            #expect(result.observation == nil)
+        }
+    }
+
+    let observations = try await engine.activeObservations(in: scope)
+    #expect(observations.count == 3)
+    #expect(
+        observations.contains { $0.labels == [.preference] }
+    )
+    #expect(
+        observations.contains { $0.labels == [.event] }
+    )
+    #expect(
+        observations.contains {
+            $0.labels == [.event, .preference]
+        }
+    )
+    await engine.close()
+}
+
+@Test
 func canonicalStoreResetsTheOldPrototypeSchema() async throws {
     let directory = temporaryMemoryDirectory()
     let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
@@ -218,6 +295,107 @@ func canonicalStoreResetsTheOldPrototypeSchema() async throws {
     }
     #expect(tableExists("conversation_turns", in: reopened))
     #expect(!tableExists("memory_observations", in: reopened))
+}
+
+@Test
+func canonicalVersionOneMigratesAndPreservesExistingLabels() async throws {
+    let directory = temporaryMemoryDirectory()
+    let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
+    defer {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    var database: OpaquePointer?
+    #expect(sqlite3_open(databaseURL.path, &database) == SQLITE_OK)
+    let versionOneSQL =
+        """
+        CREATE TABLE schema_metadata (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+        INSERT INTO schema_metadata VALUES ('schema_version', '1');
+        CREATE TABLE conversation_turns (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            character_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            sequence INTEGER NOT NULL,
+            role TEXT NOT NULL,
+            text TEXT NOT NULL,
+            occurred_at TEXT NOT NULL,
+            content_hash TEXT NOT NULL,
+            deleted_at TEXT
+        );
+        CREATE TABLE observations (
+            id TEXT PRIMARY KEY,
+            turn_id TEXT NOT NULL UNIQUE,
+            state TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE observation_labels (
+            observation_id TEXT NOT NULL,
+            label TEXT NOT NULL,
+            score REAL,
+            source TEXT NOT NULL CHECK (
+                source IN (
+                    'regex',
+                    'prototype',
+                    'regex+prototype',
+                    'future_mlp'
+                )
+            ),
+            classifier_version TEXT NOT NULL,
+            PRIMARY KEY (observation_id, label)
+        );
+        INSERT INTO conversation_turns VALUES (
+            'turn-v1',
+            'local-user',
+            'emu',
+            'session-v1',
+            0,
+            'user',
+            '나는 딸기를 좋아해',
+            '2024-07-16T00:00:00.000Z',
+            'hash-v1',
+            NULL
+        );
+        INSERT INTO observations VALUES (
+            'observation-v1',
+            'turn-v1',
+            'active',
+            '2024-07-16T00:00:00.000Z'
+        );
+        INSERT INTO observation_labels VALUES (
+            'observation-v1',
+            'preference',
+            NULL,
+            'regex',
+            'legacy-v1'
+        );
+        """
+    #expect(
+        sqlite3_exec(
+            database,
+            versionOneSQL,
+            nil,
+            nil,
+            nil
+        ) == SQLITE_OK
+    )
+    sqlite3_close_v2(database)
+
+    let store = SQLiteObservationStore(databaseURL: databaseURL)
+    try await store.initialize()
+    let observations = try await store.activeObservations(
+        in: MemoryScope(userID: "local-user", characterID: "emu")
+    )
+
+    #expect(observations.count == 1)
+    #expect(observations.first?.labels == [.preference])
+    #expect(
+        observations.first?.labelEvidence.first?.source == .regex
+    )
+    await store.close()
 }
 
 @Test

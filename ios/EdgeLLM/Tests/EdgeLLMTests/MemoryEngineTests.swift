@@ -13,6 +13,16 @@ private struct FixedMemoryClassifier: MemoryObservationClassifying {
     }
 }
 
+private struct FailingMemoryClassifier: MemoryObservationClassifying {
+    struct UnexpectedEvaluation: Error {}
+
+    let version = "must-not-run"
+
+    func evaluate(_ text: String) async throws -> MemoryGateDecision {
+        throw UnexpectedEvaluation()
+    }
+}
+
 private func gateDecision(
     _ label: MemoryGateLabel,
     hardIgnore: Bool = false
@@ -386,6 +396,38 @@ func memoryEngineStoresBothLabelsOnOneObservation() async throws {
 }
 
 @Test
+func taggedChatDecisionBypassesTheConfiguredClassifier() async throws {
+    let store = RecordingMemoryStore()
+    let engine = MemoryEngine(
+        store: store,
+        classifier: FailingMemoryClassifier(),
+        makeObservationID: { "observation-header" }
+    )
+    try await engine.prepare()
+
+    let result = try await engine.remember(
+        MemoryWriteRequest(
+            sourceMessageID: "message-header",
+            sessionID: "session-1",
+            scope: MemoryScope(
+                userID: "local-user",
+                characterID: "emu"
+            ),
+            rawText: "어제 떡볶이를 먹었는데 완전 내 취향이야"
+        ),
+        decision: .taggedChat(.both)
+    )
+
+    #expect(result.status == .indexed)
+    #expect(result.observation?.labels == [.event, .preference])
+    #expect(
+        result.observation?.labelEvidence.allSatisfy {
+            $0.source == .gemmaHeader
+        } == true
+    )
+}
+
+@Test
 func memoryEngineStoresObservationAndDocumentEmbeddingTogether() async throws {
     let store = RecordingMemoryStore()
     let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
@@ -509,13 +551,14 @@ func retrievalFailureIsLoggedAndReturnsNoMemory() async {
 func sqliteSchemaIsTheFirstCanonicalObservationMemoryContract() {
     let schema = EdgeMemSQLiteSchema.statements.joined(separator: "\n")
 
-    #expect(EdgeMemSQLiteSchema.version == 1)
+    #expect(EdgeMemSQLiteSchema.version == 2)
     #expect(schema.contains("conversation_turns"))
     #expect(schema.contains("gate_results"))
     #expect(schema.contains("observations"))
     #expect(schema.contains("observation_labels"))
     #expect(schema.contains("observation_embeddings"))
     #expect(schema.contains("content_hash"))
+    #expect(schema.contains("gemma_header"))
     #expect(schema.contains("CHECK (decision IN"))
     #expect(!schema.contains("memory_observations"))
     #expect(!schema.lowercased().contains("fts5"))

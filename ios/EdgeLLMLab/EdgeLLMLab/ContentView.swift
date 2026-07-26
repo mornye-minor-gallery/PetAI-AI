@@ -14,6 +14,8 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @State private var runtime = LiteRTLMRuntime()
     @State private var memoryService = MemoryService()
+    @State private var memoryCommitGuard =
+        MemoryTaggedChatCommitGuard()
     @State private var embeddingAssetStore = EmbeddingAssetStore()
     @State private var isModelImporterPresented = false
     @State private var selectedModelURL: URL?
@@ -183,7 +185,10 @@ struct ContentView: View {
                 try await runtime.prepare(modelURL: modelURL)
                 try await runtime.startConversation(
                     configuration: ConversationConfiguration(
-                        systemPrompt: "You are a concise, helpful assistant."
+                        systemPrompt: MemoryTaggedChatPrompt.wrappedAxesV1,
+                        temperature: 0,
+                        topK: 40,
+                        topP: 1
                     )
                 )
                 status = "Ready"
@@ -221,23 +226,44 @@ struct ContentView: View {
             )
 
             do {
-                let stream = try await runtime.generateStream(
-                    prompt: generationPrompt
-                )
-                for try await chunk in stream {
-                    if firstChunkReceivedAt == nil {
-                        firstChunkReceivedAt = Date()
-                        status = "Generating · Receiving tokens"
+                let outcome = try await MemoryTaggedChatProcessor.run(
+                    primaryStream: {
+                        try await self.runtime.generateStream(
+                            prompt: generationPrompt
+                        )
+                    },
+                    retryStream: {
+                        try await self.runtime.generateStream(
+                            prompt: MemoryTaggedChatPrompt.answerOnlyRetry
+                        )
+                    },
+                    receiveVisibleText: { text in
+                        self.receiveVisibleChunk(text)
                     }
-                    response += chunk
-                    receivedCharacterCount += chunk.count
-                }
-                status = "Ready"
-                if memoryReady {
+                )
+                memoryGateStatus = formattedHeader(outcome.primary)
+
+                if !outcome.hasVisibleResponse {
+                    status = "No response body · try again"
+                    memoryWriteStatus = "Skipped · no response body"
+                } else if memoryReady,
+                    let decision = await memoryCommitGuard.claim(
+                        requestID: sourceMessageID,
+                        outcome: outcome
+                    )
+                {
+                    status = "Ready"
                     await rememberUserMessage(
                         userMessage,
-                        sourceMessageID: sourceMessageID
+                        sourceMessageID: sourceMessageID,
+                        label: decision
                     )
+                } else {
+                    status = "Ready"
+                    memoryWriteStatus =
+                        outcome.primary.decision == MemoryGateLabel.none
+                        ? "Skipped · Gemma chose N"
+                        : "Skipped · unresolved header"
                 }
             } catch {
                 status = error.localizedDescription
@@ -312,7 +338,8 @@ struct ContentView: View {
 
     private func rememberUserMessage(
         _ userMessage: String,
-        sourceMessageID: String
+        sourceMessageID: String,
+        label: MemoryGateLabel
     ) async {
         do {
             let result = try await memoryService.remember(
@@ -321,7 +348,8 @@ struct ContentView: View {
                     sessionID: memorySessionID,
                     scope: memoryScope,
                     rawText: userMessage
-                )
+                ),
+                decision: .taggedChat(label)
             )
             memoryGateStatus = formattedGate(result.gate)
             switch result.status {
@@ -345,6 +373,18 @@ struct ContentView: View {
                 "Memory save failed: \(error.localizedDescription, privacy: .public)"
             )
         }
+    }
+
+    private func receiveVisibleChunk(_ chunk: String) {
+        guard !chunk.isEmpty else {
+            return
+        }
+        if firstChunkReceivedAt == nil {
+            firstChunkReceivedAt = Date()
+            status = "Generating · Receiving tokens"
+        }
+        response += chunk
+        receivedCharacterCount += chunk.count
     }
 
     private func cancelGeneration() {
@@ -428,6 +468,13 @@ struct ContentView: View {
             ?? "n/a"
         return
             "\(gate.label.rawValue) · pref \(preference) · event \(event)"
+    }
+
+    private func formattedHeader(
+        _ result: MemoryHeaderGateResult
+    ) -> String {
+        let decision = result.decision?.rawValue ?? "unresolved"
+        return "\(decision) · \(result.syntax.rawValue)"
     }
 }
 

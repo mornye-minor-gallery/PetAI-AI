@@ -22,6 +22,7 @@ public enum MemoryLabelSource: String, Codable, Sendable {
     case prototype
     case regexAndPrototype = "regex+prototype"
     case futureMLP = "future_mlp"
+    case gemmaHeader = "gemma_header"
 }
 
 public struct MemoryScope: Codable, Equatable, Hashable, Sendable {
@@ -154,7 +155,9 @@ public struct MemoryGateDecision: Codable, Equatable, Sendable {
             ? preferenceScore
             : eventScore
         let source: MemoryLabelSource
-        if classifierVersion.hasPrefix("mlp:") {
+        if classifierVersion.hasPrefix("gemma-header:") {
+            source = .gemmaHeader
+        } else if classifierVersion.hasPrefix("mlp:") {
             source = .futureMLP
         } else if regexHit, score != nil {
             source = .regexAndPrototype
@@ -168,6 +171,27 @@ public struct MemoryGateDecision: Codable, Equatable, Sendable {
             score: score,
             source: source,
             classifierVersion: classifierVersion
+        )
+    }
+
+    public static func taggedChat(
+        _ label: MemoryGateLabel,
+        version: String = "wrapped-axes-v1"
+    ) -> MemoryGateDecision {
+        MemoryGateDecision(
+            label: label,
+            regex: MemoryRegexGateResult(
+                preferenceHit:
+                    label == .preference || label == .both,
+                eventHit:
+                    label == .event || label == .both
+            ),
+            preferenceScore: nil,
+            eventScore: nil,
+            preferenceThreshold: 0,
+            eventThreshold: 0,
+            classifierVersion: "gemma-header:\(version)",
+            embeddingModelID: nil
         )
     }
 }
