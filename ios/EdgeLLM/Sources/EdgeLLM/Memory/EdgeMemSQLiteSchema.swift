@@ -1,7 +1,63 @@
 public enum EdgeMemSQLiteSchema {
-    /// This is the first canonical product schema. Earlier prototype tables
-    /// are intentionally reset instead of migrated.
-    public static let version = 1
+    /// Version 2 adds `gemma_header` label provenance. Earlier prototype
+    /// tables are intentionally reset; canonical version 1 is migrated.
+    public static let version = 2
+
+    public static let migrateVersion1ToVersion2 = [
+        """
+        DROP INDEX IF EXISTS idx_observation_labels_label;
+        """,
+        """
+        ALTER TABLE observation_labels
+        RENAME TO observation_labels_v1;
+        """,
+        """
+        CREATE TABLE observation_labels (
+            observation_id TEXT NOT NULL
+                REFERENCES observations(id)
+                ON DELETE CASCADE,
+            label TEXT NOT NULL
+                CHECK (label IN ('preference', 'event')),
+            score REAL,
+            source TEXT NOT NULL
+                CHECK (
+                    source IN (
+                        'regex',
+                        'prototype',
+                        'regex+prototype',
+                        'future_mlp',
+                        'gemma_header'
+                    )
+                ),
+            classifier_version TEXT NOT NULL,
+            PRIMARY KEY (observation_id, label)
+        );
+        """,
+        """
+        INSERT INTO observation_labels(
+            observation_id,
+            label,
+            score,
+            source,
+            classifier_version
+        )
+        SELECT
+            observation_id,
+            label,
+            score,
+            source,
+            classifier_version
+        FROM observation_labels_v1;
+        """,
+        """
+        DROP TABLE observation_labels_v1;
+        """,
+        """
+        UPDATE schema_metadata
+        SET value = '2'
+        WHERE key = 'schema_version';
+        """,
+    ]
 
     public static let statements = [
         """
@@ -96,7 +152,8 @@ public enum EdgeMemSQLiteSchema {
                         'regex',
                         'prototype',
                         'regex+prototype',
-                        'future_mlp'
+                        'future_mlp',
+                        'gemma_header'
                     )
                 ),
             classifier_version TEXT NOT NULL,

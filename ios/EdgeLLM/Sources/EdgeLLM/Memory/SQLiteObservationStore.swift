@@ -110,11 +110,25 @@ public actor SQLiteObservationStore:
             try execute(EdgeMemSQLiteSchema.statements[1])
 
             if let existingVersion = try existingSchemaVersion(),
-               existingVersion != EdgeMemSQLiteSchema.version {
-                throw SQLiteObservationStoreError.unsupportedSchemaVersion(
-                    found: existingVersion,
-                    expected: EdgeMemSQLiteSchema.version
-                )
+                existingVersion != EdgeMemSQLiteSchema.version
+            {
+                if existingVersion == 1,
+                    EdgeMemSQLiteSchema.version == 2
+                {
+                    try transaction {
+                        for statement in
+                            EdgeMemSQLiteSchema.migrateVersion1ToVersion2
+                        {
+                            try execute(statement)
+                        }
+                    }
+                } else {
+                    throw SQLiteObservationStoreError
+                        .unsupportedSchemaVersion(
+                            found: existingVersion,
+                            expected: EdgeMemSQLiteSchema.version
+                        )
+                }
             }
 
             try transaction {

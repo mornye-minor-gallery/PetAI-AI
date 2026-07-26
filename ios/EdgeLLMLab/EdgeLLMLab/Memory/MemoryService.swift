@@ -149,6 +149,17 @@ actor MemoryService {
     return try await engine.remember(request)
   }
 
+  func remember(
+    _ request: MemoryWriteRequest,
+    decision: MemoryGateDecision
+  ) async throws -> MemoryRememberResult {
+    let engine = try requirePrepared()
+    return try await engine.remember(
+      request,
+      decision: decision
+    )
+  }
+
   func recall(
     _ request: MemorySearchRequest
   ) async throws -> [RetrievedMemoryObservation] {

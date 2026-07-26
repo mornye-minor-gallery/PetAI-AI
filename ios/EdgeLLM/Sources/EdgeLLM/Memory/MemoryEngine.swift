@@ -85,6 +85,20 @@ public actor MemoryEngine {
     public func remember(
         _ request: MemoryWriteRequest
     ) async throws -> MemoryRememberResult {
+        try await remember(request, decisionOverride: nil)
+    }
+
+    public func remember(
+        _ request: MemoryWriteRequest,
+        decision: MemoryGateDecision
+    ) async throws -> MemoryRememberResult {
+        try await remember(request, decisionOverride: decision)
+    }
+
+    private func remember(
+        _ request: MemoryWriteRequest,
+        decisionOverride: MemoryGateDecision?
+    ) async throws -> MemoryRememberResult {
         try requirePrepared()
         try Self.validateIdentifier(
             request.sourceMessageID,
@@ -111,7 +125,12 @@ public actor MemoryEngine {
             rawText: request.rawText,
             occurredAt: request.occurredAt
         )
-        let decision = try await classifier.evaluate(request.rawText)
+        let decision: MemoryGateDecision
+        if let decisionOverride {
+            decision = decisionOverride
+        } else {
+            decision = try await classifier.evaluate(request.rawText)
+        }
         let timestamp = now()
         try requirePrepared()
         try await store.saveGateResult(
