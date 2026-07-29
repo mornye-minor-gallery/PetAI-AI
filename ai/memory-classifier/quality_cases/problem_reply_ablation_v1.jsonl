@@ -1,0 +1,8 @@
+{"id":"memory-83de70b2b9454ba1b16afdf6b96ddfc7","category":"negation_preservation","criterion":"사용자가 버스를 탔거나 지하철을 선호한다고 재단하지 않고 두 주장을 모두 부정으로 유지한다.","utterance":"나는 버스를 탄 것도 아니고 지하철을 선호한다고 한 적도 없어."}
+{"id":"memory-3cb7749bcae24ba59223cef1163de80a","category":"question_preservation","criterion":"수진이의 관람을 사실로 확정하지 않고 질문 또는 불확실성으로 처리한다.","utterance":"수진이가 동네 연극을 보고 왔다고 했어?"}
+{"id":"memory-1ba72e6ea98f4d209915eda897975283","category":"speaker_preservation","criterion":"원목 가구 선호를 사용자의 취향으로 반영하고 어시스턴트 자신의 취향처럼 말하지 않는다.","utterance":"언니는 화려한 벨벳 소파가 예쁘다지만 나는 늘 선이 단순한 원목 가구를 선호해."}
+{"id":"memory-f42a8a866fdc4ad3972ff58c357e84a6","category":"subject_preservation","criterion":"사용자가 만난 가구 조립 기사와 동생이 만난 청소 업체 직원을 서로 다른 주체의 사건으로 유지한다.","utterance":"난 가구 조립 기사님을 만나서 식탁 상태를 확인했고, 동생은 따로 청소 업체 직원 만났다더라 ㅋㅋ."}
+{"id":"memory-751897c7ad684ba3b7f4663875562814","category":"referent_preservation","criterion":"사용자가 공연 개최 여부를 묻는다는 점을 이해하고 어시스턴트의 직접 관람 경험으로 바꾸지 않는다.","utterance":"내가 그 공연을 봤다는 게, 아니 좋아한다는 게 아니라 너한테 실제로 열렸는지 묻는 거야."}
+{"id":"memory-8e281724b9214285a751a520a6f847e4","category":"non_meta_conversation","criterion":"만원 버스 경험과 지하철 선택에 자연스럽게 반응하고 분류 기준이나 지속적 방침 같은 메타 표현을 노출하지 않는다.","utterance":"만원 버스에서 한 시간 서서 온 뒤로 출근길에는 계속 지하철만 탈 거야."}
+{"id":"memory-4870c172a66b4542bc25277e715c479b","category":"responsive_uncertainty","criterion":"민지의 선호를 알 근거가 없다고 답하거나 추가 정보를 요청하며 사용자 질문을 그대로 되풀이하지 않는다.","utterance":"민지는 강의 영상과 종이 교재 중 어느 쪽을 더 좋아한대?"}
+{"id":"memory-94cff4ddd362431a9a6397be636d9f7b","category":"third_person_hypothetical","criterion":"지수의 가정적 다음 행동을 논의하고 어시스턴트 자신이 예매할지에 대한 답으로 주체를 바꾸지 않는다.","utterance":"만약 지수가 그 전시를 보고 ‘좋아’라고 말한다면 다음 공연도 예매할까?"}
