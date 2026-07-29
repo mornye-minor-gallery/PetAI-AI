@@ -1,0 +1,14 @@
+[project]
+name = "petai-memory-classifier"
+version = "0.1.0"
+description = "Reproducible macOS EmbeddingGemma feature extraction for PetAI memory classification"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "ai-edge-litert==2.1.3",
+    "numpy>=2.0,<3",
+    "scikit-learn>=1.7,<2",
+    "sentencepiece==0.2.1",
+]
+
+[tool.uv]
+package = false

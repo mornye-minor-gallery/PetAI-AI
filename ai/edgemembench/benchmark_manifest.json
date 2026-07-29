@@ -1,0 +1,52 @@
+{
+  "name": "EdgeMemBench",
+  "version": "0.1.0",
+  "profile": "edgemem-abcd-v0",
+  "description": "Repository-local evaluation set for memory admission, retrieval, update handling, and abstention.",
+  "axes": {
+    "A": {
+      "task": "storage_decision",
+      "expected_cases": 300
+    },
+    "B": {
+      "task": "single_memory_retrieval",
+      "expected_cases": 92
+    },
+    "C": {
+      "task": "knowledge_update",
+      "expected_cases": 72
+    },
+    "D": {
+      "task": "abstention",
+      "expected_cases": 30
+    }
+  },
+  "excluded_from_v0": {
+    "E": "multi-memory composition",
+    "F": "persona-level personalization"
+  },
+  "sources": {
+    "storage_test": {
+      "name": "PetAI memory-classifier balanced test",
+      "sha256": "5e9ada81aa29569b2b9dea044baeb5f6dff5dfb31680aa9441f725bf259a82bb",
+      "expected_cases": 200
+    },
+    "storage_synthetic_challenge": {
+      "name": "PetAI memory-classifier balanced synthetic challenge",
+      "sha256": "4cf18e2898f2c95c9f681986cd662a4d4f46824e4ea4aeed17a8efc3523b5be5",
+      "expected_cases": 100
+    },
+    "storage_decision_normalized": {
+      "name": "EdgeMemBench v0 normalized storage decision set",
+      "sha256": "4f344e1aaea92148f0f87a5841e97615de91c4cba8f15cc851316cf7e50cf7fd",
+      "expected_cases": 300
+    },
+    "longmemeval_s_cleaned": {
+      "name": "LongMemEval-S cleaned",
+      "url": "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json",
+      "sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+      "license": "MIT",
+      "citation": "Wu et al., LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory, ICLR 2025"
+    }
+  }
+}
