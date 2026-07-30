@@ -1,6 +1,6 @@
 {
   "name": "EdgeMemBench",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "profile": "edgemem-abcd-v0",
   "description": "Repository-local evaluation set for memory admission, retrieval, update handling, and abstention.",
   "axes": {
@@ -25,6 +25,70 @@
     "E": "multi-memory composition",
     "F": "persona-level personalization"
   },
+  "evaluation_contract": {
+    "admission": {
+      "A": "Run the actual memory admission decision.",
+      "B-D": "Bypass admission and inject every user turn as an existing memory observation."
+    },
+    "B": {
+      "hit_at_k": "Success when any gold evidence appears in top K.",
+      "mrr": "Use the best-ranked gold evidence.",
+      "recall_at_k": "Fraction of all gold evidence recovered in top K."
+    },
+    "C": {
+      "subtypes": [
+        "current_state",
+        "historical_state",
+        "multi_state",
+        "single_state"
+      ],
+      "retrieval_metrics": [
+        "target_hit_at_k",
+        "best_target_mrr",
+        "target_recall_at_k",
+        "target_before_competing"
+      ],
+      "scoring_policy": "Use the manually reviewed target/competing/context partition. Excluded source-contract cases remain in artifacts but do not contribute to aggregate scores.",
+      "known_baseline_limitation": "The current product memory prompt does not expose timestamps to the reader."
+    },
+    "D": {
+      "subtypes": [
+        "partial_evidence",
+        "absent_evidence"
+      ],
+      "retrieval_metrics": [
+        "query_level_auroc",
+        "threshold_sweep"
+      ],
+      "reader_metrics": [
+        "abstention_accuracy",
+        "false_answer_rate"
+      ],
+      "threshold_policy": "Do not select or tune an operating threshold on the v0 test set."
+    }
+  },
+  "artifacts": {
+    "storage_decision.jsonl": {
+      "axis": "A",
+      "expected_cases": 300,
+      "sha256": "4f344e1aaea92148f0f87a5841e97615de91c4cba8f15cc851316cf7e50cf7fd"
+    },
+    "single_memory_retrieval.jsonl": {
+      "axis": "B",
+      "expected_cases": 92,
+      "sha256": "304f6ee685980200898809b80367aad5ca0271333665d1d605364031594cadf9"
+    },
+    "knowledge_update.jsonl": {
+      "axis": "C",
+      "expected_cases": 72,
+      "sha256": "0c56f6f9b175569fa834e2ececf2c81f207b0614639725c706022ae4df6aa546"
+    },
+    "abstention.jsonl": {
+      "axis": "D",
+      "expected_cases": 30,
+      "sha256": "38371f9665511c3b59e0c63ebe22a7a7b07d5a7950319340c449cc7e4b65cdb4"
+    }
+  },
   "sources": {
     "storage_test": {
       "name": "PetAI memory-classifier balanced test",
@@ -40,6 +104,11 @@
       "name": "EdgeMemBench v0 normalized storage decision set",
       "sha256": "4f344e1aaea92148f0f87a5841e97615de91c4cba8f15cc851316cf7e50cf7fd",
       "expected_cases": 300
+    },
+    "knowledge_update_annotations": {
+      "name": "EdgeMemBench manually reviewed knowledge-update annotations",
+      "sha256": "5e8ef6fa4e3a1fbdb3cce7b6b7ad4887c30eaf47190df189137fa07677267738",
+      "expected_cases": 72
     },
     "longmemeval_s_cleaned": {
       "name": "LongMemEval-S cleaned",

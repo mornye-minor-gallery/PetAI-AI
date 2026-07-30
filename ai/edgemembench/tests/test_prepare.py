@@ -3,6 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import sys
 
@@ -25,7 +26,7 @@ def source_record(
         "answer": "sushi",
         "answer_session_ids": ["s1"],
         "haystack_session_ids": ["s1"],
-        "haystack_dates": ["2026-01-01"],
+        "haystack_dates": ["2026/01/01 (Thu) 09:00"],
         "haystack_sessions": [
             [
                 {"role": role, "content": "I ate sushi.", "has_answer": has_answer},
@@ -34,6 +35,30 @@ def source_record(
             ]
         ],
     }
+
+
+def add_c_contract(
+    record: dict,
+    *,
+    status: str = "scored",
+    subtype: str = "current_state",
+) -> dict:
+    expected = record["expected"]
+    gold = expected["gold_evidence_turn_ids"]
+    expected.update(
+        {
+            "evaluation_status": status,
+            "temporal_subtype": subtype,
+            "target_evidence_turn_ids": [gold[-1]],
+            "competing_evidence_turn_ids": gold[:-1],
+            "context_evidence_turn_ids": [],
+            "exclusion_reason": (
+                None if status == "scored" else "fixture_exclusion"
+            ),
+            "annotation_rationale": "Fixture annotation.",
+        }
+    )
+    return record
 
 
 class StorageTests(unittest.TestCase):
@@ -82,7 +107,7 @@ class LongMemEvalAdapterTests(unittest.TestCase):
         self.assertEqual([turn["role"] for turn in turns], ["user", "user"])
         self.assertEqual(
             normalized["expected"]["gold_evidence_turn_ids"],
-            ["s1::turn-0000"],
+            ["s1::session-0000::turn-0000"],
         )
 
     def test_empty_non_evidence_user_turn_is_dropped(self) -> None:
@@ -110,7 +135,7 @@ class LongMemEvalAdapterTests(unittest.TestCase):
         self.assertEqual(normalized["expected"]["gold_evidence_turn_ids"], [])
         self.assertEqual(
             normalized["expected"]["partial_evidence_turn_ids"],
-            ["s1::turn-0000"],
+            ["s1::session-0000::turn-0000"],
         )
 
     def test_missing_gold_is_rejected_for_answerable_case(self) -> None:
@@ -134,6 +159,243 @@ class LongMemEvalAdapterTests(unittest.TestCase):
         normalized["expected"]["gold_evidence_turn_ids"] = ["missing"]
         with self.assertRaises(prepare.BenchmarkError):
             prepare.validate_memory_records("B", [normalized], 1)
+
+    def test_b_preserves_multiple_gold_evidence_turns(self) -> None:
+        record = source_record()
+        record["haystack_sessions"][0][2]["has_answer"] = True
+        normalized = prepare.normalize_longmemeval_record(
+            record, "B", "single_memory_retrieval"
+        )
+        self.assertEqual(
+            normalized["expected"]["gold_evidence_turn_ids"],
+            [
+                "s1::session-0000::turn-0000",
+                "s1::session-0000::turn-0002",
+            ],
+        )
+
+    def test_duplicate_source_session_ids_become_unique(self) -> None:
+        record = source_record()
+        record["haystack_session_ids"] = ["same", "same"]
+        record["haystack_dates"] = [
+            "2026/01/02 (Fri) 09:00",
+            "2026/01/01 (Thu) 09:00",
+        ]
+        record["haystack_sessions"] = [
+            record["haystack_sessions"][0],
+            [{"role": "user", "content": "Earlier memory."}],
+        ]
+        record["answer_session_ids"] = ["same"]
+        normalized = prepare.normalize_longmemeval_record(
+            record, "B", "single_memory_retrieval"
+        )
+        self.assertEqual(
+            [session["session_id"] for session in normalized["history"]],
+            ["same::session-0001", "same::session-0000"],
+        )
+        prepare.validate_memory_records("B", [normalized], 1)
+
+    def test_history_is_sorted_by_parsed_timestamp(self) -> None:
+        record = source_record()
+        record["haystack_session_ids"] = ["later", "earlier"]
+        record["haystack_dates"] = [
+            "2026/02/01 (Sun) 09:00",
+            "2026/01/31 (Sat) 23:00",
+        ]
+        record["haystack_sessions"] = [
+            record["haystack_sessions"][0],
+            [{"role": "user", "content": "Earlier memory."}],
+        ]
+        record["answer_session_ids"] = ["later"]
+        normalized = prepare.normalize_longmemeval_record(
+            record, "B", "single_memory_retrieval"
+        )
+        self.assertEqual(
+            [session["source_session_id"] for session in normalized["history"]],
+            ["earlier", "later"],
+        )
+
+    def test_c_normalization_does_not_guess_latest_as_target(self) -> None:
+        record = source_record(question_type="knowledge-update")
+        record["haystack_session_ids"] = ["old", "new"]
+        record["haystack_dates"] = [
+            "2026/01/01 (Thu) 09:00",
+            "2026/02/01 (Sun) 09:00",
+        ]
+        record["haystack_sessions"] = [
+            [{"role": "user", "content": "I prefer tea.", "has_answer": True}],
+            [{"role": "user", "content": "I now prefer coffee.", "has_answer": True}],
+        ]
+        record["answer_session_ids"] = ["old", "new"]
+        normalized = prepare.normalize_longmemeval_record(
+            record, "C", "knowledge_update"
+        )
+        self.assertNotIn("target_evidence_turn_ids", normalized["expected"])
+        self.assertNotIn("current_evidence_turn_ids", normalized["expected"])
+
+    def test_c_annotation_resolves_manual_historical_target(self) -> None:
+        record = source_record(
+            question_id="q2",
+            question_type="knowledge-update",
+        )
+        record["haystack_session_ids"] = ["old", "new"]
+        record["haystack_dates"] = [
+            "2026/01/01 (Thu) 09:00",
+            "2026/02/01 (Sun) 09:00",
+        ]
+        record["haystack_sessions"] = [
+            [{"role": "user", "content": "Old state.", "has_answer": True}],
+            [{"role": "user", "content": "New state.", "has_answer": True}],
+        ]
+        record["answer_session_ids"] = ["old", "new"]
+        normalized = prepare.normalize_longmemeval_record(
+            record, "C", "knowledge_update"
+        )
+        annotation = {
+            "case_id": "edgemem-c-q2",
+            "evaluation_status": "scored",
+            "temporal_subtype": "historical_state",
+            "target_evidence_ordinals": [1],
+            "competing_evidence_ordinals": [2],
+            "context_evidence_ordinals": [],
+            "exclusion_reason": None,
+            "rationale": "The question explicitly asks for the old state.",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "annotations.jsonl"
+            prepare.write_jsonl_atomic(path, [annotation])
+            with (
+                mock.patch.object(prepare, "verify_file"),
+                mock.patch.object(
+                    prepare,
+                    "load_manifest",
+                    return_value={
+                        "sources": {
+                            "knowledge_update_annotations": {
+                                "name": "fixture",
+                                "sha256": "fixture",
+                                "expected_cases": 1,
+                            }
+                        }
+                    },
+                ),
+            ):
+                prepare.apply_knowledge_update_annotations([normalized], path)
+        self.assertEqual(
+            normalized["expected"]["target_evidence_turn_ids"],
+            ["old::session-0000::turn-0000"],
+        )
+        self.assertEqual(
+            normalized["expected"]["competing_evidence_turn_ids"],
+            ["new::session-0001::turn-0000"],
+        )
+        prepare.validate_memory_records("C", [normalized], 1)
+
+    def test_d_subtype_distinguishes_partial_from_absent(self) -> None:
+        partial = prepare.normalize_longmemeval_record(
+            source_record(question_id="partial_abs"),
+            "D",
+            "abstention",
+        )
+        absent_record = source_record(
+            question_id="absent_abs",
+            has_answer=False,
+        )
+        absent_record["answer_session_ids"] = []
+        absent = prepare.normalize_longmemeval_record(
+            absent_record, "D", "abstention"
+        )
+        self.assertEqual(partial["expected"]["subtype"], "partial_evidence")
+        self.assertEqual(absent["expected"]["subtype"], "absent_evidence")
+
+    def test_old_schema_without_source_session_id_is_rejected(self) -> None:
+        normalized = prepare.normalize_longmemeval_record(
+            source_record(), "B", "single_memory_retrieval"
+        )
+        del normalized["history"][0]["source_session_id"]
+        with self.assertRaises(prepare.BenchmarkError):
+            prepare.validate_memory_records("B", [normalized], 1)
+
+    def test_duplicate_turn_id_is_rejected(self) -> None:
+        normalized = prepare.normalize_longmemeval_record(
+            source_record(), "B", "single_memory_retrieval"
+        )
+        turns = normalized["history"][0]["turns"]
+        turns[1]["turn_id"] = turns[0]["turn_id"]
+        with self.assertRaises(prepare.BenchmarkError):
+            prepare.validate_memory_records("B", [normalized], 1)
+
+    def test_unsorted_history_is_rejected(self) -> None:
+        record = source_record()
+        record["haystack_session_ids"] = ["first", "second"]
+        record["haystack_dates"] = [
+            "2026/01/01 (Thu) 09:00",
+            "2026/01/02 (Fri) 09:00",
+        ]
+        record["haystack_sessions"] = [
+            record["haystack_sessions"][0],
+            [{"role": "user", "content": "Second memory."}],
+        ]
+        record["answer_session_ids"] = ["first"]
+        normalized = prepare.normalize_longmemeval_record(
+            record, "B", "single_memory_retrieval"
+        )
+        normalized["history"].reverse()
+        with self.assertRaises(prepare.BenchmarkError):
+            prepare.validate_memory_records("B", [normalized], 1)
+
+    def test_missing_answer_session_is_rejected(self) -> None:
+        normalized = prepare.normalize_longmemeval_record(
+            source_record(), "B", "single_memory_retrieval"
+        )
+        normalized["expected"]["answer_session_ids"] = ["missing"]
+        with self.assertRaises(prepare.BenchmarkError):
+            prepare.validate_memory_records("B", [normalized], 1)
+
+    def test_invalid_c_partition_is_rejected(self) -> None:
+        normalized = add_c_contract(
+            prepare.normalize_longmemeval_record(
+                source_record(question_type="knowledge-update"),
+                "C",
+                "knowledge_update",
+            )
+        )
+        normalized["expected"]["target_evidence_turn_ids"] = []
+        with self.assertRaises(prepare.BenchmarkError):
+            prepare.validate_memory_records("C", [normalized], 1)
+
+    def test_excluded_c_case_requires_reason(self) -> None:
+        normalized = add_c_contract(
+            prepare.normalize_longmemeval_record(
+                source_record(question_type="knowledge-update"),
+                "C",
+                "knowledge_update",
+            ),
+            status="excluded",
+        )
+        normalized["expected"]["exclusion_reason"] = None
+        with self.assertRaises(prepare.BenchmarkError):
+            prepare.validate_memory_records("C", [normalized], 1)
+
+    def test_wrong_task_is_rejected(self) -> None:
+        normalized = prepare.normalize_longmemeval_record(
+            source_record(), "B", "single_memory_retrieval"
+        )
+        normalized["task"] = "wrong"
+        with self.assertRaises(prepare.BenchmarkError):
+            prepare.validate_memory_records("B", [normalized], 1)
+
+    def test_numeric_answer_is_normalized_to_string(self) -> None:
+        record = source_record()
+        record["answer"] = 120
+        normalized = prepare.normalize_longmemeval_record(
+            record, "B", "single_memory_retrieval"
+        )
+        self.assertEqual(normalized["expected"]["answer"], "120")
+
+    def test_timestamp_parser_rejects_non_contract_format(self) -> None:
+        with self.assertRaises(prepare.BenchmarkError):
+            prepare.parse_timestamp("2026-01-01")
 
 
 class DeterminismTests(unittest.TestCase):
