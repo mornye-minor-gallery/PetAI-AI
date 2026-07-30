@@ -222,6 +222,9 @@ public actor Engine {
     if !messagesJsonStr.isEmpty {
       litert_lm_conversation_config_set_messages(cConversationConfig, messagesJsonStr)
     }
+    litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(
+      cConversationConfig,
+      conversationConfig.filterChannelContentFromKVCache)
     litert_lm_conversation_config_set_enable_constrained_decoding(
       cConversationConfig, ExperimentalFlags.enableConversationConstrainedDecoding)
     litert_lm_conversation_config_set_stream_tool_calls(
