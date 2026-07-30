@@ -7,10 +7,12 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
@@ -18,6 +20,9 @@ from typing import Any, Iterable, Iterator
 ROOT = Path(__file__).resolve().parent
 MANIFEST_PATH = ROOT / "benchmark_manifest.json"
 DEFAULT_STORAGE_PATH = ROOT / "data" / "storage_decision.jsonl"
+DEFAULT_KNOWLEDGE_UPDATE_ANNOTATIONS_PATH = (
+    ROOT / "data" / "knowledge_update_annotations.jsonl"
+)
 DEFAULT_ARTIFACT_DIR = ROOT / ".artifacts" / "v0"
 DEFAULT_CACHE_PATH = ROOT / ".artifacts" / "cache" / "longmemeval_s_cleaned.json"
 
@@ -27,6 +32,18 @@ OUTPUT_FILES = {
     "C": "knowledge_update.jsonl",
     "D": "abstention.jsonl",
 }
+
+TASKS = {
+    "A": "storage_decision",
+    "B": "single_memory_retrieval",
+    "C": "knowledge_update",
+    "D": "abstention",
+}
+
+TIMESTAMP_PATTERN = re.compile(
+    r"^(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2}) "
+    r"\([A-Za-z]{3}\) (?P<hour>\d{2}):(?P<minute>\d{2})$"
+)
 
 
 class BenchmarkError(RuntimeError):
@@ -187,6 +204,31 @@ def import_storage(test_path: Path, challenge_path: Path, output_path: Path) -> 
     verify_file(output_path, normalized_spec["sha256"], normalized_spec["name"])
 
 
+def parse_timestamp(value: Any) -> tuple[int, int, int, int, int]:
+    if not isinstance(value, str):
+        raise BenchmarkError("timestamp must be a string")
+    match = TIMESTAMP_PATTERN.fullmatch(value)
+    if match is None:
+        raise BenchmarkError(f"invalid timestamp: {value!r}")
+    parts = tuple(int(match.group(name)) for name in (
+        "year",
+        "month",
+        "day",
+        "hour",
+        "minute",
+    ))
+    year, month, day, hour, minute = parts
+    try:
+        datetime(year, month, day, hour, minute)
+    except ValueError as exc:
+        raise BenchmarkError(f"invalid timestamp: {value!r}") from exc
+    return year, month, day, hour, minute
+
+
+def normalized_session_id(source_session_id: str, source_index: int) -> str:
+    return f"{source_session_id}::session-{source_index:04d}"
+
+
 def turn_id(session_id: str, turn_index: int) -> str:
     return f"{session_id}::turn-{turn_index:04d}"
 
@@ -219,20 +261,66 @@ def normalize_longmemeval_record(
     task: str,
 ) -> dict[str, Any]:
     question_id = str(record["question_id"])
+    query = record.get("question")
+    if not isinstance(query, str) or not query.strip():
+        raise BenchmarkError(f"{question_id}: question must be a non-empty string")
+    answer = record.get("answer")
+    if isinstance(answer, bool) or not isinstance(answer, (str, int, float)):
+        raise BenchmarkError(f"{question_id}: answer must be a string or number")
+
     dates = record.get("haystack_dates", [])
     session_ids = record.get("haystack_session_ids", [])
     sessions = record.get("haystack_sessions", [])
     if not (len(dates) == len(session_ids) == len(sessions)):
         raise BenchmarkError(f"{question_id}: session metadata lengths differ")
 
+    raw_answer_session_ids = record.get("answer_session_ids", [])
+    if not isinstance(raw_answer_session_ids, list) or any(
+        not isinstance(value, (str, int)) for value in raw_answer_session_ids
+    ):
+        raise BenchmarkError(f"{question_id}: invalid answer_session_ids")
+    raw_answer_session_ids = {str(value) for value in raw_answer_session_ids}
+
+    source_sessions: list[dict[str, Any]] = []
+    for source_index, (session_id, date, session) in enumerate(
+        zip(session_ids, dates, sessions, strict=True)
+    ):
+        if not isinstance(session, list):
+            raise BenchmarkError(f"{question_id}: session must be a list")
+        source_session_id = str(session_id)
+        source_sessions.append(
+            {
+                "source_index": source_index,
+                "source_session_id": source_session_id,
+                "session_id": normalized_session_id(
+                    source_session_id, source_index
+                ),
+                "timestamp": str(date),
+                "timestamp_key": parse_timestamp(date),
+                "turns": session,
+            }
+        )
+    source_sessions.sort(
+        key=lambda session: (session["timestamp_key"], session["source_index"])
+    )
+
     normalized_sessions: list[dict[str, Any]] = []
     gold_evidence_turn_ids: list[str] = []
     partial_evidence_turn_ids: list[str] = []
+    answer_session_ids: list[str] = []
+    matched_answer_source_ids: set[str] = set()
     is_abstention = axis == "D"
-    for session_id, date, session in zip(session_ids, dates, sessions, strict=True):
+    for source_session in source_sessions:
+        session_id = source_session["session_id"]
+        source_session_id = source_session["source_session_id"]
+        if source_session_id in raw_answer_session_ids:
+            answer_session_ids.append(session_id)
+            matched_answer_source_ids.add(source_session_id)
         user_turns: list[dict[str, Any]] = []
-        for source_index, turn in enumerate(session):
-            source_turn_id = turn_id(str(session_id), source_index)
+        for source_index, turn in enumerate(source_session["turns"]):
+            if not isinstance(turn, dict):
+                raise BenchmarkError(f"{question_id}: turn must be an object")
+            source_turn_id = turn_id(session_id, source_index)
             if turn.get("has_answer") is True:
                 if turn.get("role") != "user":
                     raise BenchmarkError(
@@ -258,36 +346,155 @@ def normalize_longmemeval_record(
             )
         normalized_sessions.append(
             {
-                "session_id": str(session_id),
-                "timestamp": str(date),
+                "session_id": session_id,
+                "source_session_id": source_session_id,
+                "timestamp": source_session["timestamp"],
                 "turns": user_turns,
             }
         )
 
+    if matched_answer_source_ids != raw_answer_session_ids:
+        raise BenchmarkError(
+            f"{question_id}: answer_session_ids reference missing history sessions"
+        )
     if not is_abstention and not gold_evidence_turn_ids:
         raise BenchmarkError(f"{question_id}: answerable case has no gold evidence")
+
+    expected: dict[str, Any] = {
+        "answer": str(answer),
+        "expected_abstention": is_abstention,
+        "gold_evidence_turn_ids": gold_evidence_turn_ids,
+        "partial_evidence_turn_ids": partial_evidence_turn_ids,
+        "answer_session_ids": answer_session_ids,
+    }
+    if axis == "D":
+        expected["subtype"] = (
+            "partial_evidence"
+            if partial_evidence_turn_ids
+            else "absent_evidence"
+        )
 
     return {
         "case_id": f"edgemem-{axis.lower()}-{question_id}",
         "axis": axis,
         "task": task,
-        "query": record["question"],
+        "query": query,
         "history": normalized_sessions,
-        "expected": {
-            "answer": record["answer"],
-            "expected_abstention": is_abstention,
-            "gold_evidence_turn_ids": gold_evidence_turn_ids,
-            "partial_evidence_turn_ids": partial_evidence_turn_ids,
-            "answer_session_ids": [
-                str(value) for value in record.get("answer_session_ids", [])
-            ],
-        },
+        "expected": expected,
         "source": {
             "dataset": "LongMemEval-S cleaned",
             "question_id": question_id,
             "question_type": record["question_type"],
         },
     }
+
+
+def apply_knowledge_update_annotations(
+    records: list[dict[str, Any]],
+    annotation_path: Path,
+) -> None:
+    manifest = load_manifest()
+    annotation_spec = manifest["sources"]["knowledge_update_annotations"]
+    verify_file(
+        annotation_path,
+        annotation_spec["sha256"],
+        annotation_spec["name"],
+    )
+    annotations = read_jsonl(annotation_path)
+    if len(annotations) != annotation_spec["expected_cases"]:
+        raise BenchmarkError(
+            "knowledge-update annotation count mismatch: expected "
+            f"{annotation_spec['expected_cases']}, got {len(annotations)}"
+        )
+
+    annotations_by_case: dict[str, dict[str, Any]] = {}
+    for annotation in annotations:
+        case_id = annotation.get("case_id")
+        if not isinstance(case_id, str) or not case_id:
+            raise BenchmarkError("knowledge-update annotation has invalid case_id")
+        if case_id in annotations_by_case:
+            raise BenchmarkError(
+                f"duplicate knowledge-update annotation: {case_id}"
+            )
+        annotations_by_case[case_id] = annotation
+
+    record_ids = {record["case_id"] for record in records}
+    annotation_ids = set(annotations_by_case)
+    if annotation_ids != record_ids:
+        missing = sorted(record_ids - annotation_ids)
+        extra = sorted(annotation_ids - record_ids)
+        raise BenchmarkError(
+            "knowledge-update annotation case IDs differ from selected cases: "
+            f"missing={missing}, extra={extra}"
+        )
+
+    allowed_subtypes = {
+        "current_state",
+        "historical_state",
+        "multi_state",
+        "single_state",
+    }
+    for record in records:
+        case_id = record["case_id"]
+        annotation = annotations_by_case[case_id]
+        status = annotation.get("evaluation_status")
+        subtype = annotation.get("temporal_subtype")
+        exclusion_reason = annotation.get("exclusion_reason")
+        rationale = annotation.get("rationale")
+        if status not in {"scored", "excluded"}:
+            raise BenchmarkError(f"{case_id}: invalid evaluation_status")
+        if subtype not in allowed_subtypes:
+            raise BenchmarkError(f"{case_id}: invalid temporal_subtype")
+        if status == "scored" and exclusion_reason is not None:
+            raise BenchmarkError(
+                f"{case_id}: scored case must not have an exclusion reason"
+            )
+        if status == "excluded" and (
+            not isinstance(exclusion_reason, str) or not exclusion_reason
+        ):
+            raise BenchmarkError(
+                f"{case_id}: excluded case requires an exclusion reason"
+            )
+        if not isinstance(rationale, str) or not rationale.strip():
+            raise BenchmarkError(f"{case_id}: annotation rationale is required")
+
+        gold = record["expected"]["gold_evidence_turn_ids"]
+
+        def resolve_ordinals(field: str) -> list[str]:
+            values = annotation.get(field)
+            if not isinstance(values, list) or any(
+                isinstance(value, bool) or not isinstance(value, int)
+                for value in values
+            ):
+                raise BenchmarkError(f"{case_id}: invalid {field}")
+            if len(values) != len(set(values)):
+                raise BenchmarkError(f"{case_id}: duplicate values in {field}")
+            if any(value < 1 or value > len(gold) for value in values):
+                raise BenchmarkError(f"{case_id}: {field} is out of range")
+            return [gold[value - 1] for value in values]
+
+        target = resolve_ordinals("target_evidence_ordinals")
+        competing = resolve_ordinals("competing_evidence_ordinals")
+        context = resolve_ordinals("context_evidence_ordinals")
+        if not target:
+            raise BenchmarkError(f"{case_id}: target evidence must not be empty")
+        partition = [*target, *competing, *context]
+        if len(partition) != len(set(partition)) or set(partition) != set(gold):
+            raise BenchmarkError(
+                f"{case_id}: curated evidence roles must partition source gold"
+            )
+
+        record["expected"].update(
+            {
+                "evaluation_status": status,
+                "temporal_subtype": subtype,
+                "target_evidence_turn_ids": target,
+                "competing_evidence_turn_ids": competing,
+                "context_evidence_turn_ids": context,
+                "exclusion_reason": exclusion_reason,
+                "annotation_rationale": rationale,
+            }
+        )
 
 
 def select_longmemeval_cases(
@@ -353,17 +560,83 @@ def validate_memory_records(
         )
     for record in records:
         case_id = record.get("case_id")
-        if record.get("axis") != axis:
-            raise BenchmarkError(f"{case_id}: wrong axis")
+        if not isinstance(case_id, str) or not case_id:
+            raise BenchmarkError("memory record has an invalid case_id")
+        if record.get("axis") != axis or record.get("task") != TASKS[axis]:
+            raise BenchmarkError(f"{case_id}: invalid axis/task metadata")
+        query = record.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise BenchmarkError(f"{case_id}: query must be a non-empty string")
+
+        history = record.get("history")
+        if not isinstance(history, list) or not history:
+            raise BenchmarkError(f"{case_id}: history must be a non-empty list")
         observed_turn_ids: set[str] = set()
-        for session in record.get("history", []):
-            for turn in session.get("turns", []):
+        observed_session_ids: set[str] = set()
+        timestamps: list[tuple[int, int, int, int, int]] = []
+        for session in history:
+            if not isinstance(session, dict):
+                raise BenchmarkError(f"{case_id}: session must be an object")
+            session_id = session.get("session_id")
+            source_session_id = session.get("source_session_id")
+            if not isinstance(session_id, str) or not session_id:
+                raise BenchmarkError(f"{case_id}: invalid session_id")
+            if session_id in observed_session_ids:
+                raise BenchmarkError(f"{case_id}: duplicate session_id {session_id}")
+            observed_session_ids.add(session_id)
+            if not isinstance(source_session_id, str) or not source_session_id:
+                raise BenchmarkError(f"{case_id}: invalid source_session_id")
+            timestamps.append(parse_timestamp(session.get("timestamp")))
+            turns = session.get("turns")
+            if not isinstance(turns, list):
+                raise BenchmarkError(f"{case_id}: turns must be a list")
+            for turn in turns:
+                if not isinstance(turn, dict):
+                    raise BenchmarkError(f"{case_id}: turn must be an object")
                 if turn.get("role") != "user":
                     raise BenchmarkError(f"{case_id}: assistant turn leaked into history")
-                observed_turn_ids.add(str(turn.get("turn_id")))
-        expected = record.get("expected", {})
-        gold = set(expected.get("gold_evidence_turn_ids", []))
-        partial = set(expected.get("partial_evidence_turn_ids", []))
+                turn_id_value = turn.get("turn_id")
+                content = turn.get("content")
+                if not isinstance(turn_id_value, str) or not turn_id_value:
+                    raise BenchmarkError(f"{case_id}: invalid turn_id")
+                if turn_id_value in observed_turn_ids:
+                    raise BenchmarkError(
+                        f"{case_id}: duplicate turn_id {turn_id_value}"
+                    )
+                observed_turn_ids.add(turn_id_value)
+                if not isinstance(content, str) or not content.strip():
+                    raise BenchmarkError(f"{case_id}: empty user content")
+        if timestamps != sorted(timestamps):
+            raise BenchmarkError(f"{case_id}: history is not timestamp sorted")
+
+        expected = record.get("expected")
+        if not isinstance(expected, dict):
+            raise BenchmarkError(f"{case_id}: expected must be an object")
+        answer = expected.get("answer")
+        if not isinstance(answer, str) or not answer.strip():
+            raise BenchmarkError(f"{case_id}: answer must be a non-empty string")
+        if not isinstance(expected.get("expected_abstention"), bool):
+            raise BenchmarkError(f"{case_id}: expected_abstention must be boolean")
+
+        def id_list(field: str) -> list[str]:
+            value = expected.get(field)
+            if not isinstance(value, list) or any(
+                not isinstance(item, str) or not item for item in value
+            ):
+                raise BenchmarkError(f"{case_id}: invalid {field}")
+            if len(value) != len(set(value)):
+                raise BenchmarkError(f"{case_id}: duplicate IDs in {field}")
+            return value
+
+        gold_values = id_list("gold_evidence_turn_ids")
+        partial_values = id_list("partial_evidence_turn_ids")
+        answer_session_values = id_list("answer_session_ids")
+        if not set(answer_session_values).issubset(observed_session_ids):
+            raise BenchmarkError(
+                f"{case_id}: answer_session_ids are missing from history"
+            )
+        gold = set(gold_values)
+        partial = set(partial_values)
         if axis == "D":
             if expected.get("expected_abstention") is not True or gold:
                 raise BenchmarkError(f"{case_id}: invalid abstention contract")
@@ -371,6 +644,11 @@ def validate_memory_records(
                 raise BenchmarkError(
                     f"{case_id}: partial abstention evidence is missing from history"
                 )
+            expected_subtype = (
+                "partial_evidence" if partial else "absent_evidence"
+            )
+            if expected.get("subtype") != expected_subtype:
+                raise BenchmarkError(f"{case_id}: invalid abstention subtype")
         else:
             if expected.get("expected_abstention") is not False or not gold:
                 raise BenchmarkError(f"{case_id}: invalid answerable contract")
@@ -378,6 +656,46 @@ def validate_memory_records(
                 raise BenchmarkError(f"{case_id}: gold evidence is missing from history")
             if partial:
                 raise BenchmarkError(f"{case_id}: unexpected partial evidence")
+            if axis == "C":
+                status = expected.get("evaluation_status")
+                subtype = expected.get("temporal_subtype")
+                target = set(id_list("target_evidence_turn_ids"))
+                competing = set(id_list("competing_evidence_turn_ids"))
+                context = set(id_list("context_evidence_turn_ids"))
+                if status not in {"scored", "excluded"}:
+                    raise BenchmarkError(f"{case_id}: invalid C evaluation status")
+                if subtype not in {
+                    "current_state",
+                    "historical_state",
+                    "multi_state",
+                    "single_state",
+                }:
+                    raise BenchmarkError(f"{case_id}: invalid C temporal subtype")
+                if not target:
+                    raise BenchmarkError(f"{case_id}: missing C target evidence")
+                if target & competing or target & context or competing & context:
+                    raise BenchmarkError(f"{case_id}: overlapping C evidence roles")
+                if target | competing | context != gold:
+                    raise BenchmarkError(
+                        f"{case_id}: C evidence roles do not partition source gold"
+                    )
+                exclusion_reason = expected.get("exclusion_reason")
+                if status == "scored" and exclusion_reason is not None:
+                    raise BenchmarkError(
+                        f"{case_id}: scored C case has exclusion reason"
+                    )
+                if status == "excluded" and (
+                    not isinstance(exclusion_reason, str)
+                    or not exclusion_reason
+                ):
+                    raise BenchmarkError(
+                        f"{case_id}: excluded C case lacks exclusion reason"
+                    )
+                rationale = expected.get("annotation_rationale")
+                if not isinstance(rationale, str) or not rationale.strip():
+                    raise BenchmarkError(
+                        f"{case_id}: C annotation rationale is required"
+                    )
 
 
 def validate_unique_case_ids(records_by_axis: dict[str, list[dict[str, Any]]]) -> None:
@@ -393,8 +711,11 @@ def validate_unique_case_ids(records_by_axis: dict[str, list[dict[str, Any]]]) -
 def artifact_manifest(
     output_dir: Path,
     source_path: Path,
+    storage_path: Path,
+    annotation_path: Path,
     records_by_axis: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
+    benchmark_manifest = load_manifest()
     files: dict[str, Any] = {}
     for axis, filename in OUTPUT_FILES.items():
         path = output_dir / filename
@@ -404,16 +725,19 @@ def artifact_manifest(
             "sha256": sha256_file(path),
         }
     return {
-        "benchmark": "EdgeMemBench",
-        "version": "0.1.0",
-        "profile": "edgemem-abcd-v0",
+        "benchmark": benchmark_manifest["name"],
+        "version": benchmark_manifest["version"],
+        "profile": benchmark_manifest["profile"],
         "generator": "prepare.py",
         "sources": {
             "longmemeval_s_cleaned": {
                 "sha256": sha256_file(source_path),
             },
             "storage_decision": {
-                "sha256": sha256_file(DEFAULT_STORAGE_PATH),
+                "sha256": sha256_file(storage_path),
+            },
+            "knowledge_update_annotations": {
+                "sha256": sha256_file(annotation_path),
             },
         },
         "files": files,
@@ -456,7 +780,12 @@ def obtain_longmemeval_source(source_path: Path | None) -> Path:
     return DEFAULT_CACHE_PATH
 
 
-def build(source_path: Path | None, storage_path: Path, output_dir: Path) -> None:
+def build(
+    source_path: Path | None,
+    storage_path: Path,
+    annotation_path: Path,
+    output_dir: Path,
+) -> None:
     source_path = obtain_longmemeval_source(source_path)
     storage_spec = load_manifest()["sources"]["storage_decision_normalized"]
     verify_file(storage_path, storage_spec["sha256"], storage_spec["name"])
@@ -470,6 +799,7 @@ def build(source_path: Path | None, storage_path: Path, output_dir: Path) -> Non
         "A": read_jsonl(storage_path),
         **select_longmemeval_cases(source_records),
     }
+    apply_knowledge_update_annotations(records_by_axis["C"], annotation_path)
     validate_storage_records(records_by_axis["A"], counts["A"])
     for axis in ("B", "C", "D"):
         validate_memory_records(axis, records_by_axis[axis], counts[axis])
@@ -480,7 +810,13 @@ def build(source_path: Path | None, storage_path: Path, output_dir: Path) -> Non
         write_jsonl_atomic(output_dir / filename, records_by_axis[axis])
     write_json_atomic(
         output_dir / "artifact_manifest.json",
-        artifact_manifest(output_dir, source_path, records_by_axis),
+        artifact_manifest(
+            output_dir,
+            source_path,
+            storage_path,
+            annotation_path,
+            records_by_axis,
+        ),
     )
 
 
@@ -498,6 +834,19 @@ def validate_artifacts(output_dir: Path) -> dict[str, Any]:
 
     with (output_dir / "artifact_manifest.json").open("r", encoding="utf-8") as handle:
         generated_manifest = json.load(handle)
+    for generated_key, canonical_key in (
+        ("benchmark", "name"),
+        ("version", "version"),
+        ("profile", "profile"),
+    ):
+        if generated_manifest.get(generated_key) != benchmark_manifest.get(
+            canonical_key
+        ):
+            raise BenchmarkError(
+                f"artifact manifest {generated_key} does not match benchmark contract"
+            )
+    if generated_manifest.get("generator") != "prepare.py":
+        raise BenchmarkError("artifact manifest generator mismatch")
     expected_longmemeval_sha = benchmark_manifest["sources"][
         "longmemeval_s_cleaned"
     ]["sha256"]
@@ -507,13 +856,36 @@ def validate_artifacts(output_dir: Path) -> dict[str, Any]:
         raise BenchmarkError("artifact manifest LongMemEval source SHA-256 mismatch")
     for axis, filename in OUTPUT_FILES.items():
         file_record = generated_manifest["files"].get(filename, {})
+        canonical_file_record = benchmark_manifest["artifacts"].get(filename, {})
+        if file_record.get("axis") != axis:
+            raise BenchmarkError(f"{filename}: manifest axis mismatch")
         if file_record.get("cases") != len(records_by_axis[axis]):
             raise BenchmarkError(f"{filename}: manifest count mismatch")
-        if file_record.get("sha256") != sha256_file(output_dir / filename):
+        actual_sha256 = sha256_file(output_dir / filename)
+        if file_record.get("sha256") != actual_sha256:
             raise BenchmarkError(f"{filename}: manifest SHA-256 mismatch")
+        if canonical_file_record.get("axis") != axis:
+            raise BenchmarkError(f"{filename}: canonical axis mismatch")
+        if canonical_file_record.get("expected_cases") != counts[axis]:
+            raise BenchmarkError(f"{filename}: canonical count mismatch")
+        if canonical_file_record.get("sha256") != actual_sha256:
+            raise BenchmarkError(f"{filename}: canonical SHA-256 mismatch")
     expected_storage_sha = benchmark_manifest["sources"][
         "storage_decision_normalized"
     ]["sha256"]
+    if generated_manifest.get("sources", {}).get(
+        "storage_decision", {}
+    ).get("sha256") != expected_storage_sha:
+        raise BenchmarkError("artifact manifest storage source SHA-256 mismatch")
+    expected_annotation_sha = benchmark_manifest["sources"][
+        "knowledge_update_annotations"
+    ]["sha256"]
+    if generated_manifest.get("sources", {}).get(
+        "knowledge_update_annotations", {}
+    ).get("sha256") != expected_annotation_sha:
+        raise BenchmarkError(
+            "artifact manifest knowledge-update annotation SHA-256 mismatch"
+        )
     if sha256_file(output_dir / OUTPUT_FILES["A"]) != expected_storage_sha:
         raise BenchmarkError("axis A does not match the frozen normalized dataset")
     if generated_manifest.get("total_cases") != sum(
@@ -539,6 +911,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     build_parser.add_argument("--source", type=Path)
     build_parser.add_argument("--storage", type=Path, default=DEFAULT_STORAGE_PATH)
+    build_parser.add_argument(
+        "--knowledge-update-annotations",
+        type=Path,
+        default=DEFAULT_KNOWLEDGE_UPDATE_ANNOTATIONS_PATH,
+    )
     build_parser.add_argument("--output-dir", type=Path, default=DEFAULT_ARTIFACT_DIR)
 
     validate_parser = subparsers.add_parser(
@@ -557,7 +934,12 @@ def main(argv: list[str] | None = None) -> int:
             import_storage(args.test, args.challenge, args.output)
             print(f"wrote {args.output}")
         elif args.command == "build":
-            build(args.source, args.storage, args.output_dir)
+            build(
+                args.source,
+                args.storage,
+                args.knowledge_update_annotations,
+                args.output_dir,
+            )
             print(f"built {args.output_dir}")
         else:
             result = validate_artifacts(args.artifact_dir)
