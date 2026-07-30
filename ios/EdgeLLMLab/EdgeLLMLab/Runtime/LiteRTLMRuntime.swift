@@ -93,7 +93,8 @@ actor LiteRTLMRuntime: LLMRuntime {
                 systemMessage: configuration.systemPrompt.map {
                     Message($0, role: .system)
                 },
-                samplerConfig: sampler
+                samplerConfig: sampler,
+                filterChannelContentFromKVCache: true
             )
 
             conversation = try await engine.createConversation(
@@ -111,6 +112,16 @@ actor LiteRTLMRuntime: LLMRuntime {
 
     func generateStream(
         prompt: String
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        try await generateStream(
+            prompt: prompt,
+            thinkingEnabled: false
+        )
+    }
+
+    func generateStream(
+        prompt: String,
+        thinkingEnabled: Bool
     ) async throws -> AsyncThrowingStream<String, Error> {
         let normalizedPrompt = prompt.trimmingCharacters(
             in: .whitespacesAndNewlines
@@ -136,13 +147,14 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeGenerationID = generationID
 
         logger.notice(
-            "Generation requested id=\(generationID.uuidString, privacy: .public) promptCharacters=\(normalizedPrompt.count)"
+            "Generation requested id=\(generationID.uuidString, privacy: .public) promptCharacters=\(normalizedPrompt.count) thinkingEnabled=\(thinkingEnabled, privacy: .public)"
         )
         logger.notice(
             "Submitting native stream id=\(generationID.uuidString, privacy: .public)"
         )
         let source = conversation.sendMessageStream(
-            Message(normalizedPrompt)
+            Message(normalizedPrompt),
+            extraContext: ["enable_thinking": thinkingEnabled]
         )
         logger.notice(
             "Native stream accepted id=\(generationID.uuidString, privacy: .public)"
@@ -160,6 +172,9 @@ actor LiteRTLMRuntime: LLMRuntime {
             do {
                 for try await message in source {
                     try Task.checkCancellation()
+                    // LiteRT-LM exposes internal reasoning through
+                    // Message.channels. Only normal response content is
+                    // forwarded to Unity or EdgeLLM Lab.
                     let text = message.toString
                     guard !text.isEmpty else {
                         continue
