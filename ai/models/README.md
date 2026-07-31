@@ -1,0 +1,65 @@
+# Runtime model assets
+
+PetAI uses two runtime model packs:
+
+- `com.byeolmuri.app.language-model`
+  - Gemma 4 E2B IT in LiteRT-LM format
+- `com.byeolmuri.app.memory-model`
+  - EmbeddingGemma 300M sequence-length-256 TFLite model
+  - its matching `sentencepiece.model`
+
+## Source of truth
+
+[`runtime-models.json`](runtime-models.json) pins the Hugging Face repository,
+revision, file name, byte length, SHA-256, license, and Apple asset-pack ID for
+every artifact. Do not copy those values into another document.
+
+The downloaded files live under:
+
+```text
+ai/.artifacts/runtime-models/
+├── chat/gemma-e2b-it/
+│   └── gemma-4-E2B-it.litertlm
+└── embedding/embeddinggemma-300m/
+    ├── embeddinggemma-300M_seq256_mixed-precision.tflite
+    └── sentencepiece.model
+```
+
+This directory and all model file extensions are ignored by Git. Model files
+must never be committed.
+
+## Prepare models
+
+EmbeddingGemma requires accepting its repository terms and authenticating once:
+
+```bash
+uvx --from huggingface_hub hf auth login
+```
+
+Then run:
+
+```bash
+scripts/prepare-runtime-models.sh
+```
+
+The script skips files that already match the registry. Missing files are
+downloaded from the pinned Hugging Face revision and verified before use. An
+existing file with the wrong byte length or SHA-256 fails closed and is never
+silently replaced.
+
+To verify already prepared files without network access:
+
+```bash
+scripts/prepare-runtime-models.sh --verify-only
+```
+
+## Package for Apple hosting
+
+After model verification:
+
+```bash
+scripts/package-ios-background-assets.sh
+```
+
+The command produces two ignored `.aar` archives under
+`ios/.artifacts/background-assets/`. Packaging does not upload anything.
