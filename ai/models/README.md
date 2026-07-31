@@ -63,3 +63,22 @@ scripts/package-ios-background-assets.sh
 
 The command produces two ignored `.aar` archives under
 `ios/.artifacts/background-assets/`. Packaging does not upload anything.
+
+## Apple-hosted CI
+
+The `Apple background assets` workflow packages the pinned artifacts on a
+macOS runner and verifies App Store Connect access on every manual run. It
+uploads new asset-pack versions only when the workflow input `upload` is set
+to `true`; an ordinary run never creates or updates Apple-hosted content.
+
+Repository secrets required by this workflow:
+
+- `APP_STORE_CONNECT_ISSUER_ID`
+- `APP_STORE_CONNECT_KEY_ID`
+- `APP_STORE_CONNECT_PRIVATE_KEY`
+- `HUGGINGFACE_TOKEN`
+
+`HUGGINGFACE_TOKEN` must be a read token from an account that has accepted the
+EmbeddingGemma repository terms. Runtime model files and the temporary Apple
+API key file remain runner-local and are never committed or uploaded as a
+workflow artifact.
