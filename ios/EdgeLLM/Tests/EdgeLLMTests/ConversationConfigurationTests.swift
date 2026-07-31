@@ -8,6 +8,7 @@ import Testing
     #expect(configuration.temperature == 0.7)
     #expect(configuration.topK == 40)
     #expect(configuration.topP == 0.95)
+    #expect(configuration.topKTelemetryCandidateCount == nil)
 }
 
 @Test func runtimeEventsPreservePayloads() {

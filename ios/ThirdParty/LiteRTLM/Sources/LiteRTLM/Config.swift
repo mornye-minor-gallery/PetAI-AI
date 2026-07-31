@@ -166,6 +166,9 @@ public struct ConversationConfig {
   public let audioLoraPath: String?
   public let enableToolCallStreaming: Bool
   public let filterChannelContentFromKVCache: Bool
+  /// Number of candidates to report per decoded token. `nil` disables
+  /// diagnostic telemetry.
+  public let topKTelemetryCandidateCount: Int?
 
   /// - Parameters:
   ///   - systemMessage: The system message to be used in the conversation.
@@ -178,6 +181,8 @@ public struct ConversationConfig {
   ///   - enableToolCallStreaming: Whether to enable conversation tool call streaming.
   ///   - filterChannelContentFromKVCache: Whether structured channel content,
   ///     such as internal reasoning, is excluded from the conversation KV cache.
+  ///   - topKTelemetryCandidateCount: Number of candidates to report per decoded
+  ///     token. Valid values are 1 through 16. `nil` disables telemetry.
   public init(
     systemMessage: Message? = nil,
     initialMessages: [Message] = [],
@@ -186,7 +191,8 @@ public struct ConversationConfig {
     loraPath: String? = nil,
     audioLoraPath: String? = nil,
     enableToolCallStreaming: Bool = false,
-    filterChannelContentFromKVCache: Bool = false
+    filterChannelContentFromKVCache: Bool = false,
+    topKTelemetryCandidateCount: Int? = nil
   ) {
     self.systemMessage = systemMessage.flatMap { msg in
       if msg.toString.isEmpty {
@@ -203,5 +209,6 @@ public struct ConversationConfig {
     self.enableToolCallStreaming = enableToolCallStreaming
     self.filterChannelContentFromKVCache =
       filterChannelContentFromKVCache
+    self.topKTelemetryCandidateCount = topKTelemetryCandidateCount
   }
 }

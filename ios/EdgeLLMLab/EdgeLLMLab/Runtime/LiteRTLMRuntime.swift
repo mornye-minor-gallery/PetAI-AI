@@ -9,7 +9,70 @@ import EdgeLLM
 import LiteRTLM
 #endif
 
+struct TopKTelemetrySummary: Sendable, Equatable, Encodable {
+    let tokenCount: Int
+    let droppedEventCount: Int
+    let maximumCandidateCount: Int
+    let averageTopKEntropy: Float
+    let averageTop1Top2Margin: Float
+    let minimumTop1Top2Margin: Float
+    let sampledFromTop1Rate: Float
+    let metricTemperature: Float
+}
+
 actor LiteRTLMRuntime: LLMRuntime {
+    private struct TopKTelemetryAccumulator {
+        var tokenCount = 0
+        var droppedEventCount = 0
+        var maximumCandidateCount = 0
+        var entropySum: Float = 0
+        var marginSum: Float = 0
+        var minimumMargin = Float.greatestFiniteMagnitude
+        var sampledFromTop1Count = 0
+        var metricTemperature: Float = 1
+
+        mutating func append(_ drain: TopKTelemetryDrain) {
+            droppedEventCount += drain.droppedEventCount
+            for event in drain.events {
+                tokenCount += 1
+                maximumCandidateCount = max(
+                    maximumCandidateCount,
+                    event.candidates.count
+                )
+                entropySum += event.topKEntropy
+                marginSum += event.top1Top2Margin
+                minimumMargin = min(
+                    minimumMargin,
+                    event.top1Top2Margin
+                )
+                metricTemperature = event.metricTemperature
+                if event.candidates.first?.tokenID
+                    == event.sampledTokenID
+                {
+                    sampledFromTop1Count += 1
+                }
+            }
+        }
+
+        func summary() -> TopKTelemetrySummary? {
+            guard tokenCount > 0 else {
+                return nil
+            }
+            let count = Float(tokenCount)
+            return TopKTelemetrySummary(
+                tokenCount: tokenCount,
+                droppedEventCount: droppedEventCount,
+                maximumCandidateCount: maximumCandidateCount,
+                averageTopKEntropy: entropySum / count,
+                averageTop1Top2Margin: marginSum / count,
+                minimumTop1Top2Margin: minimumMargin,
+                sampledFromTop1Rate:
+                    Float(sampledFromTop1Count) / count,
+                metricTemperature: metricTemperature
+            )
+        }
+    }
+
     private final class SendableConversation: @unchecked Sendable {
         let value: Conversation
 
@@ -35,6 +98,7 @@ actor LiteRTLMRuntime: LLMRuntime {
     private var activeContinuation:
         AsyncThrowingStream<String, Error>.Continuation?
     private var cancellationTimeoutTask: Task<Void, Never>?
+    private var topKTelemetryAccumulator = TopKTelemetryAccumulator()
 
     var state: RuntimeState {
         currentState
@@ -94,7 +158,9 @@ actor LiteRTLMRuntime: LLMRuntime {
                     Message($0, role: .system)
                 },
                 samplerConfig: sampler,
-                filterChannelContentFromKVCache: true
+                filterChannelContentFromKVCache: true,
+                topKTelemetryCandidateCount:
+                    configuration.topKTelemetryCandidateCount
             )
 
             conversation = try await engine.createConversation(
@@ -264,6 +330,18 @@ actor LiteRTLMRuntime: LLMRuntime {
         }
     }
 
+    func resetTopKTelemetrySummary() {
+        _ = conversation?.drainTopKTelemetry()
+        topKTelemetryAccumulator = TopKTelemetryAccumulator()
+    }
+
+    func takeTopKTelemetrySummary() -> TopKTelemetrySummary? {
+        captureTopKTelemetry()
+        let summary = topKTelemetryAccumulator.summary()
+        topKTelemetryAccumulator = TopKTelemetryAccumulator()
+        return summary
+    }
+
     func resetConversation() async throws {
         guard let configuration = conversationConfiguration else {
             throw RuntimeError.conversationNotStarted
@@ -305,6 +383,7 @@ actor LiteRTLMRuntime: LLMRuntime {
     }
 
     private func finishGeneration(id: UUID) {
+        captureTopKTelemetry()
         guard activeGenerationID == id else {
             return
         }
@@ -322,6 +401,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         id: UUID,
         with error: Error
     ) -> RuntimeError {
+        captureTopKTelemetry()
         guard activeGenerationID == id else {
             return error as? RuntimeError
                 ?? .generationFailed(message: error.localizedDescription)
@@ -418,6 +498,13 @@ actor LiteRTLMRuntime: LLMRuntime {
             withIntermediateDirectories: true
         )
         return cacheURL
+    }
+
+    private func captureTopKTelemetry() {
+        guard let drain = conversation?.drainTopKTelemetry() else {
+            return
+        }
+        topKTelemetryAccumulator.append(drain)
     }
 
     private func releaseSecurityScopedModel() {

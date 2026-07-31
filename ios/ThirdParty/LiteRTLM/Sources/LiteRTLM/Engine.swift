@@ -193,6 +193,29 @@ public actor Engine {
       litert_lm_session_config_set_sampler_params(cSessionConfig, cSamplerParams)
     }
 
+    var telemetryContext: TopKTelemetryCallbackContext?
+    if let candidateCount = conversationConfig.topKTelemetryCandidateCount {
+      guard (1...Int(LITERT_LM_TOP_K_TELEMETRY_MAX_CANDIDATES)).contains(candidateCount) else {
+        throw LiteRTLMError.config(.invalidTopK)
+      }
+      let context = TopKTelemetryCallbackContext()
+      let retainedContext = Unmanaged.passRetained(context).toOpaque()
+      let status = litert_lm_session_config_set_top_k_telemetry(
+        cSessionConfig,
+        Int32(candidateCount),
+        topKTelemetryCallback,
+        topKTelemetryReleaseCallback,
+        retainedContext
+      )
+      guard status == 0 else {
+        Unmanaged<TopKTelemetryCallbackContext>
+          .fromOpaque(retainedContext)
+          .release()
+        throw LiteRTLMError.engine(.failedToCreateSessionConfig)
+      }
+      telemetryContext = context
+    }
+
     if let loraPath = conversationConfig.loraPath {
       let status = litert_lm_session_config_set_lora_path(cSessionConfig, loraPath)
       guard status == 0 else {
@@ -240,7 +263,11 @@ public actor Engine {
       throw LiteRTLMError.engine(.failedToCreateConversation)
     }
 
-    return Conversation(handle: conversationHandle, toolManager: toolManager)
+    return Conversation(
+      handle: conversationHandle,
+      toolManager: toolManager,
+      telemetryContext: telemetryContext
+    )
   }
 
   deinit {

@@ -51,21 +51,39 @@ public class Conversation {
 
   private var handle: CConversationHandle?
   private let toolManager: ToolManager
+  private let telemetryContext: TopKTelemetryCallbackContext?
+
+  /// Diagnostic top-k snapshots for this conversation, or `nil` when disabled.
+  public var topKTelemetryEvents: AsyncStream<TopKTelemetryEvent>? {
+    telemetryContext?.events
+  }
+
+  /// Atomically removes and returns telemetry buffered since the previous
+  /// drain. Returns `nil` when telemetry is disabled.
+  public func drainTopKTelemetry() -> TopKTelemetryDrain? {
+    telemetryContext?.drain()
+  }
 
   /// Whether the conversation is alive and ready to be used.
   public var isAlive: Bool {
     return handle != nil
   }
 
-  init(handle: CConversationHandle, toolManager: ToolManager) {
+  init(
+    handle: CConversationHandle,
+    toolManager: ToolManager,
+    telemetryContext: TopKTelemetryCallbackContext? = nil
+  ) {
     self.handle = handle
     self.toolManager = toolManager
+    self.telemetryContext = telemetryContext
   }
 
   deinit {
     if let handle = handle {
       litert_lm_conversation_delete(handle)
     }
+    telemetryContext?.finish()
   }
 
   /// Sends a message to the model and returns the response. This is a synchronous call.

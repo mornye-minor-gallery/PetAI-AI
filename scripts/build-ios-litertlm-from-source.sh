@@ -7,8 +7,8 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ARTIFACT_ROOT="${REPO_ROOT}/ios/.artifacts"
 SOURCE_ROOT="${PETAI_LITERTLM_SOURCE_DIR:-${ARTIFACT_ROOT}/sources/LiteRT-LM}"
 SOURCE_REPOSITORY="https://github.com/mornye-minor-gallery/LiteRT-LM.git"
-SOURCE_REF="refs/tags/v0.14.0"
-SOURCE_REVISION="80f301ff9a3b02c2c1e7be2dd1a567752f7b51b6"
+SOURCE_REF="refs/heads/feature/topk-telemetry-poc"
+SOURCE_REVISION="7285e1fa7b2428c5de3b2af7d51fe8342080657d"
 BAZEL_TARGET="//swift:CLiteRTLM"
 BAZEL_DEFINE="LITERT_LM_FST_CONSTRAINTS_DISABLED=1"
 BAZELISK_VERSION="1.29.0"
@@ -16,6 +16,8 @@ BAZELISK_SHA256="cee851f726789227d5561004e9904a52be45c3efb56f8b38b6993d6adbaa040
 ARCHIVE_PATH="${ARTIFACT_ROOT}/CLiteRTLM.xcframework.zip"
 FRAMEWORK_PATH="${ARTIFACT_ROOT}/CLiteRTLM.xcframework"
 PROVENANCE_PATH="${ARTIFACT_ROOT}/CLiteRTLM.provenance"
+PACKAGE_ARTIFACT_ROOT="${REPO_ROOT}/ios/ThirdParty/LiteRTLM/Artifacts"
+PACKAGE_FRAMEWORK_PATH="${PACKAGE_ARTIFACT_ROOT}/CLiteRTLM.xcframework"
 
 print_config() {
   cat <<EOF
@@ -130,11 +132,11 @@ prepare_source_checkout() {
   if ! git -C "${SOURCE_ROOT}" diff --quiet ||
      ! git -C "${SOURCE_ROOT}" diff --cached --quiet; then
     echo "LiteRT-LM source checkout has tracked changes: ${SOURCE_ROOT}" >&2
-    echo "Commit or discard them before rebuilding the baseline." >&2
+    echo "Commit or discard them before rebuilding the pinned fork." >&2
     exit 1
   fi
 
-  echo "Fetching unmodified LiteRT-LM v0.14.0 from the organization fork..."
+  echo "Fetching the pinned LiteRT-LM organization-fork revision..."
   GIT_LFS_SKIP_SMUDGE=1 \
     git -C "${SOURCE_ROOT}" fetch --force --depth 1 origin "${SOURCE_REF}"
   GIT_LFS_SKIP_SMUDGE=1 \
@@ -218,7 +220,20 @@ validate_runtime_dependencies() {
       echo "The PetAI source-build profile must disable FST constraints." >&2
       exit 1
     fi
+    if ! nm -gU "${binary_path}" |
+       grep -F "_litert_lm_session_config_set_top_k_telemetry" >/dev/null; then
+      echo "Built XCFramework is missing the PetAI Top-K telemetry ABI:" >&2
+      echo "  _litert_lm_session_config_set_top_k_telemetry" >&2
+      echo "Pin and build the compatible organization-fork revision." >&2
+      exit 1
+    fi
   done
+}
+
+link_package_framework() {
+  mkdir -p "${PACKAGE_ARTIFACT_ROOT}"
+  ln -sfn "../../../.artifacts/CLiteRTLM.xcframework" \
+    "${PACKAGE_FRAMEWORK_PATH}"
 }
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -229,6 +244,7 @@ fi
 require_command curl
 require_command git
 require_command grep
+require_command nm
 require_command otool
 require_command xcodebuild
 git lfs version >/dev/null
@@ -237,7 +253,7 @@ mkdir -p "${ARTIFACT_ROOT}"
 prepare_source_checkout
 BAZEL_BIN="$(resolve_bazel)"
 
-echo "Building ${BAZEL_TARGET} without PetAI engine modifications..."
+echo "Building ${BAZEL_TARGET} from the pinned PetAI organization fork..."
 (
   cd "${SOURCE_ROOT}"
   "${BAZEL_BIN}" build \
@@ -283,8 +299,9 @@ if [[ -e "${ARCHIVE_PATH}" ]]; then
 fi
 mv -f "${STAGE_ROOT}/CLiteRTLM.xcframework.zip" "${ARCHIVE_PATH}"
 mv -f "${STAGE_ROOT}/CLiteRTLM.provenance" "${PROVENANCE_PATH}"
+link_package_framework
 
-echo "Prepared unmodified organization-fork build:"
+echo "Prepared PetAI organization-fork build:"
 echo "  ${FRAMEWORK_PATH}"
 echo "  SHA-256: ${ARCHIVE_SHA256}"
 echo "  Provenance: ${PROVENANCE_PATH}"
