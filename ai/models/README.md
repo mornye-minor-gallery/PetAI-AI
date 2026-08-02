@@ -2,9 +2,9 @@
 
 PetAI uses two runtime model packs:
 
-- `com.byeolmuri.app.language-model`
+- `petai-language-model`
   - Gemma 4 E2B IT in LiteRT-LM format
-- `com.byeolmuri.app.memory-model`
+- `petai-memory-model`
   - EmbeddingGemma 300M sequence-length-256 TFLite model
   - its matching `sentencepiece.model`
 
@@ -51,6 +51,12 @@ To verify already prepared files without network access:
 
 ```bash
 scripts/prepare-runtime-models.sh --verify-only
+```
+
+To validate only the registry schema and Apple asset-pack identifiers:
+
+```bash
+scripts/prepare-runtime-models.sh --validate-registry-only
 ```
 
 ## Package for Apple hosting

@@ -12,7 +12,7 @@
       "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
       "license": "Apache-2.0",
       "requiresAuthentication": false,
-      "assetPackId": "com.byeolmuri.app.language-model"
+      "assetPackId": "petai-language-model"
     },
     {
       "id": "embeddinggemma-300m-seq256",
@@ -25,7 +25,7 @@
       "sha256": "37115ef7bff76cd37dd86abe503ff511b1032bf85fc624a85c49c84899e92bc5",
       "license": "Gemma Terms of Use",
       "requiresAuthentication": true,
-      "assetPackId": "com.byeolmuri.app.memory-model"
+      "assetPackId": "petai-memory-model"
     },
     {
       "id": "embeddinggemma-300m-sentencepiece",
@@ -38,19 +38,19 @@
       "sha256": "d6daa52d93d7aad10e8388bd526c4e501d914b47177398d1d9621f1fe48438c7",
       "license": "Gemma Terms of Use",
       "requiresAuthentication": true,
-      "assetPackId": "com.byeolmuri.app.memory-model"
+      "assetPackId": "petai-memory-model"
     }
   ],
   "assetPacks": [
     {
-      "id": "com.byeolmuri.app.language-model",
+      "id": "petai-language-model",
       "downloadPolicy": "onDemand",
       "artifactIds": [
         "gemma-e2b-it"
       ]
     },
     {
-      "id": "com.byeolmuri.app.memory-model",
+      "id": "petai-memory-model",
       "downloadPolicy": "onDemand",
       "artifactIds": [
         "embeddinggemma-300m-seq256",

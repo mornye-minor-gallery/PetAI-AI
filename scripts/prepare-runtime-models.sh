@@ -7,16 +7,19 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REGISTRY_PATH="${REPO_ROOT}/ai/models/runtime-models.json"
 ARTIFACT_ROOT="${REPO_ROOT}/ai/.artifacts/runtime-models"
 VERIFY_ONLY=false
+VALIDATE_REGISTRY_ONLY=false
 
 usage() {
   cat <<'EOF'
-Usage: scripts/prepare-runtime-models.sh [--verify-only]
+Usage: scripts/prepare-runtime-models.sh [--verify-only|--validate-registry-only]
 
 Downloads missing runtime artifacts from their pinned Hugging Face revisions
 and verifies every file against ai/models/runtime-models.json.
 
 Options:
   --verify-only  Do not download; verify files already present.
+  --validate-registry-only
+                 Validate registry schema and asset-pack IDs, then exit.
   -h, --help     Show this help.
 EOF
 }
@@ -94,6 +97,10 @@ while [[ $# -gt 0 ]]; do
       VERIFY_ONLY=true
       shift
       ;;
+    --validate-registry-only)
+      VALIDATE_REGISTRY_ONLY=true
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -110,8 +117,29 @@ command -v jq >/dev/null 2>&1 || fail "jq is required"
 jq -e '
   .schemaVersion == 1
   and (.artifacts | type == "array" and length > 0)
+  and (.assetPacks | type == "array" and length > 0)
+  and (
+    [.assetPacks[].id] as $pack_ids
+    | ($pack_ids | length) == ($pack_ids | unique | length)
+    and all(
+      $pack_ids[];
+      type == "string"
+      and test("^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$")
+    )
+    and all(
+      .artifacts[].assetPackId;
+      . as $artifact_pack_id
+      | $pack_ids
+      | index($artifact_pack_id) != null
+    )
+  )
 ' "${REGISTRY_PATH}" >/dev/null \
   || fail "registry schema is invalid"
+
+if [[ "${VALIDATE_REGISTRY_ONLY}" == true ]]; then
+  echo "Runtime model registry is valid."
+  exit 0
+fi
 
 if [[ "${VERIFY_ONLY}" == false ]]; then
   resolve_hf_command
