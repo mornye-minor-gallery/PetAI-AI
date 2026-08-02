@@ -7,6 +7,10 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ARTIFACT_ROOT="${REPO_ROOT}/ios/.artifacts"
 LITERT_REVISION="1921f3defc8413a3a6bd23ad6a4d5fe35520a2c0"
 SENTENCEPIECE_REVISION="31646a467d2051eb904e0b45de3a73e91fe1c1e3"
+RELEASE_TAG="petai-ios-embedding-native-v1"
+RELEASE_ARCHIVE_SHA256="680231b9a3a40362d284bb0c4a732d6f5111eabcae5a93edfa4f7d9b9c7ff11d"
+RELEASE_BASE_URL="https://github.com/mornye-minor-gallery/LiteRT-LM/releases/download/${RELEASE_TAG}"
+RELEASE_PROVENANCE_PATH="${ARTIFACT_ROOT}/EmbeddingNative.provenance"
 BAZELISK_VERSION="1.29.0"
 BAZELISK_SHA256="cee851f726789227d5561004e9904a52be45c3efb56f8b38b6993d6adbaa0409"
 TEMP_ROOT="$(mktemp -d)"
@@ -33,6 +37,91 @@ sha256() {
     exit 1
   fi
 }
+
+provenance_value() {
+  local key="$1"
+  local path="$2"
+  awk -F= -v key="${key}" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' \
+    "${path}"
+}
+
+validate_framework() {
+  local framework_path="$1"
+  [[ -f "${framework_path}/Info.plist" ]] &&
+    [[ -d "${framework_path}/ios-arm64" ]] &&
+    [[ -d "${framework_path}/ios-arm64-simulator" ]]
+}
+
+validate_pinned_release() {
+  [[ -f "${RELEASE_PROVENANCE_PATH}" ]] &&
+    [[ "$(provenance_value LITERT_REVISION "${RELEASE_PROVENANCE_PATH}")" == "${LITERT_REVISION}" ]] &&
+    [[ "$(provenance_value SENTENCEPIECE_REVISION "${RELEASE_PROVENANCE_PATH}")" == "${SENTENCEPIECE_REVISION}" ]] &&
+    [[ "$(provenance_value ARCHIVE_SHA256 "${RELEASE_PROVENANCE_PATH}")" == "${RELEASE_ARCHIVE_SHA256}" ]] &&
+    validate_framework "${ARTIFACT_ROOT}/CLiteRT.xcframework" &&
+    validate_framework "${ARTIFACT_ROOT}/CSentencePiece.xcframework"
+}
+
+download_pinned_release() (
+  set -euo pipefail
+
+  local stage_root
+  local archive_path
+  local provenance_path
+  local extract_root
+  local actual_sha256
+
+  require_command curl
+  require_command unzip
+
+  mkdir -p "${ARTIFACT_ROOT}"
+  stage_root="$(mktemp -d "${ARTIFACT_ROOT}/.embedding-native-release.XXXXXX")"
+  trap 'rm -rf "${stage_root}"' EXIT
+  archive_path="${stage_root}/EmbeddingNative.xcframeworks.zip"
+  provenance_path="${stage_root}/EmbeddingNative.provenance"
+  extract_root="${stage_root}/extracted"
+
+  echo "Downloading pinned iOS embedding native release ${RELEASE_TAG}..."
+  curl --fail --location --retry 3 \
+    --output "${archive_path}" \
+    "${RELEASE_BASE_URL}/EmbeddingNative.xcframeworks.zip"
+  curl --fail --location --retry 3 \
+    --output "${provenance_path}" \
+    "${RELEASE_BASE_URL}/EmbeddingNative.provenance"
+
+  actual_sha256="$(sha256 "${archive_path}")"
+  if [[ "${actual_sha256}" != "${RELEASE_ARCHIVE_SHA256}" ]]; then
+    echo "Pinned iOS embedding native release checksum mismatch." >&2
+    echo "Expected: ${RELEASE_ARCHIVE_SHA256}" >&2
+    echo "Actual:   ${actual_sha256}" >&2
+    exit 1
+  fi
+
+  for expected_line in \
+    "LITERT_REVISION=${LITERT_REVISION}" \
+    "SENTENCEPIECE_REVISION=${SENTENCEPIECE_REVISION}" \
+    "ARCHIVE_SHA256=${RELEASE_ARCHIVE_SHA256}"; do
+    if ! grep -Fqx "${expected_line}" "${provenance_path}"; then
+      echo "Pinned iOS embedding native provenance is invalid: ${expected_line}" >&2
+      exit 1
+    fi
+  done
+
+  mkdir -p "${extract_root}"
+  unzip -q "${archive_path}" -d "${extract_root}"
+  for framework_name in CLiteRT.xcframework CSentencePiece.xcframework; do
+    if ! validate_framework "${extract_root}/${framework_name}"; then
+      echo "Pinned release is missing a valid ${framework_name}." >&2
+      exit 1
+    fi
+  done
+
+  rm -rf \
+    "${ARTIFACT_ROOT}/CLiteRT.xcframework" \
+    "${ARTIFACT_ROOT}/CSentencePiece.xcframework"
+  mv "${extract_root}/CLiteRT.xcframework" "${ARTIFACT_ROOT}/"
+  mv "${extract_root}/CSentencePiece.xcframework" "${ARTIFACT_ROOT}/"
+  mv "${provenance_path}" "${RELEASE_PROVENANCE_PATH}"
+)
 
 clone_revision() {
   local repository_url="$1"
@@ -110,12 +199,32 @@ build_sentencepiece_slice() {
     --parallel
 }
 
+mkdir -p "${ARTIFACT_ROOT}"
+
+if [[ "${1:-}" != "--build-from-source" ]]; then
+  if ! validate_pinned_release; then
+    download_pinned_release
+  fi
+  if ! validate_pinned_release; then
+    echo "Pinned iOS embedding native release validation failed." >&2
+    exit 1
+  fi
+
+  echo "Using pinned iOS embedding native release ${RELEASE_TAG}:"
+  echo "  ${ARTIFACT_ROOT}/CLiteRT.xcframework"
+  echo "  ${ARTIFACT_ROOT}/CSentencePiece.xcframework"
+  exit 0
+fi
+
+# A local source build is not the pinned release, even when it uses the same
+# revisions. Remove the release proof so a later default invocation cannot
+# mistake unverified local output for the published archive.
+rm -f "${RELEASE_PROVENANCE_PATH}"
+
 require_command cmake
 require_command curl
 require_command git
 require_command xcodebuild
-
-mkdir -p "${ARTIFACT_ROOT}"
 
 LITERT_ROOT="${TEMP_ROOT}/LiteRT"
 echo "Fetching LiteRT ${LITERT_REVISION}..."
