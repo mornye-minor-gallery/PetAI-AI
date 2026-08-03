@@ -7,6 +7,9 @@ public struct NativeToolResultFormatter: Sendable {
         for envelope: NativeToolExecutionEnvelope
     ) -> String {
         guard envelope.status == .success else {
+            if envelope.errorCode == .dataUnavailable {
+                return "걸음 수 데이터를 확인할 수 없어요. 건강 앱에서 접근 권한과 데이터 상태를 확인해 주세요."
+            }
             return "요청을 처리하지 못했어요. 다시 시도해 주세요."
         }
         guard
@@ -42,5 +45,35 @@ public struct NativeToolResultFormatter: Sendable {
         }
 
         return "걸음 수 조회를 완료했어요."
+    }
+}
+
+public enum StepCountDataPolicy {
+    public static func totalSteps(from value: Double?) throws -> Int {
+        guard let value else {
+            throw NativeToolErrorCode.dataUnavailable
+        }
+        return try normalizedStepCount(value)
+    }
+
+    public static func dailySteps(from values: [Double?]) throws -> [Int] {
+        guard values.contains(where: { $0 != nil }) else {
+            throw NativeToolErrorCode.dataUnavailable
+        }
+        return try values.map { value in
+            guard let value else { return 0 }
+            return try normalizedStepCount(value)
+        }
+    }
+
+    private static func normalizedStepCount(_ value: Double) throws -> Int {
+        guard
+            value.isFinite,
+            value >= 0,
+            value <= Double(Int.max)
+        else {
+            throw NativeToolErrorCode.nativeFailure
+        }
+        return Int(value.rounded())
     }
 }

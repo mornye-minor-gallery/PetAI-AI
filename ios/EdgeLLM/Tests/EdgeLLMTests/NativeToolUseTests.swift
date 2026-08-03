@@ -21,6 +21,35 @@ func stepCountResultFormatterProducesUserVisibleKoreanText() {
     )
 }
 
+@Test
+func stepCountDataPolicyDistinguishesZeroFromUnreadableData() throws {
+    #expect(try StepCountDataPolicy.totalSteps(from: 0) == 0)
+    #expect(try StepCountDataPolicy.dailySteps(from: [120, nil, 80])
+        == [120, 0, 80])
+
+    #expect(throws: NativeToolErrorCode.dataUnavailable) {
+        try StepCountDataPolicy.totalSteps(from: nil)
+    }
+    #expect(throws: NativeToolErrorCode.dataUnavailable) {
+        try StepCountDataPolicy.dailySteps(from: [nil, nil])
+    }
+}
+
+@Test
+func stepCountFormatterDoesNotClaimPermissionWasDenied() {
+    let envelope = NativeToolExecutionEnvelope(
+        requestID: "steps-unavailable",
+        tool: .getStepCount,
+        status: .failure,
+        errorCode: .dataUnavailable
+    )
+
+    #expect(
+        NativeToolResultFormatter().visibleText(for: envelope)
+            == "걸음 수 데이터를 확인할 수 없어요. 건강 앱에서 접근 권한과 데이터 상태를 확인해 주세요."
+    )
+}
+
 private func seoulCalendar() -> Calendar {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
