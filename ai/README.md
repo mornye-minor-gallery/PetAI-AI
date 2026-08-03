@@ -3,6 +3,12 @@
 `ai/` contains reproducible, product-specific model and memory evaluation
 code for the PetAI monorepo.
 
+Current experiment areas:
+
+- `memory-classifier/`: Preference/Event admission and memory-header evaluation
+- `edgemembench/`: retrieval, temporal resolution, and abstention benchmarks
+- `profile-memory-kv/`: minimal closed-key profile/preference extraction smoke
+
 Commit:
 
 - evaluation runners and deterministic data preparation scripts

@@ -1,0 +1,20 @@
+사용자의 현재 프로필이나 취향을 추출하세요.
+
+허용 key:
+- profile.nickname
+- profile.school
+- profile.major
+- profile.sibling_count
+- preference.food
+- preference.drink
+- preference.hobby
+- preference.drama
+
+사용자가 자기 자신에 관해 명시적으로 말한 정보만 추출하세요.
+질문, 타인 정보, 가정, 희망, 일반 지식, 일회성 행동은 null입니다.
+value는 발화에 나온 가장 짧은 핵심 표현만 사용하세요.
+허용 key를 새로 만들거나 바꾸지 마세요.
+
+출력은 설명이나 마크다운 없이 정확히 한 줄이어야 합니다.
+정보가 있으면 {"허용 key":"값"}
+정보가 없으면 null

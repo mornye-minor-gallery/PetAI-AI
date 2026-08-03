@@ -1,0 +1,24 @@
+{"id":"nickname-01","utterance":"앞으로 나를 민석이라고 불러줘.","expected":{"key":"profile.nickname","value":"민석"}}
+{"id":"nickname-02","utterance":"내 별명은 밍구야.","expected":{"key":"profile.nickname","value":"밍구"}}
+{"id":"school-01","utterance":"나는 아주대학교에 다녀.","expected":{"key":"profile.school","value":"아주대학교"}}
+{"id":"school-02","utterance":"지금 한국대학교 학생이야.","expected":{"key":"profile.school","value":"한국대학교"}}
+{"id":"major-01","utterance":"내 전공은 소프트웨어학과야.","expected":{"key":"profile.major","value":"소프트웨어학과"}}
+{"id":"major-02","utterance":"나는 산업공학을 전공하고 있어.","expected":{"key":"profile.major","value":"산업공학"}}
+{"id":"sibling-01","utterance":"나는 형제가 2명 있어.","expected":{"key":"profile.sibling_count","value":"2"}}
+{"id":"sibling-02","utterance":"우리 집은 나까지 삼남매야.","expected":{"key":"profile.sibling_count","value":"3"}}
+{"id":"food-01","utterance":"나는 떡볶이를 좋아해.","expected":{"key":"preference.food","value":"떡볶이"}}
+{"id":"food-02","utterance":"초밥이 제일 좋아.","expected":{"key":"preference.food","value":"초밥"}}
+{"id":"drink-01","utterance":"내가 제일 좋아하는 음료는 밀크라떼야.","expected":{"key":"preference.drink","value":"밀크라떼"}}
+{"id":"drink-02","utterance":"나는 보리차를 즐겨 마셔.","expected":{"key":"preference.drink","value":"보리차"}}
+{"id":"hobby-01","utterance":"내 취미는 클라이밍이야.","expected":{"key":"preference.hobby","value":"클라이밍"}}
+{"id":"hobby-02","utterance":"나는 주말마다 사진 찍는 걸 좋아해.","expected":{"key":"preference.hobby","value":"사진 찍기"}}
+{"id":"drama-01","utterance":"내가 좋아하는 드라마는 김부장이야.","expected":{"key":"preference.drama","value":"김부장"}}
+{"id":"drama-02","utterance":"나는 미생을 제일 재미있게 봤어.","expected":{"key":"preference.drama","value":"미생"}}
+{"id":"null-01","utterance":"안녕, 오늘 날씨 좋다.","expected":null}
+{"id":"null-02","utterance":"너는 떡볶이를 좋아해?","expected":null}
+{"id":"null-03","utterance":"민수는 초밥을 정말 좋아해.","expected":null}
+{"id":"null-04","utterance":"대학교는 보통 여러 학과로 나뉘어 있어.","expected":null}
+{"id":"null-05","utterance":"어제 카페에서 라떼를 한 잔 마셨어.","expected":null}
+{"id":"null-06","utterance":"동생이 있으면 좋겠어.","expected":null}
+{"id":"null-07","utterance":"새로운 취미를 하나 만들고 싶어.","expected":null}
+{"id":"null-08","utterance":"친구가 김부장을 봤냐고 물어봤어.","expected":null}
