@@ -29,6 +29,7 @@ public enum NativeToolProposalHarnessOutcome: Equatable, Sendable {
     case normal
     case conflict(message: String, tools: [NativeToolKind])
     case proposal(
+        draft: NativeToolProposal,
         proposal: ValidatedToolProposal,
         event: UnityToolStateEvent
     )
@@ -92,7 +93,11 @@ public struct NativeToolProposalHarness: Sendable {
             )
             let validated = try validator.validate(proposal)
             let event = try await coordinator.register(validated)
-            return .proposal(proposal: validated, event: event)
+            return .proposal(
+                draft: proposal,
+                proposal: validated,
+                event: event
+            )
         }
     }
 }

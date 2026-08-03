@@ -517,7 +517,7 @@ actor LiteRTLMRuntime: LLMRuntime {
     }
 }
 
-#if canImport(LiteRTLM)
+#if canImport(LiteRTLM) || canImport(CLiteRTLM)
 extension LiteRTLMRuntime: NativeToolProposalGenerating {
     func generateFunctionCall(
         _ request: NativeToolGenerationRequest
@@ -565,6 +565,12 @@ extension LiteRTLMRuntime: NativeToolProposalGenerating {
             currentState = .ready
             return call
         } catch {
+            if let call = try? await
+                LiteRTLMNativeToolCallCapture.shared.finish()
+            {
+                currentState = .ready
+                return call
+            }
             await LiteRTLMNativeToolCallCapture.shared.cancel()
             currentState = .ready
             throw error

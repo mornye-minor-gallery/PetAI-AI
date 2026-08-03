@@ -309,7 +309,7 @@ func proposalHarnessRegistersOneValidatedProposalWithoutExecuting() async throws
         )
     )
 
-    guard case .proposal(let proposal, let event) = outcome else {
+    guard case .proposal(let draft, let proposal, let event) = outcome else {
         Issue.record("Expected validated proposal")
         return
     }
@@ -317,6 +317,8 @@ func proposalHarnessRegistersOneValidatedProposalWithoutExecuting() async throws
     let executions = await executionCounter.value()
     let snapshot = await coordinator.snapshot(requestID: "alarm-proposal")
 
+    #expect(draft.requestID == "alarm-proposal")
+    #expect(draft.tool == .createAlarm)
     #expect(proposal.tool == .createAlarm)
     #expect(event.state == .proposalReady)
     #expect(event.requestID == "alarm-proposal")

@@ -6,7 +6,9 @@ import EdgeLLM
 
 #if canImport(LiteRTLM)
 import LiteRTLM
+#endif
 
+#if canImport(LiteRTLM) || canImport(CLiteRTLM)
 enum LiteRTLMNativeToolProposalError: Error, Equatable {
     case captureAlreadyActive
     case captureNotActive

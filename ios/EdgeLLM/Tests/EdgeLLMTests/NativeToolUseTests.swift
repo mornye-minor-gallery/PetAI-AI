@@ -2,6 +2,25 @@ import Foundation
 import Testing
 @testable import EdgeLLM
 
+@Test
+func stepCountResultFormatterProducesUserVisibleKoreanText() {
+    let formatter = NativeToolResultFormatter()
+    let envelope = NativeToolExecutionEnvelope(
+        requestID: "steps-1",
+        tool: .getStepCount,
+        status: .success,
+        data: .object([
+            "aggregation": .string("total"),
+            "totalSteps": .number(12_345),
+        ])
+    )
+
+    #expect(
+        formatter.visibleText(for: envelope)
+            == "해당 기간에는 총 12345걸음을 걸었어요."
+    )
+}
+
 private func seoulCalendar() -> Calendar {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
