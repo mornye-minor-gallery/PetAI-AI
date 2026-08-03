@@ -110,6 +110,35 @@
       "sha256": "5e8ef6fa4e3a1fbdb3cce7b6b7ad4887c30eaf47190df189137fa07677267738",
       "expected_cases": 72
     },
+    "temporal_view_contract": {
+      "name": "EdgeMemBench cohort-local temporal view derivation contract",
+      "sha256": "94affe25aa2bd3843d9f9769146dee2b7de4c60da3f0c114e3d46c27f74e149b",
+      "expected_scored_cases": 69,
+      "annotation_method": "Deterministic mapping from the manually reviewed C subtypes, with one explicit strict as-of override"
+    },
+    "cohort_pair_annotations": {
+      "name": "EdgeMemBench GPT-5.6-sol double-blind cohort-pair annotations",
+      "sha256": "cbb2ec9464605497cf203a3aae7c94e401f5f3802b932a1f13ee380d673f63fb",
+      "expected_pairs": 178,
+      "annotation_method": "two independent labels, blind third-vote adjudication, and an optional fresh fourth-vote tiebreak"
+    },
+    "cohort_abc_candidate_annotations": {
+      "name": "EdgeMemBench GPT-5.6-sol A/B/C candidate supplement",
+      "sha256": "9d828c2762493d06a09899ddf4625810d36d21690e63adc98f0a28fa32dba6e6",
+      "expected_pairs": 64,
+      "annotation_method": "two independent labels with blind third-vote adjudication"
+    },
+    "cohort_delta_calibration": {
+      "name": "PetAI Korean temporal-cohort delta calibration v1",
+      "sha256": "558d79f56c40bdfdd9d0e468102f2c4091f3d51c0e3b9d89663f1305c7b8d686",
+      "expected_cases": 50,
+      "expected_pairs": 100,
+      "split": {
+        "calibration": 35,
+        "holdout": 15
+      },
+      "annotation_method": "manually authored deterministic same-attribute and hard-negative pairs"
+    },
     "longmemeval_s_cleaned": {
       "name": "LongMemEval-S cleaned",
       "url": "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json",

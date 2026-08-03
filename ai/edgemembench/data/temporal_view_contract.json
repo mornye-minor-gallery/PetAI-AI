@@ -1,0 +1,19 @@
+{
+  "schema_version": "temporal-view-contract-v1",
+  "source": "data/knowledge_update_annotations.jsonl",
+  "scored_case_count": 69,
+  "default_mapping": {
+    "current_state": "current",
+    "historical_state": "historical_previous",
+    "multi_state": "transition",
+    "single_state": "neutral"
+  },
+  "overrides": {
+    "edgemem-c-10e09553": {
+      "gold_view": "as_of",
+      "cutoff_month_day": [7, 22],
+      "cutoff_inclusive": false,
+      "rationale": "The question asks for the earlier 7/10 trip strictly before the 7/22 trip."
+    }
+  }
+}
