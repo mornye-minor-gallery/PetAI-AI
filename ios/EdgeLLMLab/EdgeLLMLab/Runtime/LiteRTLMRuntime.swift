@@ -516,3 +516,59 @@ actor LiteRTLMRuntime: LLMRuntime {
         isAccessingSecurityScopedModel = false
     }
 }
+
+#if canImport(LiteRTLM)
+extension LiteRTLMRuntime: NativeToolProposalGenerating {
+    func generateFunctionCall(
+        _ request: NativeToolGenerationRequest
+    ) async throws -> NativeToolFunctionCall {
+        guard currentState != .generating else {
+            throw RuntimeError.runtimeBusy
+        }
+        guard let engine else {
+            throw RuntimeError.modelNotPrepared
+        }
+
+        currentState = .generating
+        do {
+            try await LiteRTLMNativeToolCallCapture.shared.begin(
+                expectedTool: request.selectedTool
+            )
+            let sampler = try SamplerConfig(
+                topK: 40,
+                topP: 1,
+                temperature: 0
+            )
+            let configuration = ConversationConfig(
+                systemMessage: Message(
+                    request.systemPrompt,
+                    role: .system
+                ),
+                tools: [
+                    LiteRTLMNativeToolFactory.makeTool(
+                        for: request.selectedTool
+                    ),
+                ],
+                samplerConfig: sampler,
+                filterChannelContentFromKVCache: true
+            )
+            let toolConversation = try await engine.createConversation(
+                with: configuration
+            )
+            _ = try await toolConversation.sendMessage(
+                Message(request.userMessage),
+                extraContext: [
+                    "enable_thinking": request.reasoningEnabled,
+                ]
+            )
+            let call = try await LiteRTLMNativeToolCallCapture.shared.finish()
+            currentState = .ready
+            return call
+        } catch {
+            await LiteRTLMNativeToolCallCapture.shared.cancel()
+            currentState = .ready
+            throw error
+        }
+    }
+}
+#endif
