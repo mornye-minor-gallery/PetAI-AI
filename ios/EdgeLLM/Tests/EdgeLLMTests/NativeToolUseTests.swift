@@ -36,6 +36,48 @@ func stepCountDataPolicyDistinguishesZeroFromUnreadableData() throws {
 }
 
 @Test
+func alarmKitResultsProduceStableVisibleText() {
+    let formatter = NativeToolResultFormatter()
+    let alarm = NativeToolExecutionEnvelope(
+        requestID: "alarm",
+        tool: .createAlarm,
+        status: .success,
+        data: .object([
+            "label": .string("기상"),
+            "scheduledAt": .string("2026-08-05T07:00:00+09:00"),
+        ])
+    )
+    let timer = NativeToolExecutionEnvelope(
+        requestID: "timer",
+        tool: .createTimer,
+        status: .success,
+        data: .object([
+            "label": .string("스트레칭"),
+            "durationSeconds": .number(10),
+        ])
+    )
+    let emptyList = NativeToolExecutionEnvelope(
+        requestID: "list",
+        tool: .listAlarms,
+        status: .success,
+        data: .object(["alarms": .array([])])
+    )
+
+    #expect(
+        formatter.visibleText(for: alarm)
+            == "기상 알람을 2026-08-05T07:00:00+09:00에 설정했어요."
+    )
+    #expect(
+        formatter.visibleText(for: timer)
+            == "스트레칭 타이머를 10초로 시작했어요."
+    )
+    #expect(
+        formatter.visibleText(for: emptyList)
+            == "설정된 PetAI 알람이나 타이머가 없어요."
+    )
+}
+
+@Test
 func stepCountFormatterDoesNotClaimPermissionWasDenied() {
     let envelope = NativeToolExecutionEnvelope(
         requestID: "steps-unavailable",
@@ -105,6 +147,26 @@ func koreanRouterSelectsEverySupportedTool() {
     for (utterance, tool) in cases {
         #expect(router.route(utterance) == .tool(tool))
     }
+}
+
+@Test
+func koreanRouterTreatsRelativeDurationAlarmsAsTimers() {
+    let router = KoreanNativeToolRouter()
+    let timerRequests = [
+        "10초 뒤 알람 맞춰 줘",
+        "10분 후 알람 설정해 줘",
+        "한 시간 뒤에 깨워 줘",
+        "ㄷ10초뒤 알람 맞춰줘",
+    ]
+
+    for utterance in timerRequests {
+        #expect(router.route(utterance) == .tool(.createTimer))
+    }
+
+    #expect(
+        router.route("내일 아침 7시에 알람 맞춰 줘")
+            == .tool(.createAlarm)
+    )
 }
 
 @Test

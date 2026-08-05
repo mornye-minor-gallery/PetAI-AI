@@ -55,6 +55,16 @@ public struct KoreanNativeToolRouter: Sendable {
 
         guard !normalized.isEmpty else { return .normal }
 
+        if contains(
+            pattern: #"(?:\d+|한|두|세|네)\s*(?:초|분|시간)\s*(?:뒤|후)"#,
+            in: normalized
+        ), contains(pattern: #"알람|깨워"#, in: normalized), contains(
+            pattern: #"맞춰\s*줘|설정해\s*줘|등록해\s*줘|추가해\s*줘|만들어\s*줘|깨워\s*줘"#,
+            in: normalized
+        ) {
+            return .tool(.createTimer)
+        }
+
         let matches = Self.rules.compactMap { rule in
             contains(pattern: rule.domain, in: normalized)
                 && contains(pattern: rule.request, in: normalized)

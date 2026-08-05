@@ -83,11 +83,11 @@ public struct NativeToolPromptRegistry: Sendable {
         .getStepCount:
             "9098d2a37dc606b9c9ecd5503305e1273e08281eda3fa0095d025465ed513620",
         .createAlarm:
-            "b34d7b54bf1f168264217cb8c3ace36716aa62ba10633a93cf70a8bf47c5ed80",
+            "5671d712b66ebe12fa8b7a6baa76676d35672f36f1006ae141f71fb48cc06157",
         .listAlarms:
             "846e4107d334528b7061d9d178b9013979a94dca9a7927392e1bdf092fa395b7",
         .createTimer:
-            "165c110033aa83532e154a3b5d34d372e180fdd0578ca0aa026cf02620768ad5",
+            "0599076626625116c648c0a27e68f97d24d80e6ff9ec406ca9e2e779a944f25a",
         .scheduleLocalNotification:
             "7ad8d04470b4b21e515904ac3f0cd9cad71860f49d99a42dc8df3e4a4543e4a1",
         .getCalendarEvents:

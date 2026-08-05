@@ -7,11 +7,59 @@ public struct NativeToolResultFormatter: Sendable {
         for envelope: NativeToolExecutionEnvelope
     ) -> String {
         guard envelope.status == .success else {
+            if envelope.errorCode == .permissionDenied {
+                return "권한이 허용되지 않아 요청을 실행하지 못했어요. 설정에서 권한을 확인해 주세요."
+            }
             if envelope.errorCode == .dataUnavailable {
                 return "걸음 수 데이터를 확인할 수 없어요. 건강 앱에서 접근 권한과 데이터 상태를 확인해 주세요."
             }
             return "요청을 처리하지 못했어요. 다시 시도해 주세요."
         }
+
+        switch envelope.tool {
+        case .createAlarm:
+            if case .object(let object)? = envelope.data,
+               case .string(let label)? = object["label"],
+               case .string(let scheduledAt)? = object["scheduledAt"]
+            {
+                return "\(label) 알람을 \(scheduledAt)에 설정했어요."
+            }
+
+        case .createTimer:
+            if case .object(let object)? = envelope.data,
+               case .string(let label)? = object["label"],
+               case .number(let seconds)? = object["durationSeconds"]
+            {
+                return "\(label) 타이머를 \(Int(seconds.rounded()))초로 시작했어요."
+            }
+
+        case .listAlarms:
+            if case .object(let object)? = envelope.data,
+               case .array(let alarms)? = object["alarms"]
+            {
+                guard !alarms.isEmpty else {
+                    return "설정된 PetAI 알람이나 타이머가 없어요."
+                }
+                let lines = alarms.compactMap { value -> String? in
+                    guard
+                        case .object(let alarm) = value,
+                        case .string(let label)? = alarm["label"],
+                        case .string(let kind)? = alarm["kind"]
+                    else {
+                        return nil
+                    }
+                    let type = kind == "timer" ? "타이머" : "알람"
+                    return "• \(label) (\(type))"
+                }
+                if !lines.isEmpty {
+                    return lines.joined(separator: "\n")
+                }
+            }
+
+        default:
+            break
+        }
+
         guard
             envelope.tool == .getStepCount,
             case .object(let object)? = envelope.data,
