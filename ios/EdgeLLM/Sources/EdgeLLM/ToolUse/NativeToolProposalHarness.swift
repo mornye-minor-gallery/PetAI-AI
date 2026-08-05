@@ -28,6 +28,7 @@ public protocol NativeToolProposalGenerating: Sendable {
 public enum NativeToolProposalHarnessOutcome: Equatable, Sendable {
     case normal
     case conflict(message: String, tools: [NativeToolKind])
+    case clarification(message: String)
     case proposal(
         draft: NativeToolProposal,
         proposal: ValidatedToolProposal,
@@ -42,6 +43,8 @@ public struct NativeToolProposalHarness: Sendable {
     private let promptRegistry: NativeToolPromptRegistry
     private let parser: NativeToolProposalParser
     private let validator: NativeToolProposalValidator
+    private let localNotificationClarifier:
+        LocalNotificationRequestClarifier
     private let coordinator: NativeToolProposalCoordinator
     private let generator: any NativeToolProposalGenerating
 
@@ -50,6 +53,8 @@ public struct NativeToolProposalHarness: Sendable {
         promptRegistry: NativeToolPromptRegistry = NativeToolPromptRegistry(),
         parser: NativeToolProposalParser = NativeToolProposalParser(),
         validator: NativeToolProposalValidator = NativeToolProposalValidator(),
+        localNotificationClarifier: LocalNotificationRequestClarifier =
+            LocalNotificationRequestClarifier(),
         coordinator: NativeToolProposalCoordinator,
         generator: any NativeToolProposalGenerating
     ) {
@@ -57,6 +62,7 @@ public struct NativeToolProposalHarness: Sendable {
         self.promptRegistry = promptRegistry
         self.parser = parser
         self.validator = validator
+        self.localNotificationClarifier = localNotificationClarifier
         self.coordinator = coordinator
         self.generator = generator
     }
@@ -77,6 +83,13 @@ public struct NativeToolProposalHarness: Sendable {
             )
 
         case .tool(let selectedTool):
+            if selectedTool == .scheduleLocalNotification,
+               let message = localNotificationClarifier.clarification(
+                   for: userMessage
+               )
+            {
+                return .clarification(message: message)
+            }
             let prompt = try promptRegistry.prompt(for: selectedTool)
             let call = try await generator.generateFunctionCall(
                 NativeToolGenerationRequest(

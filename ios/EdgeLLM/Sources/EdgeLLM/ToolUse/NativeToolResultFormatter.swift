@@ -71,6 +71,13 @@ public struct NativeToolResultFormatter: Sendable {
                 return "\(title) 일정을 \(startDateTime)에 추가했어요."
             }
 
+        case .scheduleLocalNotification:
+            if case .object(let object)? = envelope.data,
+               case .string(let scheduledAt)? = object["scheduledAt"]
+            {
+                return "알림을 \(scheduledAt)에 예약했어요."
+            }
+
         case .getCalendarEvents:
             if case .object(let object)? = envelope.data,
                case .array(let events)? = object["events"]

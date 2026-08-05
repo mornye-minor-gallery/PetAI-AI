@@ -330,6 +330,51 @@ func proposalHarnessRegistersOneValidatedProposalWithoutExecuting() async throws
     #expect(snapshot?.state == .proposalReady)
 }
 
+@Test
+func localNotificationHarnessAsksForMissingRequiredInformation() async throws {
+    let generator = ProposalGeneratorStub(
+        call: NativeToolFunctionCall(
+            name: NativeToolKind.scheduleLocalNotification.rawValue,
+            argumentsJSON:
+                #"{"dateTime":"2026-08-04T15:00","title":"약","body":"약 먹기"}"#
+        )
+    )
+    let coordinator = NativeToolProposalCoordinator { _ in .null }
+    let harness = NativeToolProposalHarness(
+        coordinator: coordinator,
+        generator: generator
+    )
+    let context = NativeToolPromptContext(
+        currentDate: "2026-08-03",
+        currentDateTime: "2026-08-03T12:00",
+        timeZoneIdentifier: "Asia/Seoul"
+    )
+
+    let missingTime = try await harness.prepare(
+        requestID: "notification-missing-time",
+        userMessage: "약 먹으라고 알려 줘",
+        promptContext: context
+    )
+    let missingContent = try await harness.prepare(
+        requestID: "notification-missing-content",
+        userMessage: "오후 3시에 알림 설정해 줘",
+        promptContext: context
+    )
+    let requests = await generator.receivedRequests()
+
+    #expect(
+        missingTime == .clarification(
+            message: LocalNotificationRequestClarifier.missingTimeMessage
+        )
+    )
+    #expect(
+        missingContent == .clarification(
+            message: LocalNotificationRequestClarifier.missingContentMessage
+        )
+    )
+    #expect(requests.isEmpty)
+}
+
 private actor ExecutionCounterForHarness {
     private var count = 0
 

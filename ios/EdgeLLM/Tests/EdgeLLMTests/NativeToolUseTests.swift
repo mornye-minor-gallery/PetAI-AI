@@ -78,6 +78,60 @@ func alarmKitResultsProduceStableVisibleText() {
 }
 
 @Test
+func localNotificationResultsProduceStableVisibleText() {
+    let envelope = NativeToolExecutionEnvelope(
+        requestID: "notification",
+        tool: .scheduleLocalNotification,
+        status: .success,
+        data: .object([
+            "notificationID": .string(
+                "PetAI.LocalNotification.notification"
+            ),
+            "scheduledAt": .string("2026-08-05T15:00:00+09:00"),
+        ])
+    )
+
+    #expect(
+        NativeToolResultFormatter().visibleText(for: envelope)
+            == "알림을 2026-08-05T15:00:00+09:00에 예약했어요."
+    )
+}
+
+@Test
+func localNotificationClarifierRequiresTimeAndContent() {
+    let clarifier = LocalNotificationRequestClarifier()
+
+    #expect(
+        clarifier.clarification(for: "약 먹으라고 알려 줘")
+            == LocalNotificationRequestClarifier.missingTimeMessage
+    )
+    #expect(
+        clarifier.clarification(for: "오후 3시에 알림 설정해 줘")
+            == LocalNotificationRequestClarifier.missingContentMessage
+    )
+    #expect(
+        clarifier.clarification(for: "알림 설정해 줘")
+            == LocalNotificationRequestClarifier
+                .missingTimeAndContentMessage
+    )
+    #expect(
+        clarifier.clarification(
+            for: "오후 3시에 약 먹으라고 알려 줘"
+        ) == nil
+    )
+    #expect(
+        clarifier.clarification(
+            for: "오후 세 시에 약 먹으라고 알려 줘"
+        ) == nil
+    )
+    #expect(
+        clarifier.clarification(
+            for: "10분 뒤에 스트레칭하라고 알려 줘"
+        ) == nil
+    )
+}
+
+@Test
 func calendarResultsProduceStableVisibleText() {
     let formatter = NativeToolResultFormatter()
     let created = NativeToolExecutionEnvelope(
