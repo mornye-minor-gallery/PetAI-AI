@@ -89,6 +89,7 @@ actor LiteRTLMRuntime: LLMRuntime {
     private var currentState: RuntimeState = .modelRequired
     private var engine: Engine?
     private var conversation: Conversation?
+    private var isolatedConversation: Conversation?
     private var conversationConfiguration: ConversationConfiguration?
     private var scopedModelURL: URL?
     private var isAccessingSecurityScopedModel = false
@@ -284,11 +285,84 @@ actor LiteRTLMRuntime: LLMRuntime {
         return stream
     }
 
+    func generateIsolated(
+        systemPrompt: String,
+        userMessage: String,
+        temperature: Float = 0,
+        topK: Int = 40,
+        topP: Float = 1,
+        thinkingEnabled: Bool = false
+    ) async throws -> String {
+        let normalizedSystemPrompt = systemPrompt.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        let normalizedUserMessage = userMessage.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard
+            !normalizedSystemPrompt.isEmpty,
+            !normalizedUserMessage.isEmpty
+        else {
+            throw RuntimeError.emptyPrompt
+        }
+        guard currentState != .generating else {
+            throw RuntimeError.runtimeBusy
+        }
+        guard let engine else {
+            throw RuntimeError.modelNotPrepared
+        }
+
+        let generationID = UUID()
+        cancelRequested = false
+        activeGenerationID = generationID
+        currentState = .generating
+
+        do {
+            let sampler = try SamplerConfig(
+                topK: topK,
+                topP: topP,
+                temperature: temperature
+            )
+            let configuration = ConversationConfig(
+                systemMessage: Message(
+                    normalizedSystemPrompt,
+                    role: .system
+                ),
+                samplerConfig: sampler,
+                filterChannelContentFromKVCache: true
+            )
+            let routeConversation = try await engine.createConversation(
+                with: configuration
+            )
+            isolatedConversation = routeConversation
+            let response = try await routeConversation.sendMessage(
+                Message(normalizedUserMessage),
+                extraContext: ["enable_thinking": thinkingEnabled]
+            )
+            guard activeGenerationID == generationID else {
+                throw RuntimeError.generationCancelled
+            }
+            finishIsolatedGeneration(id: generationID)
+            return response.toString
+        } catch {
+            let wasCancelled = cancelRequested
+                || error is CancellationError
+                || (error as? RuntimeError) == .generationCancelled
+            finishIsolatedGeneration(id: generationID)
+            if wasCancelled {
+                throw RuntimeError.generationCancelled
+            }
+            throw RuntimeError.generationFailed(
+                message: error.localizedDescription
+            )
+        }
+    }
+
     func cancel() async {
         guard
             currentState == .generating,
             let generationID = activeGenerationID,
-            let conversation
+            let activeConversation = isolatedConversation ?? conversation
         else {
             return
         }
@@ -316,7 +390,7 @@ actor LiteRTLMRuntime: LLMRuntime {
             }
         }
 
-        let sendableConversation = SendableConversation(conversation)
+        let sendableConversation = SendableConversation(activeConversation)
         Task.detached(priority: .userInitiated) {
             do {
                 try sendableConversation.value.cancel()
@@ -374,6 +448,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeContinuation = nil
         activeGenerationID = nil
         cancelRequested = false
+        isolatedConversation = nil
         conversation = nil
         conversationConfiguration = nil
         engine = nil
@@ -397,6 +472,16 @@ actor LiteRTLMRuntime: LLMRuntime {
         currentState = .ready
     }
 
+    private func finishIsolatedGeneration(id: UUID) {
+        guard activeGenerationID == id else { return }
+        cancellationTimeoutTask?.cancel()
+        cancellationTimeoutTask = nil
+        isolatedConversation = nil
+        activeGenerationID = nil
+        cancelRequested = false
+        currentState = .ready
+    }
+
     private func finishGeneration(
         id: UUID,
         with error: Error
@@ -414,6 +499,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeContinuation = nil
         activeGenerationID = nil
         cancelRequested = false
+        isolatedConversation = nil
 
         if wasCancelled {
             currentState = .ready
@@ -448,6 +534,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeGenerationTask = nil
         activeGenerationID = nil
         cancelRequested = false
+        isolatedConversation = nil
 
         let mappedError = RuntimeError.generationFailed(
             message: "Cancellation failed: \(error.localizedDescription)"
@@ -472,6 +559,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeGenerationTask = nil
         activeGenerationID = nil
         cancelRequested = false
+        isolatedConversation = nil
         currentState = .failed(message: timeoutError.localizedDescription)
         activeContinuation?.finish(throwing: timeoutError)
         activeContinuation = nil
