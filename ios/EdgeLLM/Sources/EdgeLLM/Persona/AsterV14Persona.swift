@@ -229,6 +229,12 @@ public struct AsterV14RouteParser: Sendable {
         )
     }
 
+    public func boundaryOrSafeFallback(
+        _ rawText: String
+    ) -> AsterBoundaryRoute {
+        boundary(rawText) ?? .boundary
+    }
+
     public func scene(_ rawText: String) -> AsterSceneRoute? {
         uniqueRoute(rawText, routes: AsterSceneRoute.allCases)
     }

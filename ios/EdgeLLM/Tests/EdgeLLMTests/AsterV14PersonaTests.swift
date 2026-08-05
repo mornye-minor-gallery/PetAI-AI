@@ -32,6 +32,10 @@ func asterV14ParsersAcceptOneRouteAndRejectAmbiguity() {
     #expect(parser.boundary("route: in_scope") == .inScope)
     #expect(parser.boundary("BOUNDARY IN_SCOPE") == nil)
     #expect(parser.boundary("설명만 출력") == nil)
+    #expect(parser.boundaryOrSafeFallback("BOUNDARY") == .boundary)
+    #expect(parser.boundaryOrSafeFallback("IN_SCOPE") == .inScope)
+    #expect(parser.boundaryOrSafeFallback("BOUNDARY IN_SCOPE") == .boundary)
+    #expect(parser.boundaryOrSafeFallback("잘 모르겠습니다") == .boundary)
 
     #expect(parser.scene("EARTH_TERM") == .earthTerm)
     #expect(parser.scene("label=PLAYFUL_COMPASS") == .playfulCompass)
