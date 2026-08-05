@@ -78,6 +78,71 @@ func alarmKitResultsProduceStableVisibleText() {
 }
 
 @Test
+func calendarResultsProduceStableVisibleText() {
+    let formatter = NativeToolResultFormatter()
+    let created = NativeToolExecutionEnvelope(
+        requestID: "calendar-create",
+        tool: .createCalendarEvent,
+        status: .success,
+        data: .object([
+            "title": .string("멘토링"),
+            "startDateTime": .string("2026-08-06T14:00:00+09:00"),
+        ])
+    )
+    let queried = NativeToolExecutionEnvelope(
+        requestID: "calendar-query",
+        tool: .getCalendarEvents,
+        status: .success,
+        data: .object([
+            "events": .array([
+                .object([
+                    "title": .string("멘토링"),
+                    "startDateTime": .string(
+                        "2026-08-06T14:00:00+09:00"
+                    ),
+                ]),
+                .object([
+                    "title": .string("스터디"),
+                    "startDateTime": .string(
+                        "2026-08-06T16:00:00+09:00"
+                    ),
+                ]),
+            ]),
+        ])
+    )
+    let empty = NativeToolExecutionEnvelope(
+        requestID: "calendar-empty",
+        tool: .getCalendarEvents,
+        status: .success,
+        data: .object(["events": .array([])])
+    )
+    let unavailable = NativeToolExecutionEnvelope(
+        requestID: "calendar-unavailable",
+        tool: .createCalendarEvent,
+        status: .failure,
+        errorCode: .dataUnavailable
+    )
+
+    #expect(
+        formatter.visibleText(for: created)
+            == "멘토링 일정을 2026-08-06T14:00:00+09:00에 추가했어요."
+    )
+    #expect(
+        formatter.visibleText(for: queried)
+            == "• 2026-08-06T14:00:00+09:00 멘토링\n"
+                + "• 2026-08-06T16:00:00+09:00 스터디"
+    )
+    #expect(
+        formatter.visibleText(for: empty)
+            == "해당 기간에 등록된 일정이 없어요."
+    )
+    #expect(
+        formatter.visibleText(for: unavailable)
+            == "일정을 추가할 수 있는 기본 캘린더를 찾지 못했어요. 캘린더 설정을 확인해 주세요."
+    )
+}
+
+@Test
 func stepCountFormatterDoesNotClaimPermissionWasDenied() {
     let envelope = NativeToolExecutionEnvelope(
         requestID: "steps-unavailable",
@@ -352,7 +417,13 @@ func validatorAllows31CalendarDaysButRejects32() throws {
         )
     )
 
-    _ = try validator.validate(allowed)
+    let validated = try validator.validate(allowed)
+    guard case .getCalendarEvents(_, _, _, let limit) = validated.arguments
+    else {
+        Issue.record("Expected calendar query arguments")
+        return
+    }
+    #expect(limit == 10)
     do {
         _ = try validator.validate(rejected)
         Issue.record("Expected 32-day range rejection")

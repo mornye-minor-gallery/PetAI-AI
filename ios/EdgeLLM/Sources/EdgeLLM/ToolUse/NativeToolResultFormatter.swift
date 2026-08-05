@@ -10,8 +10,15 @@ public struct NativeToolResultFormatter: Sendable {
             if envelope.errorCode == .permissionDenied {
                 return "권한이 허용되지 않아 요청을 실행하지 못했어요. 설정에서 권한을 확인해 주세요."
             }
-            if envelope.errorCode == .dataUnavailable {
+            if envelope.tool == .getStepCount,
+               envelope.errorCode == .dataUnavailable
+            {
                 return "걸음 수 데이터를 확인할 수 없어요. 건강 앱에서 접근 권한과 데이터 상태를 확인해 주세요."
+            }
+            if envelope.tool == .createCalendarEvent,
+               envelope.errorCode == .dataUnavailable
+            {
+                return "일정을 추가할 수 있는 기본 캘린더를 찾지 못했어요. 캘린더 설정을 확인해 주세요."
             }
             return "요청을 처리하지 못했어요. 다시 시도해 주세요."
         }
@@ -50,6 +57,37 @@ public struct NativeToolResultFormatter: Sendable {
                     }
                     let type = kind == "timer" ? "타이머" : "알람"
                     return "• \(label) (\(type))"
+                }
+                if !lines.isEmpty {
+                    return lines.joined(separator: "\n")
+                }
+            }
+
+        case .createCalendarEvent:
+            if case .object(let object)? = envelope.data,
+               case .string(let title)? = object["title"],
+               case .string(let startDateTime)? = object["startDateTime"]
+            {
+                return "\(title) 일정을 \(startDateTime)에 추가했어요."
+            }
+
+        case .getCalendarEvents:
+            if case .object(let object)? = envelope.data,
+               case .array(let events)? = object["events"]
+            {
+                guard !events.isEmpty else {
+                    return "해당 기간에 등록된 일정이 없어요."
+                }
+                let lines = events.compactMap { value -> String? in
+                    guard
+                        case .object(let event) = value,
+                        case .string(let title)? = event["title"],
+                        case .string(let startDateTime)? =
+                            event["startDateTime"]
+                    else {
+                        return nil
+                    }
+                    return "• \(startDateTime) \(title)"
                 }
                 if !lines.isEmpty {
                     return lines.joined(separator: "\n")

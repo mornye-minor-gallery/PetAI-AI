@@ -10,7 +10,7 @@ public struct NativeToolGenerationRequest: Equatable, Sendable {
         selectedTool: NativeToolKind,
         systemPrompt: String,
         userMessage: String,
-        reasoningEnabled: Bool = true
+        reasoningEnabled: Bool = false
     ) {
         self.selectedTool = selectedTool
         self.systemPrompt = systemPrompt
@@ -83,7 +83,7 @@ public struct NativeToolProposalHarness: Sendable {
                     selectedTool: selectedTool,
                     systemPrompt: prompt.rendered(with: promptContext),
                     userMessage: userMessage,
-                    reasoningEnabled: true
+                    reasoningEnabled: false
                 )
             )
             let proposal = try parser.parse(

@@ -115,7 +115,7 @@ public struct NativeToolProposalValidator: Sendable {
                 startDate: start,
                 inclusiveEndDate: end,
                 exclusiveEndDate: try nextDay(after: end),
-                limit: 20
+                limit: 10
             )
 
         case .createCalendarEvent(let value):

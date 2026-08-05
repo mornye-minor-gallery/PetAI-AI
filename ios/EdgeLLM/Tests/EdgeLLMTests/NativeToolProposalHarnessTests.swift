@@ -324,7 +324,7 @@ func proposalHarnessRegistersOneValidatedProposalWithoutExecuting() async throws
     #expect(event.requestID == "alarm-proposal")
     #expect(requests.count == 1)
     #expect(requests.first?.selectedTool == .createAlarm)
-    #expect(requests.first?.reasoningEnabled == true)
+    #expect(requests.first?.reasoningEnabled == false)
     #expect(requests.first?.systemPrompt.contains("currentDate: 2026-08-03") == true)
     #expect(executions == 0)
     #expect(snapshot?.state == .proposalReady)
