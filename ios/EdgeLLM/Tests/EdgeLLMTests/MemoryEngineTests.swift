@@ -317,7 +317,7 @@ func memoryEngineSkipsObservationWhenClassifierReturnsNone() async throws {
         makeGateResultID: { "gate-1" },
         now: { timestamp }
     )
-    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+    let scope = MemoryScope(userID: "local-user", characterID: "default-character")
     try await engine.prepare()
 
     let result = try await engine.remember(
@@ -355,7 +355,7 @@ func memoryEngineHardIgnoreKeepsTurnAndGateWithoutObservation() async throws {
             sessionID: "session-1",
             scope: MemoryScope(
                 userID: "local-user",
-                characterID: "emu"
+                characterID: "default-character"
             ),
             rawText: "안녕"
         )
@@ -384,7 +384,7 @@ func memoryEngineStoresBothLabelsOnOneObservation() async throws {
             sessionID: "session-1",
             scope: MemoryScope(
                 userID: "local-user",
-                characterID: "emu"
+                characterID: "default-character"
             ),
             rawText: "나는 미술관을 좋아하고 어제 다녀왔어"
         )
@@ -411,7 +411,7 @@ func taggedChatDecisionBypassesTheConfiguredClassifier() async throws {
             sessionID: "session-1",
             scope: MemoryScope(
                 userID: "local-user",
-                characterID: "emu"
+                characterID: "default-character"
             ),
             rawText: "어제 떡볶이를 먹었는데 완전 내 취향이야"
         ),
@@ -448,7 +448,7 @@ func memoryEngineStoresObservationAndDocumentEmbeddingTogether() async throws {
             sessionID: "session-1",
             scope: MemoryScope(
                 userID: "local-user",
-                characterID: "emu"
+                characterID: "default-character"
             ),
             rawText: "나는 포도를 좋아해",
             occurredAt: timestamp
@@ -490,7 +490,7 @@ func memoryEngineBlocksStoreAccessUntilPreparedAndAfterClose() async throws {
         store: store,
         classifier: FixedMemoryClassifier(decision: gateDecision(.none))
     )
-    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+    let scope = MemoryScope(userID: "local-user", characterID: "default-character")
 
     await #expect(throws: MemoryEngineError.notPrepared) {
         try await engine.activeObservations(in: scope)
@@ -537,7 +537,7 @@ func retrievalFailureIsLoggedAndReturnsNoMemory() async {
         MemorySearchRequest(
             scope: MemoryScope(
                 userID: "local-user",
-                characterID: "emu"
+                characterID: "default-character"
             ),
             query: "내가 좋아하는 과일이 뭐였지?"
         )
@@ -551,7 +551,7 @@ func retrievalFailureIsLoggedAndReturnsNoMemory() async {
 func sqliteSchemaIsTheFirstCanonicalObservationMemoryContract() {
     let schema = EdgeMemSQLiteSchema.statements.joined(separator: "\n")
 
-    #expect(EdgeMemSQLiteSchema.version == 2)
+    #expect(EdgeMemSQLiteSchema.version == 3)
     #expect(schema.contains("conversation_turns"))
     #expect(schema.contains("gate_results"))
     #expect(schema.contains("observations"))

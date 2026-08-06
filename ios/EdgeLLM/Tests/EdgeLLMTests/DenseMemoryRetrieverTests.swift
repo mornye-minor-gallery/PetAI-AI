@@ -44,7 +44,7 @@ private actor DenseTestCandidateLoader: MemoryEmbeddingCandidateLoading {
 
 @Test
 func denseRetrieverRanksScopedMemoriesAndAppliesExclusions() async throws {
-  let scope = MemoryScope(userID: "local-user", characterID: "emu")
+  let scope = MemoryScope(userID: "local-user", characterID: "default-character")
   let loader = DenseTestCandidateLoader(
     candidates: [
       makeCandidate(
@@ -111,7 +111,7 @@ func denseRetrieverRanksScopedMemoriesAndAppliesExclusions() async throws {
 
 @Test
 func denseRetrieverExcludesTurnsAndDeduplicatesExactRawText() async throws {
-  let scope = MemoryScope(userID: "local-user", characterID: "emu")
+  let scope = MemoryScope(userID: "local-user", characterID: "default-character")
   let loader = DenseTestCandidateLoader(
     candidates: [
       makeCandidate(

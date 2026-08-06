@@ -169,7 +169,7 @@ struct EmbeddingTestView: View {
       }
 
       Text(
-        "Debug scope: local-user / emu. This prototype database is app-private and excluded from backup, but it is not encrypted yet."
+        "Debug scope: local-user / default-character. This prototype database is app-private and excluded from backup, but it is not encrypted yet."
       )
       .font(.caption)
       .foregroundStyle(.secondary)
@@ -334,7 +334,7 @@ struct EmbeddingTestView: View {
   private func performMemoryRetrieval() async throws -> MemoryRunOutput {
     let scope = MemoryScope(
       userID: "local-user",
-      characterID: "emu"
+      characterID: "default-character"
     )
     try await seedMissingMemories(in: scope)
     let storedCount = try await memoryService.activeObservations(
@@ -367,7 +367,7 @@ struct EmbeddingTestView: View {
       ),
       MemorySeed(
         sourceMessageID: "edgemem-event-1",
-        rawText: "어제 에무와 함께 미술관에 다녀왔어."
+        rawText: "어제 엘레나와 함께 미술관에 다녀왔어."
       ),
     ]
 

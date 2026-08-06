@@ -39,7 +39,7 @@ struct ContentView: View {
 
     private let memoryScope = MemoryScope(
         userID: "local-user",
-        characterID: "emu"
+        characterID: "default-character"
     )
     private let memoryLogger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "EdgeLLMLab",

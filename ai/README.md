@@ -8,7 +8,7 @@ Current experiment areas:
 - `memory-classifier/`: Preference/Event admission and memory-header evaluation
 - `edgemembench/`: retrieval, temporal resolution, and abstention benchmarks
 - `profile-memory-kv/`: minimal closed-key profile/preference extraction smoke
-- `mrbench-aster/`: Korean Aster persona prompting and raw AutoJudge benchmark
+- `mrbench-custom/`: Korean Elena persona prompting and raw AutoJudge benchmark
 
 Commit:
 

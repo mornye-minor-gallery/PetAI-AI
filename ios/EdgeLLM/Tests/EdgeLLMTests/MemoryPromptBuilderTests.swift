@@ -19,7 +19,7 @@ func memoryPromptBuilderPreservesTheOriginalMessageWithoutMemories() {
 func memoryPromptBuilderAddsRankedMemoriesAsBackgroundContext() throws {
     let scope = MemoryScope(
         userID: "local-user",
-        characterID: "emu"
+        characterID: "default-character"
     )
     let memories = [
         makeRetrievedMemory(
