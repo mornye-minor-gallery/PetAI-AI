@@ -344,7 +344,9 @@ struct EmbeddingTestView: View {
       MemorySearchRequest(
         scope: scope,
         query: memoryQuery,
-        topK: 3
+        topK: SLMConfiguration.production.memory.recallLimit,
+        minimumSimilarity: SLMConfiguration.production.memory
+          .minimumSimilarity
       )
     )
     return MemoryRunOutput(

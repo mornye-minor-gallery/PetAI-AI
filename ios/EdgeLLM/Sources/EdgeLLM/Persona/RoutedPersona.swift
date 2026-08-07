@@ -1,11 +1,6 @@
 import CryptoKit
 import Foundation
 
-public enum PersonaBoundaryRoute: String, Equatable, Sendable {
-    case boundary = "BOUNDARY"
-    case inScope = "IN_SCOPE"
-}
-
 public enum PersonaSceneRoute: String, CaseIterable, Equatable, Sendable {
     case firstSignal = "FIRST_SIGNAL"
     case firstArrival = "FIRST_ARRIVAL"
@@ -41,18 +36,10 @@ public struct PersonaSceneCard: Codable, Equatable, Sendable {
 
 public struct RoutedPersonaPromptSet: Equatable, Sendable {
     public let core: String
-    public let boundaryRouter: String
-    public let boundaryCard: String
     public let sceneRouter: String
     public let sceneCards: [PersonaSceneRoute: PersonaSceneCard]
 
-    public func card(
-        boundary: PersonaBoundaryRoute,
-        scene: PersonaSceneRoute
-    ) -> String? {
-        if boundary == .boundary {
-            return boundaryCard
-        }
+    public func card(scene: PersonaSceneRoute) -> String? {
         return sceneCards[scene]?.card
     }
 
@@ -74,15 +61,6 @@ public struct RoutedPersonaPromptSet: Equatable, Sendable {
         return sections.joined(separator: "\n\n")
     }
 
-    public func responseUserMessage(
-        boundary: PersonaBoundaryRoute,
-        userMessage: String,
-        memoryAugmentedUserMessage: String
-    ) -> String {
-        boundary == .boundary
-            ? userMessage
-            : memoryAugmentedUserMessage
-    }
 }
 
 public enum RoutedPersonaPromptRegistryError: Error, Equatable, Sendable {
@@ -102,10 +80,6 @@ public struct RoutedPersonaPromptRegistry: Sendable {
     private static let resources: [String: String] = [
         "persona_core.md":
             "b649715757a44664b5b815c36e8db73237561018c0986479164a821da48abd53",
-        "boundary_router.md":
-            "ec496ce5cec34aea3e9fe31ae7ebbc2d734feca9ef483c1df6fb36b40df4fe8a",
-        "boundary_card.md":
-            "790b77d78a8c301a19cff0cbc1cfe019299b504ebe0eff2cd7c29c03d7007d6e",
         "scene_router.md":
             "9a7a3220c80fdd5d7d0624a412e88e9b9aebc300241495127a67dd306b81964c",
         "scene_cards.json":
@@ -124,8 +98,6 @@ public struct RoutedPersonaPromptRegistry: Sendable {
 
     public func load() throws -> RoutedPersonaPromptSet {
         let core = try text("persona_core.md")
-        let boundaryRouter = try text("boundary_router.md")
-        let boundaryCard = try text("boundary_card.md")
         let sceneRouter = try text("scene_router.md")
         let cardsData = try verifiedData("scene_cards.json")
         guard
@@ -147,8 +119,6 @@ public struct RoutedPersonaPromptRegistry: Sendable {
         )
         return RoutedPersonaPromptSet(
             core: core,
-            boundaryRouter: boundaryRouter,
-            boundaryCard: boundaryCard,
             sceneRouter: sceneRouter,
             sceneCards: cards
         )
@@ -222,19 +192,6 @@ public struct RoutedPersonaPromptRegistry: Sendable {
 public struct RoutedPersonaRouteParser: Sendable {
     public init() {}
 
-    public func boundary(_ rawText: String) -> PersonaBoundaryRoute? {
-        uniqueRoute(
-            rawText,
-            routes: [PersonaBoundaryRoute.boundary, .inScope]
-        )
-    }
-
-    public func boundaryOrSafeFallback(
-        _ rawText: String
-    ) -> PersonaBoundaryRoute {
-        boundary(rawText) ?? .boundary
-    }
-
     public func scene(_ rawText: String) -> PersonaSceneRoute? {
         uniqueRoute(rawText, routes: PersonaSceneRoute.allCases)
     }
@@ -273,7 +230,11 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
     public let maximumTurnCount: Int
     public private(set) var turns: [Turn]
 
-    public init(maximumTurnCount: Int = 6, turns: [Turn] = []) {
+    public init(
+        maximumTurnCount: Int = SLMConfiguration.production.persona
+            .recentMessageLimit,
+        turns: [Turn] = []
+    ) {
         self.maximumTurnCount = max(0, maximumTurnCount)
         self.turns = Array(turns.suffix(max(0, maximumTurnCount)))
     }

@@ -3,6 +3,7 @@ import Foundation
 public enum DenseMemoryRetrieverError: Error, Equatable, Sendable {
   case emptyQuery
   case invalidSearchLimit
+  case invalidMinimumSimilarity
   case invalidQueryDimension(expected: Int, actual: Int)
   case nonFiniteQueryEmbedding(index: Int)
 }
@@ -14,6 +15,8 @@ extension DenseMemoryRetrieverError: LocalizedError {
       "Dense memory search requires a non-empty query."
     case .invalidSearchLimit:
       "Dense memory search topK must be greater than zero."
+    case .invalidMinimumSimilarity:
+      "Dense memory search minimum similarity must be finite and between -1 and 1."
     case .invalidQueryDimension(let expected, let actual):
       "Dense memory search expected a \(expected)-value query embedding, but received \(actual)."
     case .nonFiniteQueryEmbedding(let index):
@@ -39,6 +42,12 @@ public struct DenseMemoryRetriever: MemoryRetrieving {
   ) async throws -> [RetrievedMemoryObservation] {
     guard request.topK > 0 else {
       throw DenseMemoryRetrieverError.invalidSearchLimit
+    }
+    guard
+      request.minimumSimilarity.isFinite,
+      (-1...1).contains(request.minimumSimilarity)
+    else {
+      throw DenseMemoryRetrieverError.invalidMinimumSimilarity
     }
     let query = request.query.trimmingCharacters(
       in: .whitespacesAndNewlines
@@ -82,6 +91,9 @@ public struct DenseMemoryRetriever: MemoryRetrieving {
         queryVector,
         candidate.embedding.vector
       )
+      guard score >= request.minimumSimilarity else {
+        continue
+      }
       scoredCandidates.append(
         ScoredCandidate(
           observation: candidate.observation,

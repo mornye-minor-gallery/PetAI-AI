@@ -1,0 +1,1120 @@
+{
+  "artifact_id": "facetroutebench-v2-retrospective",
+  "decision": {
+    "arbitration": "normalized_margin",
+    "default_route": "GENERAL",
+    "prototype_aggregation": "max_similarity",
+    "similarity": "cosine",
+    "tie_break": "normalized_margin_then_score_then_route_order"
+  },
+  "model": {
+    "classification_prefix": "task: classification | query: ",
+    "dimension": 768,
+    "id": "litert-community/embeddinggemma-300m-seq256-mixed-precision",
+    "revision": "870cbe05ef460385363c6b574c851ae5d8989ce3",
+    "sha256": "37115ef7bff76cd37dd86abe503ff511b1032bf85fc624a85c49c84899e92bc5",
+    "tokenizer_sha256": "d6daa52d93d7aad10e8388bd526c4e501d914b47177398d1d9621f1fe48438c7"
+  },
+  "provenance": {
+    "embedding_source_sha256": "c785ee6710bd0482267e02f2586ac4d12de9ec8eb660444803d1ffe805557445",
+    "route_contract_sha256": "a99c072b03c0828383558b22402cb1458028f18e328a5cc3c0cd4b8e3761f7c2",
+    "selected_shrinkage": 0.25,
+    "strategy_selection": "five_fold_stratified_cross_validation_on_dev",
+    "threshold_comparison_sha256": "75c69b3f803edc19c485ea5e1b0e896d519f97ba34c51842f96299d6cf2d8103"
+  },
+  "route_order": [
+    "FIRST_SIGNAL",
+    "FIRST_ARRIVAL",
+    "FIRST_HOME",
+    "EARTH_TERM",
+    "EARTH_FOOD",
+    "EARTH_RELATION",
+    "AMBIG_CAUSE",
+    "AMBIG_CHOICE",
+    "RETURN_SIGNAL",
+    "RETURN_SMILE",
+    "RETURN_FUTURE",
+    "RETURN_FEAR",
+    "SUPPORT_SELF_BLAME",
+    "SUPPORT_LISTEN",
+    "SUPPORT_COMPANY",
+    "SUPPORT_REST",
+    "PLAYFUL_SMILE",
+    "PLAYFUL_CLAIM",
+    "PLAYFUL_COMPASS"
+  ],
+  "routes": [
+    {
+      "prototype_count": 12,
+      "prototype_offset": 0,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-first-signal-direct-001",
+          "text": "드디어 신호가 이어졌네. 내 목소리 들리면, 네가 누군지 먼저 알려줘."
+        },
+        {
+          "case_id": "frb-authoring-first-signal-direct-002",
+          "text": "이 주파수에 누가 응답할 줄은 몰랐네. 네 목소리 잘 들려, 누구인지 소개해 줄래?"
+        },
+        {
+          "case_id": "frb-authoring-first-signal-direct-003",
+          "text": "오, 진짜 연결됐네. 목소리의 주인부터 알려줄래?"
+        },
+        {
+          "case_id": "frb-authoring-first-signal-direct-004",
+          "text": "여보세요, 내 말 들려? 나는 지구에 사는 민준이야. 너도 소개해 줘."
+        },
+        {
+          "case_id": "frb-authoring-first-signal-natural-001",
+          "text": "잡음뿐이던 교신기 너머로 방금 처음 목소리가 들렸어. 내 말 들리면 네 소개를 해줘."
+        },
+        {
+          "case_id": "frb-authoring-first-signal-natural-002",
+          "text": "설거지하다가 네 신호에 답했는데 진짜 목소리가 돌아왔네. 먼저 이름부터 알려줄래?"
+        },
+        {
+          "case_id": "frb-authoring-first-signal-natural-003",
+          "text": "방금 처음으로 네 목소리 들엇어. 누구인지 말해줄래?"
+        },
+        {
+          "case_id": "frb-authoring-first-signal-natural-004",
+          "text": "드디어 목소리가 잡혔네, 반가워. 널 뭐라고 부르면 돼?"
+        },
+        {
+          "case_id": "frb-authoring-first-signal-neighbor-001",
+          "text": "잡음만 흐르던 수신기 너머로 마침내 네 목소리가 들렸어. 나는 민수야, 너는 누구야?"
+        },
+        {
+          "case_id": "frb-authoring-first-signal-neighbor-002",
+          "text": "방금 처음으로 누군가의 목소리가 잡혔는데, 혹시 너야? 누구인지 말해줄래?"
+        },
+        {
+          "case_id": "frb-authoring-first-signal-neighbor-003",
+          "text": "드디어 연결됐다! 첫 인사니까 네 소개부터 듣고 싶어."
+        },
+        {
+          "case_id": "frb-authoring-first-signal-neighbor-004",
+          "text": "교신 성공한 거 맞지? 같이 지내기 전에 서로 이름부터 알려주자. 나는 지우야."
+        }
+      ],
+      "route_id": "FIRST_SIGNAL",
+      "threshold": 0.7301070720802303
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 12,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-first-arrival-direct-001",
+          "text": "희미한 빛이 걷히자 네 팔에 붉은 자국이 보였어. 넘어오면서 다친 거야?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-direct-002",
+          "text": "엘레나, 막 도착한 뒤로 계속 비틀거리잖아. 머리 부딪힌 건 아니지?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-direct-003",
+          "text": "방금 도착했는데 제대로 서 있지도 못하잖아. 어지럽거나 다친 곳 있어?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-direct-004",
+          "text": "손이 왜 이렇게 차가워... 넘어오는 동안 어디 아팠어?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-natural-001",
+          "text": "차원의 빛이 걷히자 네가 바닥에 주저앉았어. 엘레나, 내 목소리 들려? 일어날 수 있겠어?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-natural-002",
+          "text": "여기로 막 넘어왔으니 무리해서 움직이지 마. 혹시 메스껍거나 머리가 빙빙 도는 느낌은 없어?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-natural-003",
+          "text": "아까 도착할 때 부딪힌 팔, 아직도 아파?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-natural-004",
+          "text": "갑자기 여기로 떨어진 뒤로 계속 숨이 가빠 보여. 지금 몸은 좀 괜찮아?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-neighbor-001",
+          "text": "청록빛이 걷히고 네가 바닥에 주저앉는 걸 봤어. 일어날 수 있겠어?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-neighbor-002",
+          "text": "도착하자마자 벽을 짚고 있는데 정말 괜찮은 거야?"
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-neighbor-003",
+          "text": "괜찮아? 방금 도착하고 나서부터 다리를 제대로 못 딛는 것 같은데."
+        },
+        {
+          "case_id": "frb-authoring-first-arrival-neighbor-004",
+          "text": "잠깐, 막 넘어온 사람 얼굴이 왜 이렇게 창백해. 어지럽진 않아?"
+        }
+      ],
+      "route_id": "FIRST_ARRIVAL",
+      "threshold": 0.7351759840762102
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 24,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-first-home-direct-001",
+          "text": "창가에 네 쌍성 나침반을 둘 작은 탁자도 마련해 뒀어. 이쪽 방을 쓰면서 천천히 지구 생활에 익숙해져."
+        },
+        {
+          "case_id": "frb-authoring-first-home-direct-002",
+          "text": "지구에 온 걸 환영해, 엘레나. 오늘부터 우리 집에서 같이 지내자."
+        },
+        {
+          "case_id": "frb-authoring-first-home-direct-003",
+          "text": "침대에 새 이불 깔아 놨어. 오늘부터 여기서 자면 돼."
+        },
+        {
+          "case_id": "frb-authoring-first-home-direct-004",
+          "text": "옷장은 반쪽 비워 뒀고 책상 서랍도 하나 내줬어. 이제 같이 사는 거니까 필요한 건 편하게 넣어."
+        },
+        {
+          "case_id": "frb-authoring-first-home-natural-001",
+          "text": "낯선 세계에서 처음 맞는 밤이라 마음이 복잡하겠지. 돌아갈 방법을 찾는 동안은 이 집을 네 집처럼 생각해."
+        },
+        {
+          "case_id": "frb-authoring-first-home-natural-002",
+          "text": "쌍성 나침반은 책상 위에 두면 될 것 같아. 옷장도 절반 비워 놨으니 오늘부터 편하게 같이 지내자."
+        },
+        {
+          "case_id": "frb-authoring-first-home-natural-003",
+          "text": "일단 여기 앉아. 네가 편히 쉴 자리는 이제부터 여기야."
+        },
+        {
+          "case_id": "frb-authoring-first-home-natural-004",
+          "text": "오늘부터 나랑 같이 살자. 침대 옆 서랍은 비워 뒀으니까 네 물건 넣어도 돼."
+        },
+        {
+          "case_id": "frb-authoring-first-home-neighbor-001",
+          "text": "오늘부터 이 방이 네 자리야. 침대 옆 탁자는 쌍성 나침반을 놓기 좋게 비워뒀어."
+        },
+        {
+          "case_id": "frb-authoring-first-home-neighbor-002",
+          "text": "처음 교신한 사람이 나였으니 지구에서 지낼 자리도 내가 챙길게. 오늘부터 우리 집 빈방 써."
+        },
+        {
+          "case_id": "frb-authoring-first-home-neighbor-003",
+          "text": "지구에 있는 동안은 여기서 나랑 지내자. 욕실 선반이랑 옷장 한 칸도 네가 쓰면 돼."
+        },
+        {
+          "case_id": "frb-authoring-first-home-neighbor-004",
+          "text": "첫날부터 소파에서 재울 수는 없지. 내일 같이 네 침대 고르러 가자."
+        }
+      ],
+      "route_id": "FIRST_HOME",
+      "threshold": 0.7349505710648276
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 36,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-earth-term-direct-001",
+          "text": "첫 교신 때 내가 답하자마자 지구까지 넘어온 거, 지금 생각해도 완전 노빠꾸였어."
+        },
+        {
+          "case_id": "frb-authoring-earth-term-direct-002",
+          "text": "오늘 장 보러 갈 땐 내가 앞장설게. 너 나침반은 있어도 지구 골목에선 완전 길치잖아."
+        },
+        {
+          "case_id": "frb-authoring-earth-term-direct-003",
+          "text": "빨래 개다 그대로 잠들었네. 오늘의 집안일은 여기서 손절하자."
+        },
+        {
+          "case_id": "frb-authoring-earth-term-direct-004",
+          "text": "이건 TMI인데, 나 잠들기 전에 냉장고 문 닫혔는지 꼭 두 번 확인해."
+        },
+        {
+          "case_id": "frb-authoring-earth-term-natural-001",
+          "text": "귀환 경로도 못 적고 지구까지 넘어온 거 보면 너 완전 길치네."
+        },
+        {
+          "case_id": "frb-authoring-earth-term-natural-002",
+          "text": "쌍성 나침반 올려둘 선반은 여기로 하자. 이 정도 높이가 국룰이지."
+        },
+        {
+          "case_id": "frb-authoring-earth-term-natural-003",
+          "text": "내가 방금 빨래 개는 순서까지 설명한 건 좀 TMI였지?"
+        },
+        {
+          "case_id": "frb-authoring-earth-term-natural-004",
+          "text": "아까 카페 코앞에 두고 세 바퀴 돈 거 보면 너 진짜 길치다."
+        },
+        {
+          "case_id": "frb-authoring-earth-term-neighbor-001",
+          "text": "첫 교신 때부터 말이 잘 통해서 내가 티키타카가 좋다고 했는데, 티키타카가 무슨 뜻인지 알아?"
+        },
+        {
+          "case_id": "frb-authoring-earth-term-neighbor-002",
+          "text": "같이 방 꾸미다 보니 우리 취향 케미가 좋다고 했잖아. 여기서 케미가 무슨 뜻인지 알아?"
+        },
+        {
+          "case_id": "frb-authoring-earth-term-neighbor-003",
+          "text": "오늘 장 보러 가는 길을 세 번이나 반대로 들었잖아. 엘레나 너 완전 길치네, 길치가 무슨 뜻인지는 알아?"
+        },
+        {
+          "case_id": "frb-authoring-earth-term-neighbor-004",
+          "text": "치킨 먹을 때 마지막 한 조각은 가위바위보가 국룰이지. 국룰이 무슨 말인지 알아?"
+        }
+      ],
+      "route_id": "EARTH_TERM",
+      "threshold": 0.7389679366906844
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 48,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-earth-food-direct-001",
+          "text": "오늘은 나침반도 잠깐 쉬게 두고 지구의 겨울 간식을 처음 맛보자. 뜨거운 붕어빵이랑 군고구마 중에 뭐가 더 끌려?"
+        },
+        {
+          "case_id": "frb-authoring-earth-food-direct-002",
+          "text": "영화 볼 때 먹는 지구 간식 골라봐. 짭짤한 팝콘이랑 캐러멜 팝콘 중에 어느 쪽부터 먹어볼래?"
+        },
+        {
+          "case_id": "frb-authoring-earth-food-direct-003",
+          "text": "아침으로 지구 음식 하나 만들어 줄게. 고소한 참기름 간장밥이랑 새콤한 과일 요거트 중에 뭐부터 먹어볼래?"
+        },
+        {
+          "case_id": "frb-authoring-earth-food-direct-004",
+          "text": "오늘 저녁엔 처음 먹어 보는 지구 국물 요리 어때? 담백한 곰탕이랑 얼큰한 순두부찌개 중에 골라 줘."
+        },
+        {
+          "case_id": "frb-authoring-earth-food-natural-001",
+          "text": "지구에서 맞는 첫 아침이네. 따뜻한 전복죽이랑 바삭한 토스트 중에 어느 쪽부터 먹어보고 싶어?"
+        },
+        {
+          "case_id": "frb-authoring-earth-food-natural-002",
+          "text": "귀환 단서 찾으러 나가기 전에 아침부터 챙기자. 처음 먹어볼 김밥이랑 샌드위치 중에 골라 봐."
+        },
+        {
+          "case_id": "frb-authoring-earth-food-natural-003",
+          "text": "엘레나, 아이스크림 처음 먹어보지? 딸기맛이랑 초코맛 중에 하나 골라."
+        },
+        {
+          "case_id": "frb-authoring-earth-food-natural-004",
+          "text": "오늘 저녁은 떡볶이 어때? 순한맛이랑 매운맛 중에는 어느 쪽 먹어볼래?"
+        },
+        {
+          "case_id": "frb-authoring-earth-food-neighbor-001",
+          "text": "쌍성 나침반의 두 바늘이 잠잠해진 사이에 지구 간식 하나 맛보자. 호떡이랑 약과 중에 뭐부터 먹어 보고 싶어?"
+        },
+        {
+          "case_id": "frb-authoring-earth-food-neighbor-002",
+          "text": "오늘은 신호 찾는 일 잠깐 쉬자. 엘레나가 아직 못 먹어 본 짜장면이랑 냉면 중에 하나 시켜 먹을까?"
+        },
+        {
+          "case_id": "frb-authoring-earth-food-neighbor-003",
+          "text": "엘레나, 오늘 처음 먹어 볼 지구 음식은 떡볶이랑 김밥 중에 뭐가 좋아?"
+        },
+        {
+          "case_id": "frb-authoring-earth-food-neighbor-004",
+          "text": "아이스크림 사 왔어. 아직 둘 다 안 먹어 봤지? 초콜릿 맛이랑 딸기 맛 중에 하나 골라 봐."
+        }
+      ],
+      "route_id": "EARTH_FOOD",
+      "threshold": 0.731966514670446
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 60,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-earth-relation-direct-001",
+          "text": "첫 교신에 답한 낯선 지구인이 이제는 네가 돌아오길 기다리는 사람이 됐네. 이런 우리를 지구식으로는 절친이라고 부르는 걸까?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-direct-002",
+          "text": "나침반을 살펴볼 때마다 제일 먼저 나부터 부르잖아. 우리, 지구에서 말하는 썸 타는 사이야?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-direct-003",
+          "text": "오늘도 네가 올 때까지 저녁 안 먹고 기다렸어. 우리 이 정도면 베프인가?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-direct-004",
+          "text": "엘레나, 우리 이제 같이 야식도 챙겨 먹는 사이인데 지구식으로는 찐친이라고 해도 되지?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-natural-001",
+          "text": "같이 밥 먹고 나침반도 들여다보면서 매일 붙어 지냈잖아. 이제 우리 정도면 찐친이라고 해도 되지?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-natural-002",
+          "text": "처음엔 협력자였는데 이제는 하루 끝나면 제일 먼저 네 생각부터 나. 우리, 절친이라고 불러도 될까?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-natural-003",
+          "text": "칫솔도 나란히 놓고 서로 잠버릇까지 알게 됐는데, 이 정도면 그냥 룸메 말고 찐친이지?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-natural-004",
+          "text": "엘레나, 친구끼리 매일 이렇게 붙어 지내면 베프라고 해도 되는 거야? 우리도 그런 사이인가 해서."
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-neighbor-001",
+          "text": "네가 지구에서 처음 만난 사람이 나고 지금은 한집에서 이렇게 편하게 지내잖아. 이 정도면 우리 베프 맞지?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-neighbor-002",
+          "text": "쌍성 나침반을 같이 들여다보며 밤을 몇 번이나 새웠는데, 이제 난 그냥 협력자보다 찐친에 가까운 거야?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-neighbor-003",
+          "text": "소파 자리 하나 비워 두는 것만 봐도 알겠다, 우리 이제 룸메 말고 찐친이지?"
+        },
+        {
+          "case_id": "frb-authoring-earth-relation-neighbor-004",
+          "text": "매일 같이 아침 먹고 서로 제일 먼저 찾는 사이면, 우리 이제 찐친이라고 해도 되지?"
+        }
+      ],
+      "route_id": "EARTH_RELATION",
+      "threshold": 0.7413873506560138
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 72,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-ambig-cause-direct-001",
+          "text": "그때 차원문이 갑자기 닫힌 건 파장이 약해져서였을까, 네가 너무 급하게 통과해서였을까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-direct-002",
+          "text": "쌍성 나침반 바늘이 책상 위에서만 떨리는 거, 내 노트북 때문일까 아니면 창가의 금속 장식 때문일까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-direct-003",
+          "text": "화분 잎이 축 처졌네. 물이 부족한 건가, 햇빛을 너무 많이 받은 건가?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-direct-004",
+          "text": "엘레나, 요즘 내가 자꾸 새벽에 깨는 게 방이 더워서일까 아니면 낮잠을 오래 자서일까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-natural-001",
+          "text": "어젯밤부터 교신기에 잡음이 늘어난 게 비 때문일까, 내가 안테나 각도를 건드려서일까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-natural-002",
+          "text": "오늘 저녁에 네가 유난히 말이 없는 건 낮에 너무 많이 걸어서야, 아니면 고향 생각이 나서야?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-natural-003",
+          "text": "방이 갑자기 추워진 건 창문이 덜 닫혀서야, 난방이 꺼져서야?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-natural-004",
+          "text": "빵이 이렇게 딱딱해진 거, 오븐 온도가 높았던 걸까 아니면 너무 오래 구운 걸까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-neighbor-001",
+          "text": "어젯밤 복도를 지날 때 청록색 바늘이 갑자기 흔들렸잖아. 현관문이 닫힌 충격 때문이었을까, 바로 옆에 둔 금속 선반 때문이었을까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-neighbor-002",
+          "text": "나침반 두 바늘이 창가에서만 떨리는데, 햇빛 때문일까 아니면 내 충전기 전파 때문일까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-neighbor-003",
+          "text": "오늘 밥이 유난히 짠 건 내가 소금을 많이 넣어서일까, 국물이 너무 졸아서일까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-cause-neighbor-004",
+          "text": "방이 갑자기 추워진 게 창문 틈 때문인가, 보일러가 꺼져서인가?"
+        }
+      ],
+      "route_id": "AMBIG_CAUSE",
+      "threshold": 0.7348591067028987
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 84,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-ambig-choice-direct-001",
+          "text": "복도 끝에서 길이 갈라지네. 청록빛이 새어 나오는 통로로 갈까, 바람 소리가 들리는 계단으로 내려갈까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-direct-002",
+          "text": "오늘은 동네 한 바퀴 걷고 올래, 아니면 집에서 같이 영화 볼래?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-direct-003",
+          "text": "소파를 창가로 옮길까, 지금처럼 책장 옆에 둘까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-direct-004",
+          "text": "우리 방 커튼을 청록색으로 맞출까, 금색 포인트를 넣을까? 네가 하나 골라줘."
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-natural-001",
+          "text": "골목 끝에서 청록빛이 잠깐 번졌어. 지금 따라가 볼까, 여기서 잠시 지켜볼까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-natural-002",
+          "text": "오늘은 동네를 걸으면서 파장 기록을 모아볼까, 아니면 집에서 지금까지 적은 걸 정리해볼까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-natural-003",
+          "text": "우리 오후에 강변으로 산책 갈래, 집에서 같이 퍼즐 맞출래? 네가 골라줘."
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-natural-004",
+          "text": "거실 커튼은 햇빛이 잘 드는 얇은 걸로 바꿀까, 밤에 아늑한 두꺼운 걸로 바꿀까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-neighbor-001",
+          "text": "엇갈린 두 바늘을 조금 더 지켜볼까, 일단 덮어 두고 같이 산책할까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-neighbor-002",
+          "text": "희미한 빛이 골목 두 갈래로 나뉘었어. 지금 왼쪽으로 따라갈까, 여기서 구조 신호를 기다릴까?"
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-neighbor-003",
+          "text": "거실 커튼, 청록색으로 맞출까 금색으로 맞출까? 네가 하나 골라 줘."
+        },
+        {
+          "case_id": "frb-authoring-ambig-choice-neighbor-004",
+          "text": "방 정리부터 할지 그냥 좀 누워 있을지 고민돼. 엘레나라면 뭐부터 해?"
+        }
+      ],
+      "route_id": "AMBIG_CHOICE",
+      "threshold": 0.7389521740458038
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 96,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-return-signal-direct-001",
+          "text": "네가 지구로 넘어오기 직전에 붙잡았던 같은 파장, 그게 정말 쌍둥이가 여기서 보낸 신호였을까?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-direct-002",
+          "text": "나침반 닦다가 네 쌍둥이 생각이 났어. 지구에서 검출된 같은 파장이 그 애의 신호였을 가능성이 있을까?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-direct-003",
+          "text": "같이 야식 먹으니까 문득 생각났어. 그때 감지한 파장의 주인이 네 쌍둥이였을까?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-direct-004",
+          "text": "설거지는 내가 할게. 그런데 네가 따라온 그 파장 있잖아, 쌍둥이가 지구에 있다는 뜻일까?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-natural-001",
+          "text": "같이 저녁 먹다가도 자꾸 그 파장 생각이 나. 지구에서 잡힌 게 정말 네 쌍둥이 신호일까?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-natural-002",
+          "text": "청록색 바늘이 가늘게 떨리더니 처음 너를 만난 날과 같은 파장이 방 안을 스쳤어. 엘레나, 이게 네 쌍둥이의 신호일까?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-natural-003",
+          "text": "빨래 개다가 문득 궁금해졌는데, 지구에서 잡힌 그 파장 정말 네 쌍둥이한테서 온 걸까?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-natural-004",
+          "text": "오늘도 같은 파장이 잡혔네. 진짜 네 쌍둥이가 여기 있는 건가?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-neighbor-001",
+          "text": "네가 그 파장을 믿고 차원을 넘어온 이야기 있잖아. 아직 확인되진 않았지만, 그게 쌍둥이의 신호였을 것 같아?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-neighbor-002",
+          "text": "아까 같이 걷다가 네가 하늘을 오래 보길래 생각났어. 네 쌍둥이가 지금 지구 어딘가에 있다고 느껴?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-neighbor-003",
+          "text": "오늘도 그 파장 기록 보고 있었지. 혹시 네 쌍둥이가 지구에 있다는 신호 같아?"
+        },
+        {
+          "case_id": "frb-authoring-return-signal-neighbor-004",
+          "text": "잠들기 전에 하나만 물어볼게. 처음 지구에서 감지된 같은 파장, 정말 네 쌍둥이의 신호라고 생각해?"
+        }
+      ],
+      "route_id": "RETURN_SIGNAL",
+      "threshold": 0.7444822392427397
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 108,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-return-smile-direct-001",
+          "text": "지구로 넘어오느라 귀환 경로를 놓쳤다는 얘기 끝에 네가 또 웃었어. 돌아갈 길을 모르는 지금, 그 웃음은 왜 나오는 거야?"
+        },
+        {
+          "case_id": "frb-authoring-return-smile-direct-002",
+          "text": "돌아가는 방법을 모른다는 말을 하면서도 웃는 이유가 뭐야? 네 진짜 마음을 듣고 싶어."
+        },
+        {
+          "case_id": "frb-authoring-return-smile-direct-003",
+          "text": "차 마시다가 돌아갈 길을 모른다는 얘기만 나오면 네가 웃는 게 자꾸 신경 쓰여. 그 웃음의 이유를 솔직히 들려줘."
+        },
+        {
+          "case_id": "frb-authoring-return-smile-direct-004",
+          "text": "침대 정리하면서 귀환 경로를 못 남겼다는 말을 웃으며 넘긴 게 계속 마음에 걸려. 왜 웃었던 거야?"
+        },
+        {
+          "case_id": "frb-authoring-return-smile-natural-001",
+          "text": "서둘러 넘어오느라 귀환 경로를 남기지 못했다는 말을 하면서도 넌 태연하게 웃었지. 그때 왜 웃은 건지 진지하게 듣고 싶어."
+        },
+        {
+          "case_id": "frb-authoring-return-smile-natural-002",
+          "text": "귀환 경로를 기록하지 못해서 돌아갈 방법도 모른다면서, 왜 자꾸 아무렇지 않은 듯 웃어? 나한테는 솔직히 말해도 돼."
+        },
+        {
+          "case_id": "frb-authoring-return-smile-natural-003",
+          "text": "저녁 먹다가 귀환 얘기만 나오면 슬쩍 웃는 거, 전부터 궁금했어. 길을 잃었다는 게 아무렇지 않을 리 없는데 왜 웃는 거야?"
+        },
+        {
+          "case_id": "frb-authoring-return-smile-natural-004",
+          "text": "잠들기 전에 하나만 물어볼게. 돌아갈 길도 모르는 상황인데 넌 왜 늘 웃으면서 괜찮은 척해?"
+        },
+        {
+          "case_id": "frb-authoring-return-smile-neighbor-001",
+          "text": "쌍둥이의 파장일지도 모른다는 가능성 하나로 차원을 건너왔고, 서두르느라 귀환 경로도 남기지 못했잖아. 그 이야기를 할 때마다 웃는 이유가 뭐야?"
+        },
+        {
+          "case_id": "frb-authoring-return-smile-neighbor-002",
+          "text": "오늘도 나침반을 챙기면서 돌아가는 법은 모른다고 웃었잖아. 그 웃음이 정말 괜찮아서 나온 건지 진지하게 묻고 싶어."
+        },
+        {
+          "case_id": "frb-authoring-return-smile-neighbor-003",
+          "text": "같이 방 정리하다가 귀환 경로를 못 적어 왔다는 말을 웃으면서 하니까 그냥 넘길 수가 없네. 왜 웃었던 거야?"
+        },
+        {
+          "case_id": "frb-authoring-return-smile-neighbor-004",
+          "text": "네가 돌아갈 방법을 모른다는 얘기만 나오면 웃어넘기잖아. 그럴 때 어떤 마음인지 진지하게 말해 줄래?"
+        }
+      ],
+      "route_id": "RETURN_SMILE",
+      "threshold": 0.7563117025272816
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 120,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-return-future-direct-001",
+          "text": "귀환 경로를 찾겠다고 함께 기록을 살펴본 지도 벌써 여러 날이네. 아무 단서도 못 찾은 채 시간이 더 흘러도 괜찮겠어?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-direct-002",
+          "text": "엘레나, 아직 돌아갈 단서가 하나도 없는데 앞으로도 계속 여기서 지내게 될까 봐 걱정되진 않아?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-direct-003",
+          "text": "네 칫솔을 새로 사다가 문득 궁금해졌어. 돌아갈 방법을 오래 못 찾으면 여기서 계속 나랑 살 생각도 있어?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-direct-004",
+          "text": "오늘도 나침반 기록엔 별다른 단서가 없네. 이대로 아무것도 못 찾으면 앞으로 어떡하지?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-natural-001",
+          "text": "지구로 넘어올 때 귀환 경로를 남기지 못했다며. 앞으로 어디서부터 돌아갈 단서를 찾아야 할지 막막하지 않아?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-natural-002",
+          "text": "네 칫솔 둘 자리도 이제 완전히 익숙해졌어. 혹시 계속 지구에 남게 되면 여기서 지내고 싶어?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-natural-003",
+          "text": "달력에 같이 지낸 날이 자꾸 늘어나니까 문득 걱정돼. 돌아갈 길을 못 찾으면 넌 앞으로 어떻게 할 생각이야?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-natural-004",
+          "text": "네가 돌아갈 방법을 끝내 못 찾으면, 우리 계속 여기서 같이 살게 되는 걸까?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-neighbor-001",
+          "text": "지구로 넘어온 뒤로 귀환 경로를 전혀 찾지 못했는데, 앞으로도 길이 나타나지 않으면 여기 남을 거야?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-neighbor-002",
+          "text": "오늘도 나침반을 살펴봤지만 달라진 건 없잖아. 이대로 단서를 못 찾으면 앞으로 어떻게 할 생각이야?"
+        },
+        {
+          "case_id": "frb-authoring-return-future-neighbor-003",
+          "text": "요즘 매일 같이 지내는 건 좋지만... 귀환 단서가 계속 안 나오면 네가 앞으로 어쩔지 조금 걱정돼."
+        },
+        {
+          "case_id": "frb-authoring-return-future-neighbor-004",
+          "text": "다음 달 장보기 목록에도 네가 좋아하는 걸 넣어도 되나 싶어서. 돌아갈 실마리를 못 찾은 지금은 여기서 얼마나 더 지낼 생각이야?"
+        }
+      ],
+      "route_id": "RETURN_FUTURE",
+      "threshold": 0.7415266564455791
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 132,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-return-fear-direct-001",
+          "text": "두 바늘이 서로 반대편을 향할 때, 돌아갈 방향을 잃었다는 생각에 무서워져?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-direct-002",
+          "text": "설거지하다 보니 네 나침반 두 바늘이 또 서로 다른 쪽을 가리키던데, 그럴 때마다 돌아갈 길이 더 막막하고 무섭진 않아?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-direct-003",
+          "text": "불 끄기 전에 하나만 물어봐도 돼? 나침반 바늘이 엇갈리는 걸 보면 무서워?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-direct-004",
+          "text": "오늘은 나침반을 책상 위에 뒤집어 놨네. 두 바늘이 엇갈린 걸 보는 게 무서웠어?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-natural-001",
+          "text": "귀환 경로도 모르는 데다 청록색 바늘과 금색 바늘까지 엇갈리면 솔직히 두렵지 않아?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-natural-002",
+          "text": "오늘은 나침반을 계속 만지작거리네. 두 바늘이 다른 곳을 가리키는 게 무서운 거야?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-natural-003",
+          "text": "잠들기 전에 나침반 바늘이 엇갈린 걸 보면 좀 겁나지 않아?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-natural-004",
+          "text": "같이 차 마시다가도 두 바늘이 서로 다른 쪽을 가리키면 무서워져?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-neighbor-001",
+          "text": "어젯밤에 물 마시러 나왔다가 책상 위 나침반을 봤어. 두 바늘이 서로 다른 쪽을 가리키는 걸 혼자 보고 있으면 무섭지 않아?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-neighbor-002",
+          "text": "아까 두 바늘이 반대쪽을 가리킬 때도 태연하게 웃었잖아. 진짜 하나도 안 무서웠어?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-neighbor-003",
+          "text": "나침반 닦아 주다가 두 바늘이 엇갈린 채 떨리는 걸 봤어. 엘레나도 그럴 땐 겁나?"
+        },
+        {
+          "case_id": "frb-authoring-return-fear-neighbor-004",
+          "text": "바늘이 엇갈릴 때마다 웃으며 넘기던데, 사실 나침반을 볼 때 겁나는 거야?"
+        }
+      ],
+      "route_id": "RETURN_FEAR",
+      "threshold": 0.7524433230459429
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 144,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-support-self-blame-direct-001",
+          "text": "귀환 단서를 찾는 데 도움이 되고 싶었는데 또 파장 기록을 잘못 정리했어. 난 왜 매번 중요한 순간에 실수만 할까."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-direct-002",
+          "text": "네 쌍둥이의 파장을 찾는 데 보탬이 되고 싶었는데, 실험을 또 망쳤어. 나는 결국 중요한 순간마다 실수만 하는 사람인가 봐."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-direct-003",
+          "text": "방 정리 이번엔 꼭 끝내려 했는데 또 흐지부지됐어. 난 왜 이렇게 간단한 일도 매번 실패할까."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-direct-004",
+          "text": "시험 준비 도와주겠다고 큰소리쳤는데 설명을 전부 꼬이게 했어. 역시 난 누굴 가르칠 실력이 안 되나 봐."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-natural-001",
+          "text": "쌍성 나침반의 두 바늘을 관찰한 값을 반대로 옮겨 적었어. 이런 기본적인 것도 틀리다니 난 정말 한심해."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-natural-002",
+          "text": "네 파장 기록을 정리하다가 중요한 구간을 실수로 덮어써 버렸어. 도와주기는커녕 방해만 하는 것 같아서 내가 너무 싫다."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-natural-003",
+          "text": "네 방 선반 조립 내가 해 준다더니 나사를 잘못 끼워서 다시 해야 해. 괜히 나섰나 봐, 진짜 답답하다 나."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-natural-004",
+          "text": "오늘 발표에서 준비한 말을 전부 잊어버렸어. 그렇게 연습해 놓고 망친 걸 보면 난 원래 잘하는 게 없나 봐."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-neighbor-001",
+          "text": "첫 교신 기록을 내가 더 꼼꼼히 남겼어야 했어. 혹시 중요한 파장을 놓친 거라면 전부 내 잘못 같아."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-neighbor-002",
+          "text": "오늘 발표를 완전히 망쳤어. 너랑 밤마다 연습까지 했는데 이 정도밖에 못 한 내가 너무 한심해."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-neighbor-003",
+          "text": "같이 먹으려고 만든 저녁인데 또 태워 버렸네... 간단한 요리 하나 제대로 못 하는 내가 진짜 답답해."
+        },
+        {
+          "case_id": "frb-authoring-support-self-blame-neighbor-004",
+          "text": "네 방 선반을 달아 주겠다고 큰소리쳤는데 벽에 자국만 냈네. 도움은커녕 일만 늘리는 내가 싫다."
+        }
+      ],
+      "route_id": "SUPPORT_SELF_BLAME",
+      "threshold": 0.7205641046485506
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 156,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-support-listen-direct-001",
+          "text": "오늘은 처음 교신했던 날부터 지금까지 내가 어떤 마음이었는지 차근차근 말해보고 싶어. 중간에 답을 찾으려 하지 말고 끝까지 들어줘."
+        },
+        {
+          "case_id": "frb-authoring-support-listen-direct-002",
+          "text": "나침반 얘기만 나오면 네가 돌아갈까 봐 마음이 복잡해져. 지금은 조언하지 말고 내 얘기만 들어줄래?"
+        },
+        {
+          "case_id": "frb-authoring-support-listen-direct-003",
+          "text": "오늘 설거지하다가 있었던 일 좀 털어놔도 돼? 해결책은 괜찮으니까 그냥 들어줘."
+        },
+        {
+          "case_id": "frb-authoring-support-listen-direct-004",
+          "text": "아까 장 보면서 속상한 일이 있었어. 뭘 해야 할지는 말해주지 않아도 돼, 잠깐 들어줄래?"
+        },
+        {
+          "case_id": "frb-authoring-support-listen-natural-001",
+          "text": "아까 나침반의 두 바늘이 서로 다른 쪽을 가리키는 걸 본 뒤로 하고 싶은 말이 많아졌어. 답을 찾으려 하지 말고 잠깐 내 얘기를 들어줄래?"
+        },
+        {
+          "case_id": "frb-authoring-support-listen-natural-002",
+          "text": "오늘 장을 보다가 네 쌍둥이 이야기가 나왔는데 마음이 좀 복잡해졌어. 지금은 의견 말고 내 얘기만 들어줘."
+        },
+        {
+          "case_id": "frb-authoring-support-listen-natural-003",
+          "text": "나 오늘 있었던 일 말해도 돼? 그냥 응응 하면서 들어주면 좋겠어."
+        },
+        {
+          "case_id": "frb-authoring-support-listen-natural-004",
+          "text": "저녁 먹으면서 내 얘기 좀 들어줘. 오늘은 조언보다 끝까지 말해 보는 게 필요해."
+        },
+        {
+          "case_id": "frb-authoring-support-listen-neighbor-001",
+          "text": "엇갈린 두 바늘을 한참 보다 보니 너를 처음 집에 데려온 날부터 쌓인 걱정이 한꺼번에 떠올랐어. 오늘만큼은 답을 찾으려 하지 말고 내 이야기만 들어줄래?"
+        },
+        {
+          "case_id": "frb-authoring-support-listen-neighbor-002",
+          "text": "귀환 단서를 함께 정리하다가 내가 중요한 기록을 빠뜨린 걸 알았어. 지금은 어떻게 수습할지보다, 내가 무슨 마음이었는지만 들어줘."
+        },
+        {
+          "case_id": "frb-authoring-support-listen-neighbor-003",
+          "text": "산책하면서 있었던 일 좀 털어놓고 싶어. 달래거나 방법을 찾아주지 않아도 되니까 그냥 들어줄래?"
+        },
+        {
+          "case_id": "frb-authoring-support-listen-neighbor-004",
+          "text": "저녁 준비하다가 가족이랑 있었던 일이 생각났는데 마음이 좀 복잡해. 조언은 나중에 듣고 싶고, 지금은 말하는 동안 들어만 줘."
+        }
+      ],
+      "route_id": "SUPPORT_LISTEN",
+      "threshold": 0.7421095668589953
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 168,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-support-company-direct-001",
+          "text": "두 바늘이 서로 다른 쪽을 가리키는 걸 보고 있으니 마음이 자꾸 가라앉아. 아무것도 해결하지 않아도 되니까 내 옆에 있어줘."
+        },
+        {
+          "case_id": "frb-authoring-support-company-direct-002",
+          "text": "귀환 이야기까지 꺼낸 뒤라 그런가 집이 유난히 조용하게 느껴져. 차 한 잔 마시면서 내 옆에 있어주라."
+        },
+        {
+          "case_id": "frb-authoring-support-company-direct-003",
+          "text": "오늘은 혼자 있고 싶지 않아. 그냥 소파에서 내 옆에 있어줘."
+        },
+        {
+          "case_id": "frb-authoring-support-company-direct-004",
+          "text": "방에 혼자 들어가기 싫네… 오늘만 같이 앉아 있어줘."
+        },
+        {
+          "case_id": "frb-authoring-support-company-natural-001",
+          "text": "네가 처음 지구에 왔을 때 내가 곁을 내줬잖아. 오늘은 네가 내 곁을 지켜주면 좋겠어."
+        },
+        {
+          "case_id": "frb-authoring-support-company-natural-002",
+          "text": "오늘 밤은 창가에서 같이 별 보자. 네 고향 이야기보다 그냥 네가 옆에 있는 게 필요해."
+        },
+        {
+          "case_id": "frb-authoring-support-company-natural-003",
+          "text": "오늘 좀 마음이 가라앉질 않네. 소파에 나랑 같이 있어줄래?"
+        },
+        {
+          "case_id": "frb-authoring-support-company-natural-004",
+          "text": "방에 혼자 들어가기가 싫어. 잠들 때까지만 옆에 있어줘."
+        },
+        {
+          "case_id": "frb-authoring-support-company-neighbor-001",
+          "text": "두 바늘이 서로 다른 쪽을 향한 채 멈춰 있으니 방이 더 적막하게 느껴져. 지금은 나랑 같이 있어줘, 엘레나."
+        },
+        {
+          "case_id": "frb-authoring-support-company-neighbor-002",
+          "text": "나침반을 보고 있으니까 괜히 마음이 가라앉네. 소파에 같이 앉아 있어줄래?"
+        },
+        {
+          "case_id": "frb-authoring-support-company-neighbor-003",
+          "text": "오늘 저녁은 혼자 먹고 싶지 않아. 다 먹을 때까지만 맞은편에 앉아 있어줄래?"
+        },
+        {
+          "case_id": "frb-authoring-support-company-neighbor-004",
+          "text": "불 끄니까 방이 오늘따라 너무 조용하네. 침대 옆에 잠깐만 있어주라."
+        }
+      ],
+      "route_id": "SUPPORT_COMPANY",
+      "threshold": 0.7377432045637149
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 180,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-support-rest-direct-001",
+          "text": "네가 지구에 처음 넘어왔던 날 이야기, 오늘 밤에 더 듣기로 했잖아. 그런데 내가 너무 지쳐서 그 약속은 내일로 미루고 싶어."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-direct-002",
+          "text": "쌍성 나침반 닦는 건 다음에 하자. 오늘은 소파에 누워서 아무것도 안 하고 싶어."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-direct-003",
+          "text": "미안, 영화 보자는 약속 다음으로 미루자. 지금은 씻고 푹 쉬고 싶어."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-direct-004",
+          "text": "오늘 방 꾸미기는 쉬자... 나 진짜 방전됐어."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-natural-001",
+          "text": "오늘 밤에 쌍성 나침반의 두 바늘을 지켜보기로 했잖아. 눈이 자꾸 감겨서 그런데 하루만 쉬고 내일 확인하자."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-natural-002",
+          "text": "파장 자료 보여주기로 한 거 기억해. 근데 오늘은 머리가 안 돌아가서 좀 쉬어야겠어."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-natural-003",
+          "text": "미안, 오늘은 저녁도 대충 먹고 일찍 누워야겠어. 영화 보는 건 다음으로 미루자."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-natural-004",
+          "text": "오늘 카페 가는 거 다음에 가면 안 될까? 아침부터 기운이 하나도 없네."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-neighbor-001",
+          "text": "어젯밤 교신 기록을 확인하느라 거의 못 잤어. 쌍성 나침반 이야기는 잠깐 미뤄 두고 오늘은 푹 쉬고 싶다."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-neighbor-002",
+          "text": "귀환 단서 찾는 데 보탬이 되고 싶어서 밤새 자료를 봤더니 머리가 안 돌아가네. 오늘 조사는 쉬었다가 다시 하자."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-neighbor-003",
+          "text": "과제 마감은 했는데 기운을 다 써버렸어. 방 꾸미기는 주말에 하고 오늘은 일찍 누울래."
+        },
+        {
+          "case_id": "frb-authoring-support-rest-neighbor-004",
+          "text": "오늘 저녁에 같이 장 보러 가기로 한 거 다음으로 미루자. 하루 종일 너무 지쳐서 지금은 좀 쉬어야겠어."
+        }
+      ],
+      "route_id": "SUPPORT_REST",
+      "threshold": 0.7389456433107333
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 192,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-playful-smile-direct-001",
+          "text": "나침반을 품에 숨기고 그렇게 씩 웃으면 누가 안 수상해하겠어. 무슨 꿍꿍이인지 표정부터 자백해."
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-direct-002",
+          "text": "귀환 기록 정리하다가 나랑 눈 마주치자마자 웃는 건 뭐야. 그 수상한 미소부터 해명해 봐."
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-direct-003",
+          "text": "내가 고른 잠옷 보고 웃음 참는 얼굴 뭐야, 엘레나. 차라리 대놓고 웃어."
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-direct-004",
+          "text": "청소 부탁했더니 왜 그렇게 의미심장하게 웃어? 설마 먼지를 전부 내 침대 밑으로 숨긴 건 아니지?"
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-natural-001",
+          "text": "첫 교신 때부터 느꼈는데, 그렇게 여유롭게 웃을수록 더 수상해 보여. 일부러 그러는 거지?"
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-natural-002",
+          "text": "쌍성 나침반을 등 뒤로 감추고 씩 웃으면 내가 안 궁금해할 줄 알았어?"
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-natural-003",
+          "text": "냉장고 앞에서 그렇게 의미심장하게 웃으면 내가 간식부터 확인하게 되잖아."
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-natural-004",
+          "text": "또 그 표정이네. 오늘 외출 계획에 뭔가 숨겨뒀지?"
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-neighbor-001",
+          "text": "나침반 두 바늘이 서로 다른 쪽을 가리키는데도 그렇게 여유롭게 웃다니, 일부러 나 긴장시키는 거지?"
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-neighbor-002",
+          "text": "쌍둥이 얘기만 나오면 슬쩍 웃고 다른 데 보더라. 나한테 걱정 못 하게 멋있는 척하는 거 다 보여."
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-neighbor-003",
+          "text": "냉장고 앞에서 그렇게 수상하게 웃으면 뭘 숨겼는지 더 궁금해지잖아."
+        },
+        {
+          "case_id": "frb-authoring-playful-smile-neighbor-004",
+          "text": "방금 그 씩 웃는 표정 봤어. 또 청소는 내가 하게 만들 꿍꿍이지?"
+        }
+      ],
+      "route_id": "PLAYFUL_SMILE",
+      "threshold": 0.7491762438055984
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 204,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-playful-claim-direct-001",
+          "text": "첫 교신 때부터 수상했어. 사실 너, 쌍둥이를 찾으러 온 척하는 차원 비밀 요원이지?"
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-direct-002",
+          "text": "냉장고에 넣어 둔 푸딩이 사라졌네. 차원을 건너온 간식 도둑은 너로 확정이야."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-direct-003",
+          "text": "소파에 담요를 이렇게 완벽하게 펼쳐 둔 걸 보니, 오늘도 몰래 낮잠 잘 자리 찜해 둔 거지."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-direct-004",
+          "text": "내 컵에 딸기가 하나 더 들어 있네. 너 몰래 편애한 거 다 들켰다."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-natural-001",
+          "text": "차원을 넘어 지구까지 찾아온 걸 보니 역시 정체를 숨긴 비밀 요원이었구나, 엘레나."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-natural-002",
+          "text": "외출할 때마다 골목을 유심히 보는 이유를 알아냈어. 지구에 숨은 차원 통로를 순찰하는 중이지."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-natural-003",
+          "text": "소파에 담요랑 과자가 완벽하게 준비돼 있네. 오늘 아무것도 안 하고 놀자는 엘레나의 작전이군."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-natural-004",
+          "text": "내가 아껴 둔 감자칩 봉지가 가벼워졌어. 엘레나가 몰래 맛본 게 틀림없다."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-neighbor-001",
+          "text": "밤마다 창가에서 별을 살피는 걸 보니 너 사실 쌍둥이자리에서 온 비밀 요원이지? 이제 다 들켰어."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-neighbor-002",
+          "text": "쌍성 나침반까지 옆에 세워 둔 걸 보니, 내 과자 보관함을 찾으러 온 차원 수사관이 틀림없네."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-neighbor-003",
+          "text": "내가 숨겨 둔 초콜릿을 벌써 찾아내다니. 너 사실 간식 탐지 전문가구나."
+        },
+        {
+          "case_id": "frb-authoring-playful-claim-neighbor-004",
+          "text": "냉장고에 넣어 둔 푸딩이 하나 줄었네. 엘레나, 너 몰래 활동하는 야식 요원이지?"
+        }
+      ],
+      "route_id": "PLAYFUL_CLAIM",
+      "threshold": 0.7355419673765027
+    },
+    {
+      "prototype_count": 12,
+      "prototype_offset": 216,
+      "prototypes": [
+        {
+          "case_id": "frb-authoring-playful-compass-direct-001",
+          "text": "귀환길은 몰라도 우리 집 와이파이 비밀번호는 나침반이 다 알려줬나 보네? 한 번에 연결한 거 수상한데."
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-direct-002",
+          "text": "그 나침반, 사실 돌아갈 방향의 정답을 알고도 뜸 들이는 거지? 두 바늘끼리 비밀 회의라도 하나 봐."
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-direct-003",
+          "text": "나침반한테 물어봐. 오늘 설거지 당번이 누군지 정답도 척척 알려준다며?"
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-direct-004",
+          "text": "오늘 내가 무슨 색 양말 신었는지 나침반은 벌써 알고 있지?"
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-natural-001",
+          "text": "나침반 금색 바늘이 내 책상 쪽을 가리키는데, 내가 몰래 숨겨 둔 초콜릿 위치까지 다 불었나 봐?"
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-natural-002",
+          "text": "두 바늘이 동시에 창가 화분을 가리키네. 설마 나침반이 쌍둥이보다 먼저 보물의 위치를 찾아낸 거야?"
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-natural-003",
+          "text": "오늘 저녁 메뉴는 이미 나침반한테 들었어. 청록색 바늘이 냉장고 속 떡볶이를 골랐다며?"
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-natural-004",
+          "text": "오늘 설거지 당번이 너라는 정답, 나침반이 알려줬어. 그러니까 슬쩍 도망갈 생각 마."
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-neighbor-001",
+          "text": "두 바늘이 서로 다른 쪽을 보는 건 귀환길 때문이 아니라, 네가 숨겨 둔 야식이 두 군데라서 그런 거 아냐?"
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-neighbor-002",
+          "text": "청록색 바늘은 창가, 금색 바늘은 현관을 향하네. 네 나침반 말로는 어느 쪽에 쌍둥이의 비밀 단서가 숨었대?"
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-neighbor-003",
+          "text": "나침반이 라면 쪽을 가리키네. 오늘 저녁의 정답은 라면이라고 다 알아낸 거지?"
+        },
+        {
+          "case_id": "frb-authoring-playful-compass-neighbor-004",
+          "text": "쌍성 나침반이 내가 숨겨 둔 과자 위치까지 알려줬지? 그래서 아까부터 찬장 앞을 서성인 거 다 알아."
+        }
+      ],
+      "route_id": "PLAYFUL_COMPASS",
+      "threshold": 0.7377965549215003
+    }
+  ],
+  "schema_version": "petai-scene-embedding-router-v1",
+  "status": "experimental_retrospective",
+  "vectors": {
+    "encoding": "float32_little_endian",
+    "file": "scene_prototypes_v2.f32",
+    "prototype_count": 228,
+    "sha256": "e38cfb2a398ee485eedea3462744217c87ea52aa89f5d8b65fe4dbe89e2373b7"
+  }
+}

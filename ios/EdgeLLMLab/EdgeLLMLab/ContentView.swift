@@ -12,7 +12,10 @@ import OSLog
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @State private var runtime = LiteRTLMRuntime()
+    private let slmConfiguration = SLMConfiguration.production
+    @State private var runtime = LiteRTLMRuntime(
+        configuration: .production
+    )
     @State private var memoryService = MemoryService()
     @State private var memoryCommitGuard =
         MemoryTaggedChatCommitGuard()
@@ -200,11 +203,18 @@ struct ContentView: View {
                 try await runtime.startConversation(
                     configuration: ConversationConfiguration(
                         systemPrompt: MemoryTaggedChatPrompt.wrappedAxesV1,
-                        temperature: 0,
-                        topK: 40,
-                        topP: 1,
+                        temperature: slmConfiguration.generation
+                            .deterministicSampling.temperature,
+                        topK: slmConfiguration.generation
+                            .deterministicSampling.samplerTopK,
+                        topP: slmConfiguration.generation
+                            .deterministicSampling.topP,
+                        maxOutputTokens: slmConfiguration.generation
+                            .maxOutputTokens,
                         topKTelemetryCandidateCount:
-                            isTopKTelemetryEnabled ? 8 : nil
+                            isTopKTelemetryEnabled
+                                ? slmConfiguration.diagnostics
+                                    .telemetryCandidateCount : nil
                     )
                 )
                 status = "Ready"
@@ -239,7 +249,8 @@ struct ContentView: View {
                 : []
             let generationPrompt = MemoryPromptBuilder.build(
                 userMessage: userMessage,
-                memories: memories
+                memories: memories,
+                tokenBudget: slmConfiguration.memory.promptTokenBudget
             )
 
             do {
@@ -343,7 +354,9 @@ struct ContentView: View {
                 MemorySearchRequest(
                     scope: memoryScope,
                     query: userMessage,
-                    topK: 3
+                    topK: slmConfiguration.memory.recallLimit,
+                    minimumSimilarity: slmConfiguration.memory
+                        .minimumSimilarity
                 )
             )
             retrievedMemories = results

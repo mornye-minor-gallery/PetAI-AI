@@ -85,7 +85,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         subsystem: Bundle.main.bundleIdentifier ?? "EdgeLLMLab",
         category: "LiteRTLMRuntime"
     )
-    private let cancellationTimeoutSeconds = 10
+    private let slmConfiguration: SLMConfiguration
     private var currentState: RuntimeState = .modelRequired
     private var engine: Engine?
     private var conversation: Conversation?
@@ -100,6 +100,14 @@ actor LiteRTLMRuntime: LLMRuntime {
         AsyncThrowingStream<String, Error>.Continuation?
     private var cancellationTimeoutTask: Task<Void, Never>?
     private var topKTelemetryAccumulator = TopKTelemetryAccumulator()
+
+    init(configuration: SLMConfiguration = .production) {
+        slmConfiguration = configuration
+    }
+
+    private var cancellationTimeoutSeconds: Int {
+        slmConfiguration.runtimeSafety.cancellationTimeoutSeconds
+    }
 
     var state: RuntimeState {
         currentState
@@ -161,7 +169,8 @@ actor LiteRTLMRuntime: LLMRuntime {
                 samplerConfig: sampler,
                 filterChannelContentFromKVCache: true,
                 topKTelemetryCandidateCount:
-                    configuration.topKTelemetryCandidateCount
+                    configuration.topKTelemetryCandidateCount,
+                maxOutputTokens: configuration.maxOutputTokens
             )
 
             conversation = try await engine.createConversation(
@@ -182,7 +191,8 @@ actor LiteRTLMRuntime: LLMRuntime {
     ) async throws -> AsyncThrowingStream<String, Error> {
         try await generateStream(
             prompt: prompt,
-            thinkingEnabled: false
+            thinkingEnabled: slmConfiguration.generation
+                .responseThinkingDefault
         )
     }
 
@@ -288,10 +298,8 @@ actor LiteRTLMRuntime: LLMRuntime {
     func generateIsolated(
         systemPrompt: String,
         userMessage: String,
-        temperature: Float = 0,
-        topK: Int = 40,
-        topP: Float = 1,
-        thinkingEnabled: Bool = false
+        sampling: SLMConfiguration.Sampling? = nil,
+        thinkingEnabled: Bool? = nil
     ) async throws -> String {
         let normalizedSystemPrompt = systemPrompt.trimmingCharacters(
             in: .whitespacesAndNewlines
@@ -318,10 +326,12 @@ actor LiteRTLMRuntime: LLMRuntime {
         currentState = .generating
 
         do {
+            let resolvedSampling = sampling
+                ?? slmConfiguration.generation.deterministicSampling
             let sampler = try SamplerConfig(
-                topK: topK,
-                topP: topP,
-                temperature: temperature
+                topK: resolvedSampling.samplerTopK,
+                topP: resolvedSampling.topP,
+                temperature: resolvedSampling.temperature
             )
             let configuration = ConversationConfig(
                 systemMessage: Message(
@@ -329,7 +339,9 @@ actor LiteRTLMRuntime: LLMRuntime {
                     role: .system
                 ),
                 samplerConfig: sampler,
-                filterChannelContentFromKVCache: true
+                filterChannelContentFromKVCache: true,
+                maxOutputTokens: slmConfiguration.generation
+                    .maxOutputTokens
             )
             let routeConversation = try await engine.createConversation(
                 with: configuration
@@ -337,7 +349,11 @@ actor LiteRTLMRuntime: LLMRuntime {
             isolatedConversation = routeConversation
             let response = try await routeConversation.sendMessage(
                 Message(normalizedUserMessage),
-                extraContext: ["enable_thinking": thinkingEnabled]
+                extraContext: [
+                    "enable_thinking": thinkingEnabled
+                        ?? slmConfiguration.generation
+                            .routerThinkingEnabled,
+                ]
             )
             guard activeGenerationID == generationID else {
                 throw RuntimeError.generationCancelled
@@ -622,10 +638,12 @@ extension LiteRTLMRuntime: NativeToolProposalGenerating {
             try await LiteRTLMNativeToolCallCapture.shared.begin(
                 expectedTool: request.selectedTool
             )
+            let sampling = slmConfiguration.generation
+                .deterministicSampling
             let sampler = try SamplerConfig(
-                topK: 40,
-                topP: 1,
-                temperature: 0
+                topK: sampling.samplerTopK,
+                topP: sampling.topP,
+                temperature: sampling.temperature
             )
             let configuration = ConversationConfig(
                 systemMessage: Message(
@@ -638,7 +656,9 @@ extension LiteRTLMRuntime: NativeToolProposalGenerating {
                     ),
                 ],
                 samplerConfig: sampler,
-                filterChannelContentFromKVCache: true
+                filterChannelContentFromKVCache: true,
+                maxOutputTokens: slmConfiguration.generation
+                    .maxOutputTokens
             )
             let toolConversation = try await engine.createConversation(
                 with: configuration

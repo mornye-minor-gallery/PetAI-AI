@@ -1,9 +1,16 @@
 public enum MemoryPromptBuilder {
+    /// Builds recalled context while bounding memory text with a deterministic
+    /// UTF-8 byte proxy. This is intentionally conservative and is not an
+    /// exact Gemma tokenizer count; replacing it is tracked in the AI plan.
     public static func build(
         userMessage: String,
-        memories: [RetrievedMemoryObservation]
+        memories: [RetrievedMemoryObservation],
+        tokenBudget: Int = SLMConfiguration.production.memory
+            .promptTokenBudget
     ) -> String {
-        let memoryLines = memories
+        precondition(tokenBudget > 0)
+
+        let candidates = memories
             .sorted { $0.rank < $1.rank }
             .compactMap { result -> String? in
                 let text = result.observation.rawText
@@ -14,6 +21,16 @@ public enum MemoryPromptBuilder {
                 }
                 return "- \(text)"
             }
+        var remainingBudget = tokenBudget
+        var memoryLines: [String] = []
+        for line in candidates {
+            let estimatedCost = line.utf8.count
+            guard estimatedCost <= remainingBudget else {
+                continue
+            }
+            memoryLines.append(line)
+            remainingBudget -= estimatedCost
+        }
 
         guard !memoryLines.isEmpty else {
             return userMessage

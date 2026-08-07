@@ -153,6 +153,42 @@ func denseRetrieverExcludesTurnsAndDeduplicatesExactRawText() async throws {
   #expect(results.map(\.observation.id) == ["duplicate-high"])
 }
 
+@Test
+func denseRetrieverFiltersCandidatesBelowMinimumSimilarity() async throws {
+  let scope = MemoryScope(userID: "local-user", characterID: "default-character")
+  let loader = DenseTestCandidateLoader(
+    candidates: [
+      makeCandidate(
+        id: "above-threshold",
+        sessionID: "session-1",
+        scope: scope,
+        vector: [0.4, 0.6, 0]
+      ),
+      makeCandidate(
+        id: "below-threshold",
+        sessionID: "session-2",
+        scope: scope,
+        vector: [0.2, 0.98, 0]
+      ),
+    ]
+  )
+  let retriever = DenseMemoryRetriever(
+    candidateLoader: loader,
+    embedder: DenseTestEmbedder()
+  )
+
+  let results = try await retriever.search(
+    MemorySearchRequest(
+      scope: scope,
+      query: "관련 기억",
+      topK: 10,
+      minimumSimilarity: 0.3
+    )
+  )
+
+  #expect(results.map(\.observation.id) == ["above-threshold"])
+}
+
 private func makeCandidate(
   id: String,
   sessionID: String,

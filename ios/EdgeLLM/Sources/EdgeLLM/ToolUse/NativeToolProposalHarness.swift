@@ -10,7 +10,8 @@ public struct NativeToolGenerationRequest: Equatable, Sendable {
         selectedTool: NativeToolKind,
         systemPrompt: String,
         userMessage: String,
-        reasoningEnabled: Bool = false
+        reasoningEnabled: Bool = SLMConfiguration.production.generation
+            .toolReasoningEnabled
     ) {
         self.selectedTool = selectedTool
         self.systemPrompt = systemPrompt
@@ -47,6 +48,7 @@ public struct NativeToolProposalHarness: Sendable {
         LocalNotificationRequestClarifier
     private let coordinator: NativeToolProposalCoordinator
     private let generator: any NativeToolProposalGenerating
+    private let configuration: SLMConfiguration
 
     public init(
         router: KoreanNativeToolRouter = KoreanNativeToolRouter(),
@@ -56,7 +58,8 @@ public struct NativeToolProposalHarness: Sendable {
         localNotificationClarifier: LocalNotificationRequestClarifier =
             LocalNotificationRequestClarifier(),
         coordinator: NativeToolProposalCoordinator,
-        generator: any NativeToolProposalGenerating
+        generator: any NativeToolProposalGenerating,
+        configuration: SLMConfiguration = .production
     ) {
         self.router = router
         self.promptRegistry = promptRegistry
@@ -65,6 +68,7 @@ public struct NativeToolProposalHarness: Sendable {
         self.localNotificationClarifier = localNotificationClarifier
         self.coordinator = coordinator
         self.generator = generator
+        self.configuration = configuration
     }
 
     public func prepare(
@@ -96,7 +100,8 @@ public struct NativeToolProposalHarness: Sendable {
                     selectedTool: selectedTool,
                     systemPrompt: prompt.rendered(with: promptContext),
                     userMessage: userMessage,
-                    reasoningEnabled: false
+                    reasoningEnabled: configuration.generation
+                        .toolReasoningEnabled
                 )
             )
             let proposal = try parser.parse(

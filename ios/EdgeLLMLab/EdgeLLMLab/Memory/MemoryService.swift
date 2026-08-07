@@ -167,6 +167,14 @@ actor MemoryService {
     return await engine.recall(request)
   }
 
+  func embedClassification(_ text: String) async throws -> [Float] {
+    _ = try requirePrepared()
+    try Task.checkCancellation()
+    let vector = try await embedder.embedClassification(text)
+    try Task.checkCancellation()
+    return vector
+  }
+
   func activeObservations(
     in scope: MemoryScope
   ) async throws -> [MemoryObservation] {

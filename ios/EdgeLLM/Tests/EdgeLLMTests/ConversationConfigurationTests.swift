@@ -7,7 +7,8 @@ import Testing
     #expect(configuration.systemPrompt == nil)
     #expect(configuration.temperature == 0.7)
     #expect(configuration.topK == 40)
-    #expect(configuration.topP == 0.95)
+    #expect(configuration.topP == 1)
+    #expect(configuration.maxOutputTokens == 4_096)
     #expect(configuration.topKTelemetryCandidateCount == nil)
 }
 
