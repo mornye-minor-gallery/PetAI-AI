@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decisions"],
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pair_id", "duplicate", "reason"],
+        "properties": {
+          "pair_id": {"type": "string", "minLength": 1},
+          "duplicate": {"type": "boolean"},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

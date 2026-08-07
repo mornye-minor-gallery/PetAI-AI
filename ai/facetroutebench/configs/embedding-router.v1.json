@@ -1,0 +1,16 @@
+{
+  "router_family": "embedding_similarity",
+  "model_id": "litert-community/embeddinggemma-300m-seq256-mixed-precision",
+  "model_revision": "870cbe05ef460385363c6b574c851ae5d8989ce3",
+  "sequence_length": 256,
+  "dimension": 768,
+  "prefix": "task: classification | query: ",
+  "similarity": "cosine",
+  "prototype_aggregation": "max_similarity",
+  "decision_rules": [
+    "single_global_top1_threshold",
+    "specialist_vs_general_top1"
+  ],
+  "general_prototype_count": 240,
+  "top1_top2_margin_enabled": false
+}

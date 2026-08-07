@@ -2,7 +2,7 @@ status:: main
 
 # FacetRouteBench 명세
 
-version:: 0.1.0
+version:: 0.3.0
 benchmark_id:: facetroutebench
 route_contract:: ./contracts/routes.v1.json
 benchmark_contract:: ./contracts/benchmark.v1.json
@@ -39,7 +39,7 @@ run_manifest_schema:: ./contracts/run-manifest.schema.json
 - iPhone 실측 결과
 - 벤치 결과에 따른 자동 앱 Router 교체
 - 엘레나 페르소나 자체의 역할극 품질 평가
-- 데이터셋 생성기, 벤치 러너 또는 앱 코드의 본 명세 단계 구현
+- 앱 Router 구현 교체
 
 ## 4. 라우트 계약
 
@@ -55,18 +55,20 @@ run_manifest_schema:: ./contracts/run-manifest.schema.json
 
 | 분할 | 전문 라우트 | GENERAL | 합계 |
 | --- | ---: | ---: | ---: |
-| Authoring | 228 | 0 | 228 |
+| Authoring | 228 | 240 | 468 |
 | Dev | 456 | 240 | 696 |
 | Frozen | 456 | 240 | 696 |
 | Context Challenge | - | - | 60 |
 
-전체 고정 데이터 목표는 1,680개다. 생성 과정에서 폐기되는 후보는 이 수에 포함하지 않는다.
+전체 고정 데이터 목표는 1,920개다. 생성 과정에서 폐기되는 후보는 이 수에 포함하지 않는다.
 
 ### 5.1 Authoring
 
 - 19개 전문 라우트마다 사용자 발화 프로토타입 12개를 둔다.
 - `direct`, `natural`, `neighbor` 성격의 표현을 각각 4개씩 구성한다.
-- 총 228개다.
+- 전문 라우트 prototype은 총 228개다.
+- GENERAL prototype은 일반 일상 대화 120개와 19개 전문 라우트 경계 hard negative 120개, 총 240개다.
+- GENERAL hard negative는 각각 대조하는 전문 Route ID를 계획에 고정하지만, 생성 결과의 정답은 `GENERAL`이다.
 - Authoring은 Router 표현을 구성하는 자료이며 평가 점수 계산에 포함하지 않는다.
 - Authoring은 Dev 결과를 근거로 수정할 수 있다.
 
@@ -104,20 +106,27 @@ Dev와 Frozen 각각에 다음 문항을 포함한다.
 - 현재 입력만으로 판정할 수 없는 문항은 단일 턴 Dev/Frozen에 넣지 않는다.
 - `neighbor` 문항에는 인접 라우트와 정답을 구분하는 명시적 단서가 있어야 한다.
 - 독립 검증이 제작 라벨과 불일치하거나 복수 해석 가능하다고 판정하면 해당 후보를 폐기한다.
+- 생성기는 앱 정본 `persona_core.md`를 원문 그대로 입력받으며 해당 파일의 SHA-256을 계획과 manifest에 기록한다.
+- 데이터 domain은 생성 전에 계획에 고정하며 `shared_daily`, `narrative`, `mixed`만 사용한다.
+- `shared_daily`는 사용자와 엘레나가 함께 생활하고 대화하며 친구로 가까워지는 일상이다.
+- 정본 검증이 정체·관계·설정·지식 경계 또는 대화 자연스러움의 충돌을 판정하면 후보를 수정하지 않고 폐기한다.
 - 의미가 같은 단순 패러프레이즈와 사실상 중복인 문항은 Authoring, Dev, Frozen 사이를 넘지 못한다.
 
 표현은 짧은 모바일 채팅체, 자연스러운 일상 대화, 감정 표현, 서사적 대화, 존댓말·반말, 생략·완곡 표현, 소량의 오타와 띄어쓰기 오류를 포함할 수 있다. 표현이 다양해도 정답을 가르는 핵심 단서는 보존해야 한다.
 
 ## 7. 생성과 독립 검증
 
-- 생성과 검증은 서로 다른 Codex CLI 세션에서 수행한다.
-- 두 세션 모두 `gpt-5.6-sol`, reasoning effort `medium`으로 고정한다.
+- 생성, 정본 검증, 블라인드 라우트 검증은 서로 다른 Codex CLI 세션에서 수행한다.
+- 세 세션 모두 `gpt-5.6-sol`, reasoning effort `medium`으로 고정한다.
 - 생성 세션은 목표 Route ID와 난이도를 입력받아 후보 문항을 만든다.
-- 검증 세션은 의도한 정답, 생성 과정, 이전 판정을 보지 않는다.
-- 검증 세션은 라우트 계약과 평가할 문항만 보고 정확히 하나의 Route ID 또는 `AMBIGUOUS`를 반환한다.
-- 검증 결과가 제작 Route ID와 정확히 일치할 때만 채택한다.
+- 생성 세션은 정본 `persona_core.md`를 받지만 Scene Router와 Scene Card 원문은 받지 않는다.
+- 정본 검증 세션은 정본과 문항만 보고 캐릭터·관계·설정 일치 여부를 판정하며 의도한 Route ID는 보지 않는다.
+- 블라인드 라우트 검증 세션은 의도한 정답, 생성 과정, 이전 판정을 보지 않는다.
+- 블라인드 라우트 검증 세션은 라우트 계약과 평가할 문항만 보고 정확히 하나의 Route ID 또는 `AMBIGUOUS`를 반환한다.
+- 정본 검증을 통과하고 블라인드 검증 Route ID가 제작 Route ID와 정확히 같은 후보만 채택한다.
 - 모델 ID, reasoning effort, 생성·검증 프롬프트 SHA-256과 batch ID를 provenance에 기록한다.
-- 사람 보정은 본 벤치의 필수 단계로 두지 않는다.
+- 생성된 문항을 사람이 고쳐 쓰는 단계는 두지 않는다.
+- 검증 탈락으로 셀별 목표 수량이 부족하면 동일한 고정 조건으로 부족 수량만 재생성하고 두 검증을 다시 수행한다. 최대 5 round 뒤에도 부족하면 제작 실패로 처리한다.
 
 세부 절차는 `contracts/DATA_AUTHORING.md`를 따른다.
 
@@ -145,11 +154,28 @@ Dev와 Frozen 각각에 다음 문항을 포함한다.
 
 ## 9. GENERAL 기각
 
-- 모든 전문 라우트에 공통 cosine similarity 임계값 하나를 사용한다.
-- Top-1 점수가 임계값보다 낮으면 `GENERAL`로 기각한다.
-- 임계값은 Dev의 20-route Macro-F1을 기준으로 선택한다.
+- 공통 cosine similarity 임계값 하나는 비교 기준선으로 유지한다.
+- 기준선은 Top-1 점수가 공통 임계값보다 낮으면 `GENERAL`로 기각한다.
+- 공통 임계값은 Dev의 20-route Macro-F1을 기준으로 선택한다.
 - Top-1과 Top-2의 margin은 초기 실험에서 사용하지 않는다.
 - 최종 후보와 임계값은 Frozen 실행 전에 고정한다.
+
+### 9.1 GENERAL prototype 직접 경쟁 후보
+
+- 19개 전문 라우트의 prototype Top-1과 GENERAL prototype Top-1을 같은 cosine 공간에서 직접 경쟁시킨다.
+- 전역 threshold를 적용하지 않고 더 높은 쪽을 예측으로 삼는다.
+- GENERAL prototype 240개는 Dev나 Frozen에서 가져오지 않고 독립 Authoring 절차로 생성·검증한다.
+- 기존 threshold 방식과 직접 경쟁 방식을 Dev에서 함께 비교하고 하나를 고정한 후 새 Frozen에서 검증한다.
+
+### 9.2 라우트별 threshold 후보
+
+- 19개 전문 라우트마다 Dev의 해당 라우트 대 나머지 문항을 one-vs-rest로 구성한다.
+- 각 라우트의 원 threshold는 binary F1이 최대가 되는 cosine 합격선으로 정한다.
+- 라우트별 표본 수가 적어 생기는 과적합을 억제하기 위해 원 threshold를 공통 threshold 방향으로 shrink한다.
+- shrinkage 강도 `0, 0.25, 0.5, 0.75, 1.0`과 동시 합격 중재 규칙 `raw_score`, `threshold_margin`, `normalized_margin`은 Dev 내부 5-fold 층화 교차검증으로 선택한다.
+- 층화 키는 `gold_route_id + difficulty`이며, 각 층은 `case_id` 정렬 후 round-robin으로 fold에 배치한다.
+- 여러 라우트가 합격하면 교차검증으로 선택된 중재 규칙을 적용하고, 아무 라우트도 합격하지 않으면 `GENERAL`이다.
+- 전체 Dev로 원 threshold를 다시 적합한 뒤 선택된 shrinkage를 적용하고, 그 값과 중재 규칙을 새 Frozen 실행 전에 잠근다.
 
 ## 10. 평가 트랙
 

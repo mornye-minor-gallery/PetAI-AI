@@ -1,0 +1,10 @@
+{
+  "candidate_id": "gemma-generative-router-v14",
+  "router_family": "gemma_generative",
+  "temperature": 0.0,
+  "top_p": 1.0,
+  "thinking_enabled": false,
+  "invalid_or_multiple_route_fallback": "GENERAL",
+  "maximum_history_turns": 6,
+  "system_prompt": "../../../ios/EdgeLLM/Sources/EdgeLLM/Resources/Prompts/RoutedPersona/scene_router.md"
+}

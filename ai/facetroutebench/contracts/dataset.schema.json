@@ -15,6 +15,9 @@
     "domain",
     "messages",
     "style_tags",
+    "generation_batch_id",
+    "canon_validation_batch_id",
+    "validation_batch_id",
     "provenance"
   ],
   "properties": {
@@ -45,7 +48,7 @@
       "enum": ["direct", "natural", "neighbor", "general", "hard_negative", "context_dependent"]
     },
     "domain": {
-      "enum": ["narrative", "pet_daily", "mixed"]
+      "enum": ["narrative", "shared_daily", "mixed"]
     },
     "messages": {
       "type": "array",
@@ -74,7 +77,18 @@
     "neighbor_route_id": {
       "$ref": "#/$defs/routeId"
     },
+    "contrast_route_id": {
+      "$ref": "#/$defs/routeId"
+    },
     "generation_batch_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canon_validation_batch_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "validation_batch_id": {
       "type": "string",
       "minLength": 1
     },
@@ -91,8 +105,7 @@
       "then": {
         "properties": {
           "track": {"const": "single_turn"},
-          "gold_route_id": {"not": {"const": "GENERAL"}},
-          "difficulty": {"enum": ["direct", "natural", "neighbor"]}
+          "difficulty": {"enum": ["direct", "natural", "neighbor", "general", "hard_negative"]}
         }
       }
     },
@@ -185,9 +198,24 @@
       },
       "then": {
         "properties": {
-          "split": {"enum": ["dev", "frozen"]},
+          "split": {"enum": ["authoring", "dev", "frozen"]},
           "gold_route_id": {"const": "GENERAL"},
           "facet_id": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "split": {"const": "authoring"},
+          "difficulty": {"const": "hard_negative"}
+        },
+        "required": ["split", "difficulty"]
+      },
+      "then": {
+        "required": ["contrast_route_id"],
+        "properties": {
+          "contrast_route_id": {"not": {"const": "GENERAL"}}
         }
       }
     }
@@ -239,10 +267,20 @@
     "provenance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["generator", "blind_validator", "validation_result"],
+      "required": ["generator", "canon_validator", "blind_validator", "canon_validation_result", "validation_result"],
       "properties": {
         "generator": {"$ref": "#/$defs/modelInvocation"},
+        "canon_validator": {"$ref": "#/$defs/modelInvocation"},
         "blind_validator": {"$ref": "#/$defs/modelInvocation"},
+        "canon_validation_result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["accepted", "reason_code"],
+          "properties": {
+            "accepted": {"const": true},
+            "reason_code": {"const": "NONE"}
+          }
+        },
         "validation_result": {
           "type": "object",
           "additionalProperties": false,
@@ -262,12 +300,13 @@
     "modelInvocation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["interface", "model", "reasoning_effort", "prompt_sha256", "session_id"],
+      "required": ["interface", "model", "reasoning_effort", "prompt_template_sha256", "request_sha256", "session_id"],
       "properties": {
         "interface": {"const": "codex_cli"},
         "model": {"const": "gpt-5.6-sol"},
         "reasoning_effort": {"const": "medium"},
-        "prompt_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "prompt_template_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "request_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "session_id": {"type": "string", "minLength": 1}
       }
     }

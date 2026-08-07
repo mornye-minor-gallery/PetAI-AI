@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["predictions"],
+  "properties": {
+    "predictions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "predicted_route_id"],
+        "properties": {
+          "candidate_id": {"type": "string", "minLength": 1},
+          "predicted_route_id": {
+            "enum": [
+              "FIRST_SIGNAL", "FIRST_ARRIVAL", "FIRST_HOME",
+              "EARTH_TERM", "EARTH_FOOD", "EARTH_RELATION",
+              "AMBIG_CAUSE", "AMBIG_CHOICE", "RETURN_SIGNAL",
+              "RETURN_SMILE", "RETURN_FUTURE", "RETURN_FEAR",
+              "SUPPORT_SELF_BLAME", "SUPPORT_LISTEN", "SUPPORT_COMPANY",
+              "SUPPORT_REST", "PLAYFUL_SMILE", "PLAYFUL_CLAIM",
+              "PLAYFUL_COMPASS", "GENERAL", "AMBIGUOUS"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

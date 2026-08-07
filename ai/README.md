@@ -9,6 +9,7 @@ Current experiment areas:
 - `edgemembench/`: retrieval, temporal resolution, and abstention benchmarks
 - `profile-memory-kv/`: minimal closed-key profile/preference extraction smoke
 - `mrbench-custom/`: Korean Elena persona prompting and raw AutoJudge benchmark
+- `facetroutebench/`: Gemma vs. EmbeddingGemma 20-route authoring and evaluation harness
 
 Commit:
 
