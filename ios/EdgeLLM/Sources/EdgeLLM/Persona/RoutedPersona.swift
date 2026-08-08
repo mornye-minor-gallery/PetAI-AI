@@ -36,7 +36,6 @@ public struct PersonaSceneCard: Codable, Equatable, Sendable {
 
 public struct RoutedPersonaPromptSet: Equatable, Sendable {
     public let core: String
-    public let sceneRouter: String
     public let sceneCards: [PersonaSceneRoute: PersonaSceneCard]
 
     public func card(scene: PersonaSceneRoute) -> String? {
@@ -80,8 +79,6 @@ public struct RoutedPersonaPromptRegistry: Sendable {
     private static let resources: [String: String] = [
         "persona_core.md":
             "b649715757a44664b5b815c36e8db73237561018c0986479164a821da48abd53",
-        "scene_router.md":
-            "9a7a3220c80fdd5d7d0624a412e88e9b9aebc300241495127a67dd306b81964c",
         "scene_cards.json":
             "3fb0f4afed22b29299824d784ce1b70fb530020c4b7ad4f45615c8e206a6cbc0",
     ]
@@ -98,7 +95,6 @@ public struct RoutedPersonaPromptRegistry: Sendable {
 
     public func load() throws -> RoutedPersonaPromptSet {
         let core = try text("persona_core.md")
-        let sceneRouter = try text("scene_router.md")
         let cardsData = try verifiedData("scene_cards.json")
         guard
             let rawCards = try? JSONDecoder().decode(
@@ -119,7 +115,6 @@ public struct RoutedPersonaPromptRegistry: Sendable {
         )
         return RoutedPersonaPromptSet(
             core: core,
-            sceneRouter: sceneRouter,
             sceneCards: cards
         )
     }
@@ -189,28 +184,6 @@ public struct RoutedPersonaPromptRegistry: Sendable {
     }
 }
 
-public struct RoutedPersonaRouteParser: Sendable {
-    public init() {}
-
-    public func scene(_ rawText: String) -> PersonaSceneRoute? {
-        uniqueRoute(rawText, routes: PersonaSceneRoute.allCases)
-    }
-
-    private func uniqueRoute<Route: RawRepresentable>(
-        _ rawText: String,
-        routes: [Route]
-    ) -> Route? where Route.RawValue == String {
-        let uppercased = rawText.uppercased()
-        let matches = routes.filter { route in
-            uppercased.range(
-                of: "(?<![A-Z0-9_])\(NSRegularExpression.escapedPattern(for: route.rawValue))(?![A-Z0-9_])",
-                options: .regularExpression
-            ) != nil
-        }
-        return matches.count == 1 ? matches[0] : nil
-    }
-}
-
 public struct RoutedPersonaSessionContext: Equatable, Sendable {
     public enum Role: String, Equatable, Sendable {
         case user = "사용자"
@@ -249,13 +222,6 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
 
     public mutating func removeAll() {
         turns.removeAll()
-    }
-
-    public func routerInput(currentUserMessage: String) -> String {
-        renderedInput(
-            currentSectionTitle: "마지막 사용자 요청",
-            currentText: currentUserMessage
-        )
     }
 
     public func responseInput(memoryAugmentedUserMessage: String) -> String {

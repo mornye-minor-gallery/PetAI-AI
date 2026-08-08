@@ -115,7 +115,9 @@ def validate_contracts() -> dict[str, Any]:
     source_router = REPO_ROOT / routes["source"]["router_path"]
     source_cards = REPO_ROOT / routes["source"]["cards_path"]
     if sha256_file(source_router) != routes["source"]["router_sha256"]:
-        raise FacetRouteBenchError("runtime scene router changed from route contract")
+        raise FacetRouteBenchError(
+            "baseline Gemma scene router changed from route contract"
+        )
     if sha256_file(source_cards) != routes["source"]["cards_sha256"]:
         raise FacetRouteBenchError("runtime scene cards changed from route contract")
     return {
@@ -320,8 +322,7 @@ def build_parser() -> argparse.ArgumentParser:
     gemma.add_argument(
         "--prompt",
         type=Path,
-        default=REPO_ROOT
-        / "ios/EdgeLLM/Sources/EdgeLLM/Resources/Prompts/RoutedPersona/scene_router.md",
+        default=ROOT / "prompts/baseline-gemma-scene-router-v8.md",
     )
     gemma.add_argument(
         "--config",

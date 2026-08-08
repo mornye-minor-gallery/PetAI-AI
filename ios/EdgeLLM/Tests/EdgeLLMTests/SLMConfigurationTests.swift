@@ -19,7 +19,6 @@ func productionSLMConfigurationKeepsProductTuningInOnePlace() {
     #expect(!configuration.generation.routerThinkingEnabled)
     #expect(!configuration.generation.toolReasoningEnabled)
     #expect(configuration.persona.recentMessageLimit == 6)
-    #expect(configuration.persona.sceneRouterMode == .embeddingV2)
     #expect(configuration.diagnostics.telemetryCandidateCount == 8)
     #expect(configuration.runtimeSafety.cancellationTimeoutSeconds == 10)
 }

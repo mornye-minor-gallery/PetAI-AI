@@ -1,9 +1,4 @@
 public struct SLMConfiguration: Equatable, Sendable {
-    public enum SceneRouterMode: String, Equatable, Sendable {
-        case embeddingV2
-        case gemmaLegacy
-    }
-
     public struct Memory: Equatable, Sendable {
         public let recallLimit: Int
         public let promptTokenBudget: Int
@@ -70,15 +65,10 @@ public struct SLMConfiguration: Equatable, Sendable {
 
     public struct Persona: Equatable, Sendable {
         public let recentMessageLimit: Int
-        public let sceneRouterMode: SceneRouterMode
 
-        public init(
-            recentMessageLimit: Int,
-            sceneRouterMode: SceneRouterMode
-        ) {
+        public init(recentMessageLimit: Int) {
             precondition(recentMessageLimit >= 0)
             self.recentMessageLimit = recentMessageLimit
-            self.sceneRouterMode = sceneRouterMode
         }
     }
 
@@ -149,10 +139,7 @@ public extension SLMConfiguration {
             routerThinkingEnabled: false,
             toolReasoningEnabled: false
         ),
-        persona: Persona(
-            recentMessageLimit: 6,
-            sceneRouterMode: .embeddingV2
-        ),
+        persona: Persona(recentMessageLimit: 6),
         diagnostics: Diagnostics(telemetryCandidateCount: 8),
         runtimeSafety: RuntimeSafety(cancellationTimeoutSeconds: 10)
     )

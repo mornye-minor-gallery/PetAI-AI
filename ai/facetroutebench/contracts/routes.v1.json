@@ -3,7 +3,7 @@
   "contract_id": "elena-v14-scene-routes-v1",
   "source": {
     "git_commit": "1fb9ed3",
-    "router_path": "ios/EdgeLLM/Sources/EdgeLLM/Resources/Prompts/RoutedPersona/scene_router.md",
+    "router_path": "ai/facetroutebench/prompts/baseline-gemma-scene-router-v8.md",
     "router_sha256": "9a7a3220c80fdd5d7d0624a412e88e9b9aebc300241495127a67dd306b81964c",
     "cards_path": "ios/EdgeLLM/Sources/EdgeLLM/Resources/Prompts/RoutedPersona/scene_cards.json",
     "cards_sha256": "3fb0f4afed22b29299824d784ce1b70fb530020c4b7ad4f45615c8e206a6cbc0",

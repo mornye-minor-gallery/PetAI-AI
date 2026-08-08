@@ -7,7 +7,6 @@ func routedPersonaRegistryLoadsFrozenResearchBytes() throws {
     let prompts = try RoutedPersonaPromptRegistry().load()
 
     #expect(prompts.core.contains("Elena Compact Core v2"))
-    #expect(prompts.sceneRouter.contains("FIRST_SIGNAL"))
     #expect(prompts.sceneCards.count == 20)
     #expect(prompts.sceneCards[.general]?.card == nil)
 }
@@ -21,16 +20,6 @@ func routedPersonaRegistryRejectsModifiedBytes() {
     #expect(throws: RoutedPersonaPromptRegistryError.self) {
         _ = try registry.load()
     }
-}
-
-@Test
-func routedPersonaParsersAcceptOneRouteAndRejectAmbiguity() {
-    let parser = RoutedPersonaRouteParser()
-
-    #expect(parser.scene("EARTH_TERM") == .earthTerm)
-    #expect(parser.scene("label=PLAYFUL_COMPASS") == .playfulCompass)
-    #expect(parser.scene("EARTH_TERM GENERAL") == nil)
-    #expect(parser.scene("UNKNOWN") == nil)
 }
 
 @Test
@@ -52,12 +41,14 @@ func routedPersonaSessionContextKeepsOnlyVisibleConversation() {
     context.appendExchange(userMessage: "둘째 질문", assistantMessage: "둘째 답변")
     context.appendExchange(userMessage: "셋째 질문", assistantMessage: "셋째 답변")
 
-    let input = context.routerInput(currentUserMessage: "마지막 질문")
+    let input = context.responseInput(
+        memoryAugmentedUserMessage: "마지막 질문"
+    )
     #expect(!input.contains("첫 질문"))
     #expect(!input.contains("첫 답변"))
     #expect(input.contains("둘째 질문"))
     #expect(input.contains("셋째 답변"))
     #expect(input.contains("캐릭터: 셋째 답변"))
-    #expect(input.contains("마지막 사용자 요청\n마지막 질문"))
+    #expect(input.contains("현재 사용자 입력과 회수 기억\n마지막 질문"))
     #expect(!input.contains("BOUNDARY"))
 }
