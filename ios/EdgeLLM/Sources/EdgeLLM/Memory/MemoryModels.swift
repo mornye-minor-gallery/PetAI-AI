@@ -351,6 +351,7 @@ public struct MemorySearchRequest: Equatable, Sendable {
     public let scope: MemoryScope
     public let query: String
     public let topK: Int
+    public let minimumSimilarity: Float
     public let excludedObservationIDs: Set<String>
     public let excludedTurnIDs: Set<String>
     public let excludedSessionIDs: Set<String>
@@ -358,7 +359,9 @@ public struct MemorySearchRequest: Equatable, Sendable {
     public init(
         scope: MemoryScope,
         query: String,
-        topK: Int = 3,
+        topK: Int = SLMConfiguration.production.memory.recallLimit,
+        minimumSimilarity: Float = SLMConfiguration.production.memory
+            .minimumSimilarity,
         excludedObservationIDs: Set<String> = [],
         excludedTurnIDs: Set<String> = [],
         excludedSessionIDs: Set<String> = []
@@ -366,6 +369,7 @@ public struct MemorySearchRequest: Equatable, Sendable {
         self.scope = scope
         self.query = query
         self.topK = topK
+        self.minimumSimilarity = minimumSimilarity
         self.excludedObservationIDs = excludedObservationIDs
         self.excludedTurnIDs = excludedTurnIDs
         self.excludedSessionIDs = excludedSessionIDs

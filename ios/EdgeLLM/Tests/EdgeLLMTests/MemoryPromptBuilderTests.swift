@@ -19,7 +19,7 @@ func memoryPromptBuilderPreservesTheOriginalMessageWithoutMemories() {
 func memoryPromptBuilderAddsRankedMemoriesAsBackgroundContext() throws {
     let scope = MemoryScope(
         userID: "local-user",
-        characterID: "emu"
+        characterID: "default-character"
     )
     let memories = [
         makeRetrievedMemory(
@@ -51,6 +51,39 @@ func memoryPromptBuilderAddsRankedMemoriesAsBackgroundContext() throws {
         prompt.range(of: "어제 미술관에 다녀왔어.")
     )
     #expect(strawberryRange.lowerBound < museumRange.lowerBound)
+}
+
+@Test
+func memoryPromptBuilderAppliesBudgetOnlyToCompleteMemoryLines() {
+    let scope = MemoryScope(
+        userID: "local-user",
+        characterID: "default-character"
+    )
+    let first = "- 첫 번째 기억"
+    let memories = [
+        makeRetrievedMemory(
+            id: "first",
+            text: "첫 번째 기억",
+            rank: 1,
+            scope: scope
+        ),
+        makeRetrievedMemory(
+            id: "second",
+            text: "두 번째 기억",
+            rank: 2,
+            scope: scope
+        ),
+    ]
+
+    let prompt = MemoryPromptBuilder.build(
+        userMessage: "현재 질문은 예산에 포함되지 않아야 합니다.",
+        memories: memories,
+        tokenBudget: first.utf8.count
+    )
+
+    #expect(prompt.contains("첫 번째 기억"))
+    #expect(!prompt.contains("두 번째 기억"))
+    #expect(prompt.contains("현재 질문은 예산에 포함되지 않아야 합니다."))
 }
 
 private func makeRetrievedMemory(

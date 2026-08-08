@@ -113,11 +113,28 @@ public actor SQLiteObservationStore:
                 existingVersion != EdgeMemSQLiteSchema.version
             {
                 if existingVersion == 1,
-                    EdgeMemSQLiteSchema.version == 2
+                    EdgeMemSQLiteSchema.version == 3
                 {
                     try transaction {
                         for statement in
                             EdgeMemSQLiteSchema.migrateVersion1ToVersion2
+                        {
+                            try execute(statement)
+                        }
+                    }
+                    try transaction {
+                        for statement in EdgeMemSQLiteSchema
+                            .resetVersion2ForCharacterNeutralVersion3
+                        {
+                            try execute(statement)
+                        }
+                    }
+                } else if existingVersion == 2,
+                    EdgeMemSQLiteSchema.version == 3
+                {
+                    try transaction {
+                        for statement in EdgeMemSQLiteSchema
+                            .resetVersion2ForCharacterNeutralVersion3
                         {
                             try execute(statement)
                         }

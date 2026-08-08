@@ -1,0 +1,59 @@
+{
+  "schema_version": "mrbench-custom-final-selection-v0",
+  "status": "frozen_best_found_mvp_candidate_not_gold",
+  "identity_migration": "character_name_only",
+  "benchmark_version": "0.32.0-draft",
+  "target": {
+    "model": "Gemma 4 E2B IT",
+    "model_artifact_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+    "runtime": "LiteRT-LM 0.13.1",
+    "backend": "Mac GPU",
+    "reasoning": "off",
+    "temperature": 0.7,
+    "max_tokens": 256
+  },
+  "canonical_persona_sha256": "2c5a9a6d11ed6c85c2e6cdcada336c287dcc777db865972de221657999c7bfce",
+  "components": {
+    "core": {
+      "path": "prompts/candidates/v14-core-boundary.md",
+      "sha256": "b649715757a44664b5b815c36e8db73237561018c0986479164a821da48abd53"
+    },
+    "boundary_router": {
+      "path": "prompts/router/boundary-v2.md",
+      "sha256": "ec496ce5cec34aea3e9fe31ae7ebbc2d734feca9ef483c1df6fb36b40df4fe8a"
+    },
+    "boundary_card": {
+      "path": "prompts/router/boundary-card-v2.md",
+      "sha256": "790b77d78a8c301a19cff0cbc1cfe019299b504ebe0eff2cd7c29c03d7007d6e"
+    },
+    "scene_router": {
+      "path": "prompts/router/scene-v8.md",
+      "sha256": "9a7a3220c80fdd5d7d0624a412e88e9b9aebc300241495127a67dd306b81964c"
+    },
+    "scene_cards": {
+      "path": "prompts/router/cards-v14-hybrid.json",
+      "sha256": "3fb0f4afed22b29299824d784ce1b70fb530020c4b7ad4f45615c8e206a6cbc0"
+    }
+  },
+  "evaluation": {
+    "fixed_dataset_sha256": "d28aaf5509d488b16c2de1b4e06f36fb8d9bbd53fd10c68af79867a109eea697",
+    "router_holdout_sha256": "6cec489946b78335386b45c82f36135554af35065e4b23ad4a3faab0a2248037",
+    "fixed_ms_scene_routes": "29/30",
+    "fixed_mb_boundary_routes": "30/30",
+    "fixed_mb_manual_forbidden_claim_avoidance": "28/30",
+    "holdout_routes": "16/18",
+    "mean_latency_ms": 776.0,
+    "mean_ms_latency_ms": 924.8,
+    "mean_mb_latency_ms": 627.3,
+    "format_leaks": 0,
+    "honorific_matches": 0,
+    "reproduction": "60/60 semantic outputs identical across two runs; timing and usage excluded"
+  },
+  "known_failures": [
+    "The boundary router misclassifies one fixed first-arrival scene as BOUNDARY.",
+    "The boundary router misclassifies two playful holdout prompts as BOUNDARY.",
+    "Gemma still invents home-world science superiority in custom-mb-046.",
+    "Gemma still invents the absence of a home-world government in custom-mb-050.",
+    "Some narrow scene cards trade response diversity for reliable rule following."
+  ]
+}

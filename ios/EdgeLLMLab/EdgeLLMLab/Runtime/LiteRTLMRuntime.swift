@@ -85,10 +85,11 @@ actor LiteRTLMRuntime: LLMRuntime {
         subsystem: Bundle.main.bundleIdentifier ?? "EdgeLLMLab",
         category: "LiteRTLMRuntime"
     )
-    private let cancellationTimeoutSeconds = 10
+    private let slmConfiguration: SLMConfiguration
     private var currentState: RuntimeState = .modelRequired
     private var engine: Engine?
     private var conversation: Conversation?
+    private var isolatedConversation: Conversation?
     private var conversationConfiguration: ConversationConfiguration?
     private var scopedModelURL: URL?
     private var isAccessingSecurityScopedModel = false
@@ -99,6 +100,14 @@ actor LiteRTLMRuntime: LLMRuntime {
         AsyncThrowingStream<String, Error>.Continuation?
     private var cancellationTimeoutTask: Task<Void, Never>?
     private var topKTelemetryAccumulator = TopKTelemetryAccumulator()
+
+    init(configuration: SLMConfiguration = .production) {
+        slmConfiguration = configuration
+    }
+
+    private var cancellationTimeoutSeconds: Int {
+        slmConfiguration.runtimeSafety.cancellationTimeoutSeconds
+    }
 
     var state: RuntimeState {
         currentState
@@ -160,7 +169,8 @@ actor LiteRTLMRuntime: LLMRuntime {
                 samplerConfig: sampler,
                 filterChannelContentFromKVCache: true,
                 topKTelemetryCandidateCount:
-                    configuration.topKTelemetryCandidateCount
+                    configuration.topKTelemetryCandidateCount,
+                maxOutputTokens: configuration.maxOutputTokens
             )
 
             conversation = try await engine.createConversation(
@@ -181,7 +191,8 @@ actor LiteRTLMRuntime: LLMRuntime {
     ) async throws -> AsyncThrowingStream<String, Error> {
         try await generateStream(
             prompt: prompt,
-            thinkingEnabled: false
+            thinkingEnabled: slmConfiguration.generation
+                .responseThinkingDefault
         )
     }
 
@@ -284,11 +295,90 @@ actor LiteRTLMRuntime: LLMRuntime {
         return stream
     }
 
+    func generateIsolated(
+        systemPrompt: String,
+        userMessage: String,
+        sampling: SLMConfiguration.Sampling? = nil,
+        thinkingEnabled: Bool? = nil
+    ) async throws -> String {
+        let normalizedSystemPrompt = systemPrompt.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        let normalizedUserMessage = userMessage.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard
+            !normalizedSystemPrompt.isEmpty,
+            !normalizedUserMessage.isEmpty
+        else {
+            throw RuntimeError.emptyPrompt
+        }
+        guard currentState != .generating else {
+            throw RuntimeError.runtimeBusy
+        }
+        guard let engine else {
+            throw RuntimeError.modelNotPrepared
+        }
+
+        let generationID = UUID()
+        cancelRequested = false
+        activeGenerationID = generationID
+        currentState = .generating
+
+        do {
+            let resolvedSampling = sampling
+                ?? slmConfiguration.generation.deterministicSampling
+            let sampler = try SamplerConfig(
+                topK: resolvedSampling.samplerTopK,
+                topP: resolvedSampling.topP,
+                temperature: resolvedSampling.temperature
+            )
+            let configuration = ConversationConfig(
+                systemMessage: Message(
+                    normalizedSystemPrompt,
+                    role: .system
+                ),
+                samplerConfig: sampler,
+                filterChannelContentFromKVCache: true,
+                maxOutputTokens: slmConfiguration.generation
+                    .maxOutputTokens
+            )
+            let routeConversation = try await engine.createConversation(
+                with: configuration
+            )
+            isolatedConversation = routeConversation
+            let response = try await routeConversation.sendMessage(
+                Message(normalizedUserMessage),
+                extraContext: [
+                    "enable_thinking": thinkingEnabled
+                        ?? slmConfiguration.generation
+                            .routerThinkingEnabled,
+                ]
+            )
+            guard activeGenerationID == generationID else {
+                throw RuntimeError.generationCancelled
+            }
+            finishIsolatedGeneration(id: generationID)
+            return response.toString
+        } catch {
+            let wasCancelled = cancelRequested
+                || error is CancellationError
+                || (error as? RuntimeError) == .generationCancelled
+            finishIsolatedGeneration(id: generationID)
+            if wasCancelled {
+                throw RuntimeError.generationCancelled
+            }
+            throw RuntimeError.generationFailed(
+                message: error.localizedDescription
+            )
+        }
+    }
+
     func cancel() async {
         guard
             currentState == .generating,
             let generationID = activeGenerationID,
-            let conversation
+            let activeConversation = isolatedConversation ?? conversation
         else {
             return
         }
@@ -316,7 +406,7 @@ actor LiteRTLMRuntime: LLMRuntime {
             }
         }
 
-        let sendableConversation = SendableConversation(conversation)
+        let sendableConversation = SendableConversation(activeConversation)
         Task.detached(priority: .userInitiated) {
             do {
                 try sendableConversation.value.cancel()
@@ -374,6 +464,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeContinuation = nil
         activeGenerationID = nil
         cancelRequested = false
+        isolatedConversation = nil
         conversation = nil
         conversationConfiguration = nil
         engine = nil
@@ -397,6 +488,16 @@ actor LiteRTLMRuntime: LLMRuntime {
         currentState = .ready
     }
 
+    private func finishIsolatedGeneration(id: UUID) {
+        guard activeGenerationID == id else { return }
+        cancellationTimeoutTask?.cancel()
+        cancellationTimeoutTask = nil
+        isolatedConversation = nil
+        activeGenerationID = nil
+        cancelRequested = false
+        currentState = .ready
+    }
+
     private func finishGeneration(
         id: UUID,
         with error: Error
@@ -414,6 +515,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeContinuation = nil
         activeGenerationID = nil
         cancelRequested = false
+        isolatedConversation = nil
 
         if wasCancelled {
             currentState = .ready
@@ -448,6 +550,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeGenerationTask = nil
         activeGenerationID = nil
         cancelRequested = false
+        isolatedConversation = nil
 
         let mappedError = RuntimeError.generationFailed(
             message: "Cancellation failed: \(error.localizedDescription)"
@@ -472,6 +575,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeGenerationTask = nil
         activeGenerationID = nil
         cancelRequested = false
+        isolatedConversation = nil
         currentState = .failed(message: timeoutError.localizedDescription)
         activeContinuation?.finish(throwing: timeoutError)
         activeContinuation = nil
@@ -516,3 +620,69 @@ actor LiteRTLMRuntime: LLMRuntime {
         isAccessingSecurityScopedModel = false
     }
 }
+
+#if canImport(LiteRTLM) || canImport(CLiteRTLM)
+extension LiteRTLMRuntime: NativeToolProposalGenerating {
+    func generateFunctionCall(
+        _ request: NativeToolGenerationRequest
+    ) async throws -> NativeToolFunctionCall {
+        guard currentState != .generating else {
+            throw RuntimeError.runtimeBusy
+        }
+        guard let engine else {
+            throw RuntimeError.modelNotPrepared
+        }
+
+        currentState = .generating
+        do {
+            try await LiteRTLMNativeToolCallCapture.shared.begin(
+                expectedTool: request.selectedTool
+            )
+            let sampling = slmConfiguration.generation
+                .deterministicSampling
+            let sampler = try SamplerConfig(
+                topK: sampling.samplerTopK,
+                topP: sampling.topP,
+                temperature: sampling.temperature
+            )
+            let configuration = ConversationConfig(
+                systemMessage: Message(
+                    request.systemPrompt,
+                    role: .system
+                ),
+                tools: [
+                    LiteRTLMNativeToolFactory.makeTool(
+                        for: request.selectedTool
+                    ),
+                ],
+                samplerConfig: sampler,
+                filterChannelContentFromKVCache: true,
+                maxOutputTokens: slmConfiguration.generation
+                    .maxOutputTokens
+            )
+            let toolConversation = try await engine.createConversation(
+                with: configuration
+            )
+            _ = try await toolConversation.sendMessage(
+                Message(request.userMessage),
+                extraContext: [
+                    "enable_thinking": request.reasoningEnabled,
+                ]
+            )
+            let call = try await LiteRTLMNativeToolCallCapture.shared.finish()
+            currentState = .ready
+            return call
+        } catch {
+            if let call = try? await
+                LiteRTLMNativeToolCallCapture.shared.finish()
+            {
+                currentState = .ready
+                return call
+            }
+            await LiteRTLMNativeToolCallCapture.shared.cancel()
+            currentState = .ready
+            throw error
+        }
+    }
+}
+#endif

@@ -179,6 +179,16 @@ public actor Engine {
     }
     defer { litert_lm_session_config_delete(cSessionConfig) }
 
+    if let maxOutputTokens = conversationConfig.maxOutputTokens {
+      guard maxOutputTokens > 0 else {
+        throw LiteRTLMError.config(.invalidMaxOutputTokens)
+      }
+      litert_lm_session_config_set_max_output_tokens(
+        cSessionConfig,
+        Int32(maxOutputTokens)
+      )
+    }
+
     if let samplerParams = conversationConfig.samplerConfig {
       guard let cSamplerParams = litert_lm_sampler_params_create(kLiteRtLmSamplerTypeTopP) else {
         throw LiteRTLMError.engine(.failedToCreateSessionConfig)

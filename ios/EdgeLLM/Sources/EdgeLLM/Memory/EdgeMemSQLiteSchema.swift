@@ -1,7 +1,8 @@
 public enum EdgeMemSQLiteSchema {
-    /// Version 2 adds `gemma_header` label provenance. Earlier prototype
-    /// tables are intentionally reset; canonical version 1 is migrated.
-    public static let version = 2
+    /// Version 3 starts the character-neutral memory namespace. Existing
+    /// observations are intentionally cleared instead of carrying a retired
+    /// character scope into the new product identity.
+    public static let version = 3
 
     public static let migrateVersion1ToVersion2 = [
         """
@@ -55,6 +56,23 @@ public enum EdgeMemSQLiteSchema {
         """
         UPDATE schema_metadata
         SET value = '2'
+        WHERE key = 'schema_version';
+        """,
+    ]
+
+    public static let resetVersion2ForCharacterNeutralVersion3 = [
+        """
+        DELETE FROM observation_labels;
+        """,
+        """
+        DELETE FROM observations;
+        """,
+        """
+        DELETE FROM conversation_turns;
+        """,
+        """
+        UPDATE schema_metadata
+        SET value = '3'
         WHERE key = 'schema_version';
         """,
     ]

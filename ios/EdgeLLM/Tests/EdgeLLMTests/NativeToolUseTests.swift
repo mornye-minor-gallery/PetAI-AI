@@ -2,6 +2,215 @@ import Foundation
 import Testing
 @testable import EdgeLLM
 
+@Test
+func stepCountResultFormatterProducesUserVisibleKoreanText() {
+    let formatter = NativeToolResultFormatter()
+    let envelope = NativeToolExecutionEnvelope(
+        requestID: "steps-1",
+        tool: .getStepCount,
+        status: .success,
+        data: .object([
+            "aggregation": .string("total"),
+            "totalSteps": .number(12_345),
+        ])
+    )
+
+    #expect(
+        formatter.visibleText(for: envelope)
+            == "해당 기간에는 총 12345걸음을 걸었어요."
+    )
+}
+
+@Test
+func stepCountDataPolicyDistinguishesZeroFromUnreadableData() throws {
+    #expect(try StepCountDataPolicy.totalSteps(from: 0) == 0)
+    #expect(try StepCountDataPolicy.dailySteps(from: [120, nil, 80])
+        == [120, 0, 80])
+
+    #expect(throws: NativeToolErrorCode.dataUnavailable) {
+        try StepCountDataPolicy.totalSteps(from: nil)
+    }
+    #expect(throws: NativeToolErrorCode.dataUnavailable) {
+        try StepCountDataPolicy.dailySteps(from: [nil, nil])
+    }
+}
+
+@Test
+func alarmKitResultsProduceStableVisibleText() {
+    let formatter = NativeToolResultFormatter()
+    let alarm = NativeToolExecutionEnvelope(
+        requestID: "alarm",
+        tool: .createAlarm,
+        status: .success,
+        data: .object([
+            "label": .string("기상"),
+            "scheduledAt": .string("2026-08-05T07:00:00+09:00"),
+        ])
+    )
+    let timer = NativeToolExecutionEnvelope(
+        requestID: "timer",
+        tool: .createTimer,
+        status: .success,
+        data: .object([
+            "label": .string("스트레칭"),
+            "durationSeconds": .number(10),
+        ])
+    )
+    let emptyList = NativeToolExecutionEnvelope(
+        requestID: "list",
+        tool: .listAlarms,
+        status: .success,
+        data: .object(["alarms": .array([])])
+    )
+
+    #expect(
+        formatter.visibleText(for: alarm)
+            == "기상 알람을 2026-08-05T07:00:00+09:00에 설정했어요."
+    )
+    #expect(
+        formatter.visibleText(for: timer)
+            == "스트레칭 타이머를 10초로 시작했어요."
+    )
+    #expect(
+        formatter.visibleText(for: emptyList)
+            == "설정된 PetAI 알람이나 타이머가 없어요."
+    )
+}
+
+@Test
+func localNotificationResultsProduceStableVisibleText() {
+    let envelope = NativeToolExecutionEnvelope(
+        requestID: "notification",
+        tool: .scheduleLocalNotification,
+        status: .success,
+        data: .object([
+            "notificationID": .string(
+                "PetAI.LocalNotification.notification"
+            ),
+            "scheduledAt": .string("2026-08-05T15:00:00+09:00"),
+        ])
+    )
+
+    #expect(
+        NativeToolResultFormatter().visibleText(for: envelope)
+            == "알림을 2026-08-05T15:00:00+09:00에 예약했어요."
+    )
+}
+
+@Test
+func localNotificationClarifierRequiresTimeAndContent() {
+    let clarifier = LocalNotificationRequestClarifier()
+
+    #expect(
+        clarifier.clarification(for: "약 먹으라고 알려 줘")
+            == LocalNotificationRequestClarifier.missingTimeMessage
+    )
+    #expect(
+        clarifier.clarification(for: "오후 3시에 알림 설정해 줘")
+            == LocalNotificationRequestClarifier.missingContentMessage
+    )
+    #expect(
+        clarifier.clarification(for: "알림 설정해 줘")
+            == LocalNotificationRequestClarifier
+                .missingTimeAndContentMessage
+    )
+    #expect(
+        clarifier.clarification(
+            for: "오후 3시에 약 먹으라고 알려 줘"
+        ) == nil
+    )
+    #expect(
+        clarifier.clarification(
+            for: "오후 세 시에 약 먹으라고 알려 줘"
+        ) == nil
+    )
+    #expect(
+        clarifier.clarification(
+            for: "10분 뒤에 스트레칭하라고 알려 줘"
+        ) == nil
+    )
+}
+
+@Test
+func calendarResultsProduceStableVisibleText() {
+    let formatter = NativeToolResultFormatter()
+    let created = NativeToolExecutionEnvelope(
+        requestID: "calendar-create",
+        tool: .createCalendarEvent,
+        status: .success,
+        data: .object([
+            "title": .string("멘토링"),
+            "startDateTime": .string("2026-08-06T14:00:00+09:00"),
+        ])
+    )
+    let queried = NativeToolExecutionEnvelope(
+        requestID: "calendar-query",
+        tool: .getCalendarEvents,
+        status: .success,
+        data: .object([
+            "events": .array([
+                .object([
+                    "title": .string("멘토링"),
+                    "startDateTime": .string(
+                        "2026-08-06T14:00:00+09:00"
+                    ),
+                ]),
+                .object([
+                    "title": .string("스터디"),
+                    "startDateTime": .string(
+                        "2026-08-06T16:00:00+09:00"
+                    ),
+                ]),
+            ]),
+        ])
+    )
+    let empty = NativeToolExecutionEnvelope(
+        requestID: "calendar-empty",
+        tool: .getCalendarEvents,
+        status: .success,
+        data: .object(["events": .array([])])
+    )
+    let unavailable = NativeToolExecutionEnvelope(
+        requestID: "calendar-unavailable",
+        tool: .createCalendarEvent,
+        status: .failure,
+        errorCode: .dataUnavailable
+    )
+
+    #expect(
+        formatter.visibleText(for: created)
+            == "멘토링 일정을 2026-08-06T14:00:00+09:00에 추가했어요."
+    )
+    #expect(
+        formatter.visibleText(for: queried)
+            == "• 2026-08-06T14:00:00+09:00 멘토링\n"
+                + "• 2026-08-06T16:00:00+09:00 스터디"
+    )
+    #expect(
+        formatter.visibleText(for: empty)
+            == "해당 기간에 등록된 일정이 없어요."
+    )
+    #expect(
+        formatter.visibleText(for: unavailable)
+            == "일정을 추가할 수 있는 기본 캘린더를 찾지 못했어요. 캘린더 설정을 확인해 주세요."
+    )
+}
+
+@Test
+func stepCountFormatterDoesNotClaimPermissionWasDenied() {
+    let envelope = NativeToolExecutionEnvelope(
+        requestID: "steps-unavailable",
+        tool: .getStepCount,
+        status: .failure,
+        errorCode: .dataUnavailable
+    )
+
+    #expect(
+        NativeToolResultFormatter().visibleText(for: envelope)
+            == "걸음 수 데이터를 확인할 수 없어요. 건강 앱에서 접근 권한과 데이터 상태를 확인해 주세요."
+    )
+}
+
 private func seoulCalendar() -> Calendar {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
@@ -57,6 +266,26 @@ func koreanRouterSelectsEverySupportedTool() {
     for (utterance, tool) in cases {
         #expect(router.route(utterance) == .tool(tool))
     }
+}
+
+@Test
+func koreanRouterTreatsRelativeDurationAlarmsAsTimers() {
+    let router = KoreanNativeToolRouter()
+    let timerRequests = [
+        "10초 뒤 알람 맞춰 줘",
+        "10분 후 알람 설정해 줘",
+        "한 시간 뒤에 깨워 줘",
+        "ㄷ10초뒤 알람 맞춰줘",
+    ]
+
+    for utterance in timerRequests {
+        #expect(router.route(utterance) == .tool(.createTimer))
+    }
+
+    #expect(
+        router.route("내일 아침 7시에 알람 맞춰 줘")
+            == .tool(.createAlarm)
+    )
 }
 
 @Test
@@ -242,7 +471,13 @@ func validatorAllows31CalendarDaysButRejects32() throws {
         )
     )
 
-    _ = try validator.validate(allowed)
+    let validated = try validator.validate(allowed)
+    guard case .getCalendarEvents(_, _, _, let limit) = validated.arguments
+    else {
+        Issue.record("Expected calendar query arguments")
+        return
+    }
+    #expect(limit == 10)
     do {
         _ = try validator.validate(rejected)
         Issue.record("Expected 32-day range rejection")

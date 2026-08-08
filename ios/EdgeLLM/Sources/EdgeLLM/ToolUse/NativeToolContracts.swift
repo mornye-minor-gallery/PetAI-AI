@@ -196,6 +196,7 @@ public enum NativeToolExecutionStatus: String, Codable, Sendable {
 
 public enum NativeToolErrorCode: String, Codable, Error, Sendable {
     case permissionDenied = "permission_denied"
+    case dataUnavailable = "data_unavailable"
     case invalidArguments = "invalid_arguments"
     case unsupportedRange = "unsupported_range"
     case pastSchedule = "past_schedule"

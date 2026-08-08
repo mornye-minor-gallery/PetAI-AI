@@ -56,9 +56,9 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
     }
 
     let timestamp = Date(timeIntervalSince1970: 1_721_280_000)
-    let emuScope = MemoryScope(
+    let defaultCharacterScope = MemoryScope(
         userID: "local-user",
-        characterID: "emu"
+        characterID: "default-character"
     )
     let otherScope = MemoryScope(
         userID: "local-user",
@@ -73,11 +73,11 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
     )
     try await engine.prepare()
 
-    let emuResult = try await engine.remember(
+    let defaultCharacterResult = try await engine.remember(
         MemoryWriteRequest(
-            sourceMessageID: "message-emu",
+            sourceMessageID: "message-default-character",
             sessionID: "session-1",
-            scope: emuScope,
+            scope: defaultCharacterScope,
             rawText: "  나는 포도를 좋아해  ",
             occurredAt: timestamp
         )
@@ -91,11 +91,11 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
             occurredAt: timestamp
         )
     )
-    let emuObservation = try #require(emuResult.observation)
+    let defaultCharacterObservation = try #require(defaultCharacterResult.observation)
     #expect(otherResult.observation != nil)
     #expect(
-        try await engine.activeObservations(in: emuScope)
-            == [emuObservation]
+        try await engine.activeObservations(in: defaultCharacterScope)
+            == [defaultCharacterObservation]
     )
     #expect(
         try await engine.activeObservations(in: otherScope).count == 1
@@ -112,25 +112,25 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
     try await reopenedEngine.prepare()
 
     #expect(
-        try await reopenedEngine.activeObservations(in: emuScope)
-            == [emuObservation]
+        try await reopenedEngine.activeObservations(in: defaultCharacterScope)
+            == [defaultCharacterObservation]
     )
     await #expect(
         throws: SQLiteObservationStoreError.unknownObservation(
-            emuObservation.id
+            defaultCharacterObservation.id
         )
     ) {
         try await reopenedEngine.deleteObservation(
-            observationID: emuObservation.id,
+            observationID: defaultCharacterObservation.id,
             in: otherScope
         )
     }
     try await reopenedEngine.deleteObservation(
-        observationID: emuObservation.id,
-        in: emuScope
+        observationID: defaultCharacterObservation.id,
+        in: defaultCharacterScope
     )
     #expect(
-        try await reopenedEngine.activeObservations(in: emuScope).isEmpty
+        try await reopenedEngine.activeObservations(in: defaultCharacterScope).isEmpty
     )
     await reopenedEngine.close()
 }
@@ -143,7 +143,7 @@ func sqliteStoreDoesNotPersistUnlabeledObservationOrEmbedding() async throws {
         try? FileManager.default.removeItem(at: directory)
     }
 
-    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+    let scope = MemoryScope(userID: "local-user", characterID: "default-character")
     let store = SQLiteObservationStore(databaseURL: databaseURL)
     let embedder = SQLiteDenseTestEmbedder()
     let engine = MemoryEngine(
@@ -193,7 +193,7 @@ func taggedChatAxesPersistExactSQLiteLabelsWithoutClassifierFallback()
         try? FileManager.default.removeItem(at: directory)
     }
 
-    let scope = MemoryScope(userID: "local-user", characterID: "emu")
+    let scope = MemoryScope(userID: "local-user", characterID: "default-character")
     let engine = MemoryEngine(
         store: SQLiteObservationStore(databaseURL: databaseURL),
         classifier: SQLiteFailingClassifier(),
@@ -282,7 +282,7 @@ func canonicalStoreResetsTheOldPrototypeSchema() async throws {
         try await store.activeObservations(
             in: MemoryScope(
                 userID: "local-user",
-                characterID: "emu"
+                characterID: "default-character"
             )
         ).isEmpty
     )
@@ -298,7 +298,7 @@ func canonicalStoreResetsTheOldPrototypeSchema() async throws {
 }
 
 @Test
-func canonicalVersionOneMigratesAndPreservesExistingLabels() async throws {
+func characterNeutralSchemaResetRemovesExistingMemory() async throws {
     let directory = temporaryMemoryDirectory()
     let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
     defer {
@@ -350,7 +350,7 @@ func canonicalVersionOneMigratesAndPreservesExistingLabels() async throws {
         INSERT INTO conversation_turns VALUES (
             'turn-v1',
             'local-user',
-            'emu',
+            'default-character',
             'session-v1',
             0,
             'user',
@@ -387,15 +387,78 @@ func canonicalVersionOneMigratesAndPreservesExistingLabels() async throws {
     let store = SQLiteObservationStore(databaseURL: databaseURL)
     try await store.initialize()
     let observations = try await store.activeObservations(
-        in: MemoryScope(userID: "local-user", characterID: "emu")
+        in: MemoryScope(userID: "local-user", characterID: "default-character")
     )
 
-    #expect(observations.count == 1)
-    #expect(observations.first?.labels == [.preference])
-    #expect(
-        observations.first?.labelEvidence.first?.source == .regex
-    )
+    #expect(observations.isEmpty)
     await store.close()
+}
+
+@Test
+func characterNeutralSchemaResetRemovesVersionTwoMemory() async throws {
+    let directory = temporaryMemoryDirectory()
+    let databaseURL = directory.appendingPathComponent("edgemem.sqlite3")
+    defer {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    let initialStore = SQLiteObservationStore(databaseURL: databaseURL)
+    try await initialStore.initialize()
+    await initialStore.close()
+
+    var database: OpaquePointer?
+    #expect(sqlite3_open(databaseURL.path, &database) == SQLITE_OK)
+    let versionTwoSQL =
+        """
+        UPDATE schema_metadata SET value = '2' WHERE key = 'schema_version';
+        INSERT INTO conversation_turns VALUES (
+            'turn-v2',
+            'local-user',
+            'retired-character',
+            'session-v2',
+            0,
+            'user',
+            '나는 딸기를 좋아해',
+            '2024-07-16T00:00:00.000Z',
+            'hash-v2',
+            NULL
+        );
+        INSERT INTO observations VALUES (
+            'observation-v2',
+            'turn-v2',
+            'active',
+            '2024-07-16T00:00:00.000Z'
+        );
+        INSERT INTO observation_labels VALUES (
+            'observation-v2',
+            'preference',
+            NULL,
+            'gemma_header',
+            'retired-v2'
+        );
+        """
+    #expect(
+        sqlite3_exec(
+            database,
+            versionTwoSQL,
+            nil,
+            nil,
+            nil
+        ) == SQLITE_OK
+    )
+    sqlite3_close_v2(database)
+
+    let migratedStore = SQLiteObservationStore(databaseURL: databaseURL)
+    try await migratedStore.initialize()
+    #expect(
+        try await migratedStore.activeObservations(
+            in: MemoryScope(
+                userID: "local-user",
+                characterID: "default-character"
+            )
+        ).isEmpty
+    )
+    await migratedStore.close()
 }
 
 @Test

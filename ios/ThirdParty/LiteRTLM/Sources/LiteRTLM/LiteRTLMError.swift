@@ -115,6 +115,7 @@ public enum LiteRTLMError: Error, LocalizedError, Equatable {
 
   public enum ConfigError: Error, LocalizedError, Equatable {
     case invalidMaxNumTokens
+    case invalidMaxOutputTokens
     case invalidMaxNumImages(count: Int)
     case invalidTopK
     case invalidTopP
@@ -125,6 +126,8 @@ public enum LiteRTLMError: Error, LocalizedError, Equatable {
       switch self {
       case .invalidMaxNumTokens:
         return "maxNumTokens must be positive or nil (use the default from model or engine)."
+      case .invalidMaxOutputTokens:
+        return "maxOutputTokens must be positive or nil (use the default from model or engine)."
       case .invalidMaxNumImages:
         return "maxNumImages must be non-negative or nil (use the default from model or engine)."
       case .invalidTopK:

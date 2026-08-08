@@ -1,0 +1,159 @@
+{
+  "schema_version": "1.0.0",
+  "benchmark_id": "facetroutebench",
+  "benchmark_version": "0.3.0",
+  "status": "harness_ready",
+  "route_contract": "routes.v1.json",
+  "dataset_schema": "dataset.schema.json",
+  "run_manifest_schema": "run-manifest.schema.json",
+  "counts": {
+    "authoring": {
+      "specialist_route_count": 19,
+      "prototypes_per_route": 12,
+      "difficulty_counts_per_route": {
+        "direct": 4,
+        "natural": 4,
+        "neighbor": 4
+      },
+      "specialist_total": 228,
+      "general": 120,
+      "hard_negative": 120,
+      "general_total": 240,
+      "total": 468
+    },
+    "dev": {
+      "specialist_per_route": {
+        "direct": 8,
+        "natural": 8,
+        "neighbor": 8
+      },
+      "specialist_total": 456,
+      "general": 120,
+      "hard_negative": 120,
+      "total": 696
+    },
+    "frozen": {
+      "specialist_per_route": {
+        "direct": 8,
+        "natural": 8,
+        "neighbor": 8
+      },
+      "specialist_total": 456,
+      "general": 120,
+      "hard_negative": 120,
+      "total": 696
+    },
+    "context_challenge": {
+      "per_route": 3,
+      "route_count": 20,
+      "total": 60
+    },
+    "fixed_record_total": 1920
+  },
+  "authoring": {
+    "interface": "codex_cli",
+    "oversample_factor": 1.5,
+    "domain_allocation_by_cell_size": {
+      "3": {"shared_daily": 1, "narrative": 1, "mixed": 1},
+      "4": {"shared_daily": 2, "narrative": 1, "mixed": 1},
+      "8": {"shared_daily": 3, "narrative": 3, "mixed": 2},
+      "120": {"shared_daily": 40, "narrative": 40, "mixed": 40}
+    },
+    "generator": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "persona_core_required": true,
+      "domain_preregistered": true
+    },
+    "canon_validator": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "shared_session_with_generator": false,
+      "sees_intended_label": false
+    },
+    "blind_validator": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "shared_session_with_generator": false,
+      "sees_intended_label": false
+    },
+    "rejection_sampling": {
+      "enabled": true,
+      "unit": "authoring_task_id_and_domain",
+      "candidates_per_shortage": 1,
+      "max_rounds": 5,
+      "prompt_or_contract_tuning_between_rounds": false
+    },
+    "human_correction_required": false
+  },
+  "evaluation": {
+    "primary_metric": "macro_f1_20_route",
+    "secondary_metrics": [
+      "accuracy",
+      "per_route_precision_recall_f1",
+      "difficulty_macro_f1",
+      "coarse_facet_accuracy",
+      "general_precision_recall",
+      "false_specialist_activation_rate",
+      "confusion_matrix",
+      "error_rate",
+      "timeout_rate"
+    ],
+    "llm_as_judge_for_primary_quality": false,
+    "promotion_threshold_preregistered": false
+  },
+  "arms": {
+    "baseline": "gemma_generative_router",
+    "embedding_initial": [
+      "raw_scene_card",
+      "route_description",
+      "utterance_prototype",
+      "description_plus_prototype",
+      "utterance_prototype_vs_general"
+    ],
+    "prototype_aggregation": "max_similarity",
+    "similarity": "cosine",
+    "rejection": {
+      "methods": [
+        "single_global_top1_threshold",
+        "specialist_vs_general_top1"
+      ],
+      "tuning_split": "dev",
+      "tuning_metric": "macro_f1_20_route",
+      "top1_top2_margin_enabled": false
+    }
+  },
+  "tracks": {
+    "controlled_single_turn": {
+      "gemma_context": "current_user_input_only",
+      "embedding_context": "current_user_input_only",
+      "contributes_to_primary_metric": true
+    },
+    "product_condition": {
+      "gemma_context": "recent_visible_dialogue_plus_current_user_input",
+      "embedding_context": "current_user_input_only",
+      "contributes_to_primary_metric": false
+    },
+    "context_challenge": {
+      "type": "context_ablation",
+      "contributes_to_primary_metric": false
+    }
+  },
+  "frozen_policy": {
+    "embedding_candidates_evaluated": 1,
+    "includes_gemma_baseline": true,
+    "configuration_locked_before_run": true,
+    "reuse_after_result_driven_tuning": false
+  },
+  "latency": {
+    "scope": "router_only",
+    "mac_required": true,
+    "iphone_status": "pending",
+    "iphone_future_protocol": {
+      "sample_count": 100,
+      "samples_per_route": 5,
+      "warm_repetitions": 3,
+      "cold_repetitions": 5
+    }
+  }
+}
