@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://petai.local/toolroutebench/dataset.schema.json",
+  "title": "ToolRouteBench dataset record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "dataset_version",
+    "split",
+    "track",
+    "expression_family_id",
+    "difficulty",
+    "utterance",
+    "gold_tool_ids",
+    "style_tags",
+    "generation_batch_id",
+    "contract_validation_batch_id",
+    "blind_validation_batch_id",
+    "provenance"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^trb-[a-z0-9][a-z0-9-]*$"
+    },
+    "dataset_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "split": {
+      "enum": ["authoring", "dev", "holdout", "multilabel_challenge", "regression"]
+    },
+    "track": {
+      "enum": ["single_tool", "multi_label", "regression"]
+    },
+    "expression_family_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "difficulty": {
+      "enum": [
+        "direct",
+        "natural",
+        "missing_parameter",
+        "noisy",
+        "mention_or_past",
+        "negation",
+        "capability_or_meta",
+        "quoted_or_third_party",
+        "hypothetical_or_wish",
+        "semantic_boundary"
+      ]
+    },
+    "utterance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gold_tool_ids": {
+      "type": "array",
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/toolId"}
+    },
+    "contrast_tool_id": {"$ref": "#/$defs/toolId"},
+    "style_tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "short_chat",
+          "natural_chat",
+          "formal",
+          "informal",
+          "elliptical",
+          "minor_typo",
+          "slang",
+          "quoted_speech"
+        ]
+      }
+    },
+    "generation_batch_id": {"type": "string", "minLength": 1},
+    "contract_validation_batch_id": {"type": "string", "minLength": 1},
+    "blind_validation_batch_id": {"type": "string", "minLength": 1},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator", "contract_validator", "blind_validator", "ambiguous"],
+      "properties": {
+        "generator": {"$ref": "#/$defs/modelInvocation"},
+        "contract_validator": {"$ref": "#/$defs/modelInvocation"},
+        "blind_validator": {"$ref": "#/$defs/modelInvocation"},
+        "ambiguous": {"const": false}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"track": {"const": "single_tool"}},
+        "required": ["track"]
+      },
+      "then": {
+        "properties": {"gold_tool_ids": {"maxItems": 1}}
+      }
+    },
+    {
+      "if": {
+        "properties": {"track": {"const": "multi_label"}},
+        "required": ["track"]
+      },
+      "then": {
+        "properties": {"gold_tool_ids": {"minItems": 2, "maxItems": 2}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "difficulty": {
+            "enum": ["direct", "natural", "missing_parameter", "noisy"]
+          }
+        },
+        "required": ["difficulty"]
+      },
+      "then": {
+        "properties": {"gold_tool_ids": {"minItems": 1}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "difficulty": {
+            "enum": [
+              "mention_or_past",
+              "negation",
+              "capability_or_meta",
+              "quoted_or_third_party",
+              "hypothetical_or_wish",
+              "semantic_boundary"
+            ]
+          }
+        },
+        "required": ["difficulty"]
+      },
+      "then": {
+        "required": ["contrast_tool_id"],
+        "properties": {"gold_tool_ids": {"maxItems": 0}}
+      }
+    }
+  ],
+  "$defs": {
+    "toolId": {
+      "enum": [
+        "get_step_count",
+        "create_alarm",
+        "list_alarms",
+        "create_timer",
+        "schedule_local_notification",
+        "get_calendar_events",
+        "create_calendar_event"
+      ]
+    },
+    "modelInvocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interface",
+        "model",
+        "reasoning_effort",
+        "prompt_template_sha256",
+        "request_sha256",
+        "session_id"
+      ],
+      "properties": {
+        "interface": {"const": "codex_cli"},
+        "model": {"const": "gpt-5.6-sol"},
+        "reasoning_effort": {"const": "medium"},
+        "prompt_template_sha256": {"$ref": "#/$defs/sha256"},
+        "request_sha256": {"$ref": "#/$defs/sha256"},
+        "session_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

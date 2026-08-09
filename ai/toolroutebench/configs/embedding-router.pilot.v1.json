@@ -1,0 +1,41 @@
+{
+  "router_family": "embedding_similarity_multilabel",
+  "model_id": "embeddinggemma-300m-seq256",
+  "sequence_length": 256,
+  "dimension": 768,
+  "prefix": "task: classification | query: ",
+  "similarity": "cosine",
+  "representations": [
+    "tool_id",
+    "tool_description",
+    "utterance_prototype",
+    "description_plus_prototype",
+    "utterance_prototype_vs_normal"
+  ],
+  "prototype_aggregations": [
+    "max_similarity",
+    "centroid_similarity",
+    "top3_mean_similarity"
+  ],
+  "normal_decisions": [
+    "absolute_tool_threshold",
+    "positive_vs_normal_margin"
+  ],
+  "threshold_structures": [
+    "single_global",
+    "raw_per_tool",
+    "cv_shrunk_per_tool"
+  ],
+  "threshold_tuning": {
+    "cv_folds": 5,
+    "shrinkage": 0.5,
+    "candidate_values": "observed_score_midpoints"
+  },
+  "multi_label_policy": {
+    "zero_active": "normal",
+    "one_active": "tool",
+    "multiple_active": "conflict"
+  },
+  "input_context": "current_user_input_only",
+  "automatic_fallback": null
+}

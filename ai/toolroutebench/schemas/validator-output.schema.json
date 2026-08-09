@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["predictions"],
+  "properties": {
+    "predictions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "predicted_tool_ids", "ambiguous"],
+        "properties": {
+          "candidate_id": {"type": "string", "minLength": 1},
+          "predicted_tool_ids": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "enum": [
+                "get_step_count", "create_alarm", "list_alarms", "create_timer",
+                "schedule_local_notification", "get_calendar_events",
+                "create_calendar_event"
+              ]
+            }
+          },
+          "ambiguous": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

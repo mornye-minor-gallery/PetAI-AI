@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "source": "ios/EdgeLLM/Sources/EdgeLLM/ToolUse/NativeToolContracts.swift",
+  "regex_baseline": {
+    "source": "ios/EdgeLLM/Sources/EdgeLLM/ToolUse/KoreanNativeToolRouter.swift",
+    "source_sha256": "3ba84d2685d414ad25fe889ff4e8c94a268cec0b28d4f37f603df8f586aef736",
+    "port": "toolroutebench/regex_baseline.py"
+  },
+  "tool_order": [
+    "get_step_count",
+    "create_alarm",
+    "list_alarms",
+    "create_timer",
+    "schedule_local_notification",
+    "get_calendar_events",
+    "create_calendar_event"
+  ],
+  "tools": {
+    "get_step_count": {
+      "description_ko": "사용자의 지정 기간 걸음 수를 조회하는 요청"
+    },
+    "create_alarm": {
+      "description_ko": "특정 날짜와 시각에 깨우거나 울리는 알람을 생성하는 요청"
+    },
+    "list_alarms": {
+      "description_ko": "PetAI가 만든 알람 목록을 조회하는 요청"
+    },
+    "create_timer": {
+      "description_ko": "상대적 지속 시간의 카운트다운을 시작하는 요청"
+    },
+    "schedule_local_notification": {
+      "description_ko": "특정 시각에 정보를 알려주는 로컬 알림을 예약하는 요청"
+    },
+    "get_calendar_events": {
+      "description_ko": "지정 기간의 캘린더 일정을 조회하는 요청"
+    },
+    "create_calendar_event": {
+      "description_ko": "캘린더에 새로운 일정을 생성하는 요청"
+    }
+  }
+}

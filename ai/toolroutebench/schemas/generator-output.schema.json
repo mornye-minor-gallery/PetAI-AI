@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidates"],
+  "properties": {
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["utterance", "expression_family_suffix", "style_tags"],
+        "properties": {
+          "utterance": {"type": "string", "minLength": 1},
+          "expression_family_suffix": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "style_tags": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "enum": [
+                "short_chat", "natural_chat", "formal", "informal",
+                "elliptical", "minor_typo", "slang", "quoted_speech"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

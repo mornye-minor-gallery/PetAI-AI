@@ -1,0 +1,24 @@
+[project]
+name = "petai-toolroutebench"
+version = "0.1.0"
+description = "Reproducible embedding-only native tool routing pilot harness"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "ai-edge-litert==2.1.3",
+    "jsonschema>=4.23,<5",
+    "numpy>=2.0,<3",
+    "sentencepiece==0.2.1",
+]
+
+[project.scripts]
+trbench = "toolroutebench.cli:main"
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["toolroutebench"]

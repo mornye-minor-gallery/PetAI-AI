@@ -1,0 +1,150 @@
+{
+  "schema_version": "1.0.0",
+  "benchmark_id": "toolroutebench",
+  "benchmark_version": "0.1.0",
+  "status": "pilot_harness_ready",
+  "tool_contract": "tools.v1.json",
+  "dataset_schema": "dataset.schema.json",
+  "run_manifest_schema": "run-manifest.schema.json",
+  "counts": {
+    "authoring": {
+      "tool_count": 7,
+      "positive_per_tool": {
+        "direct": 3,
+        "natural": 3,
+        "missing_parameter": 3,
+        "noisy": 3
+      },
+      "contrast_normal_per_tool": {
+        "mention_or_past": 2,
+        "negation": 2,
+        "capability_or_meta": 2,
+        "quoted_or_third_party": 2,
+        "hypothetical_or_wish": 2,
+        "semantic_boundary": 2
+      },
+      "positive_total": 84,
+      "contrast_normal_total": 84,
+      "total": 168
+    },
+    "dev": {
+      "positive_per_tool": {
+        "direct": 6,
+        "natural": 6,
+        "missing_parameter": 6,
+        "noisy": 6
+      },
+      "tool_total": 168,
+      "normal_per_difficulty": 4,
+      "normal_total": 24,
+      "total": 192
+    },
+    "holdout": {
+      "positive_per_tool": {
+        "direct": 6,
+        "natural": 6,
+        "missing_parameter": 6,
+        "noisy": 6
+      },
+      "tool_total": 168,
+      "normal_per_difficulty": 4,
+      "normal_total": 24,
+      "total": 192
+    },
+    "multilabel_challenge": {
+      "pair_count": 21,
+      "per_pair": {
+        "direct": 1,
+        "natural": 1,
+        "noisy": 1
+      },
+      "total": 63
+    },
+    "fixed_record_total": 615
+  },
+  "authoring": {
+    "interface": "codex_cli",
+    "generator": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium"
+    },
+    "contract_validator": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "shared_session_with_generator": false,
+      "sees_intended_labels": false
+    },
+    "blind_validator": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "shared_session_with_generator": false,
+      "sees_intended_labels": false
+    },
+    "ambiguous_candidates_accepted": false,
+    "human_correction_required": false
+  },
+  "embedding": {
+    "registry_path": "ai/models/runtime-models.json",
+    "model_id": "embeddinggemma-300m-seq256",
+    "model_revision": "870cbe05ef460385363c6b574c851ae5d8989ce3",
+    "model_sha256": "37115ef7bff76cd37dd86abe503ff511b1032bf85fc624a85c49c84899e92bc5",
+    "tokenizer_id": "embeddinggemma-300m-sentencepiece",
+    "tokenizer_sha256": "d6daa52d93d7aad10e8388bd526c4e501d914b47177398d1d9621f1fe48438c7",
+    "sequence_length": 256,
+    "dimension": 768,
+    "prefix": "task: classification | query: ",
+    "similarity": "cosine"
+  },
+  "arms": {
+    "baseline": "swift_regex_router",
+    "representations": [
+      "tool_id",
+      "tool_description",
+      "utterance_prototype",
+      "description_plus_prototype",
+      "utterance_prototype_vs_normal"
+    ],
+    "prototype_aggregations": [
+      "max_similarity",
+      "centroid_similarity",
+      "top3_mean_similarity"
+    ],
+    "normal_decisions": [
+      "absolute_tool_threshold",
+      "positive_vs_normal_margin"
+    ],
+    "threshold_structures": [
+      "single_global",
+      "raw_per_tool",
+      "cv_shrunk_per_tool"
+    ],
+    "automatic_fallback": null
+  },
+  "selection": {
+    "tuning_split": "dev",
+    "baseline_constraint": "normal_false_activation_rate_lte_regex",
+    "improvement_constraint": "single_track_macro_f1_gt_regex",
+    "objective": "single_track_macro_f1",
+    "tie_breakers": [
+      "lower_normal_false_activation_rate",
+      "candidate_id_ascending"
+    ],
+    "no_eligible_candidate_result": "pilot_failed"
+  },
+  "tracks": {
+    "controlled_single_turn": {
+      "context": "current_user_input_only",
+      "contributes_to_selection": true
+    },
+    "multilabel_challenge": {
+      "context": "current_user_input_only",
+      "contributes_to_selection": false
+    }
+  },
+  "holdout_policy": {
+    "candidate_count": 1,
+    "candidate_and_thresholds_locked_before_run": true,
+    "dataset_sha256_locked_before_run": true,
+    "reuse_after_result_driven_tuning": false
+  }
+}

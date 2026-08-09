@@ -1,7 +1,7 @@
 # PetAI AI workspace
 
 status:: active
-last_reviewed:: 2026-08-08
+last_reviewed:: 2026-08-09
 
 `ai/`는 PetAI에 직접 필요한 온디바이스 모델·대화·메모리 연구를 재현하는
 공간이다. 이 문서는 각 연구의 **연구 상태**, **제품 반영 상태**, **다음
@@ -57,6 +57,7 @@ PetAI는 게임이 본체이고 AI는 표현 계층이다. 관계 수치, 보상
 | [`memory-classifier/`](memory-classifier/) | P/E 축 저장 판정, MLP 기준선, Gemma 메모리 헤더 실험 | frozen historical baseline | `save(P=X,E=Y)`와 fail-closed gate만 integrated | 새 프롬프트 변경이 있을 때만 별도 holdout으로 회귀 평가. MLP 폴백은 제품에 넣지 않음 |
 | [`mrbench-custom/`](mrbench-custom/) | 엘레나 지식 경계와 장면별 페르소나 라우팅 | frozen best-found MVP candidate, not gold | core·scene card를 generic `RoutedPersona` 경로로 integrated | 현재 1회 생성 경로의 iPhone 지연·메모리·발열과 알려진 경계 실패를 검증 |
 | [`facetroutebench/`](facetroutebench/) | Gemma 장면 라우터와 EmbeddingGemma 유사도 라우터를 비교하는 20-route 계약과 route별 threshold 연구 | v2 회고 실험 종료, v3 확인 실험 active | v2 Embedding Router candidate integrated | 새 v3 Dev/Frozen 확인과 iPhone 지연·메모리·발열 검증 |
+| [`toolroutebench/`](toolroutebench/) | 7개 네이티브 Tool의 Embedding-only multi-label 라우팅과 Regex 기준선 비교 | Pilot sealed Holdout 완료, MVP 안전성 개선 active | not integrated | 새 calibration/holdout에서 안전 gate를 먼저 고정하고 Regex 중재 후보 비교 |
 | [`edgemembench/`](edgemembench/) | A 저장, B 검색, C 시간 충돌, D 기권의 494문항과 Dense/temporal/cohort 진단 | v0 benchmark frozen, resolver research paused | Dense cosine 검색만 integrated | MVP 뒤 구조화 상태·valid time·결정론적 reducer 연구의 기준선으로 사용 |
 | [`profile-memory-kv/`](profile-memory-kv/) | 닫힌 key 하나와 value 또는 `null`을 출력하는 24문항 smoke | exploratory, paused | not integrated | 새 holdout에서 기권 성능을 먼저 확인한 뒤 structured proposal 연구 지속 여부 결정 |
 
@@ -76,6 +77,10 @@ PetAI는 게임이 본체이고 AI는 표현 계층이다. 관계 수치, 보상
   오류가 나면 `GENERAL`로 닫히며 Legacy Gemma Router로 자동 폴백하지 않는다.
   이 문서 작성 시점의 통합 브랜치에는 수동 비교·롤백 경로만 남아 있고,
   완전 삭제는 별도 PR #114에서 추적한다.
+- ToolRouteBench Pilot의 Embedding 후보는 봉인 Holdout에서 도구 분류 품질을
+  높였지만 NORMAL 오활성률을 Regex 기준선보다 낮추지 못했다. 따라서 현재
+  제품의 `KoreanNativeToolRouter`는 그대로 유지하며, Pilot 후보는 제품에
+  통합하지 않는다.
 - EdgeMemBench의 global timestamp reranking은 Hit@1을 33.33%에서 40.58%로
   올렸지만 2건을 악화시켰다. cohort oracle과 실제 정책의 큰 격차는 단순
   시간 가중치보다 `answer-bearing state`와 valid time 표현이 병목임을
@@ -194,6 +199,33 @@ iPhone에서는 확인 UI의 수정·승인·취소, 최초 권한 허용·거�
 실패를 성공으로 표시한 경우 0건, 도구 결과의 EdgeMem 저장 0건이다. 새로운
 도구나 건강 지표 확장은 MVP 연구에 포함하지 않는다.
 
+### P0-5. ToolRouteBench MVP 안전 라우터
+
+2026-08-08 Pilot은 192건 Dev에서 선택한 Embedding 후보 하나를 봉인 Holdout
+192건에서 한 번 평가했다. Embedding 후보는 exact match 85.94%, Macro-F1
+92.44%로 Regex 기준선의 63.02%, 73.94%보다 높았지만, 핵심 안전 지표인
+NORMAL 오활성률은 두 방식 모두 11/24(45.83%)였다. 분류 품질 개선만으로는
+제품 Router 교체 근거가 되지 않는다. 기존의 Regex 대비 비열등 gate는
+충족했지만 절대 오활성률이 높고 제품용 상한도 사전 등록되지 않았으므로,
+Pilot 후보는 제품 준비 완료로 판정하지 않는다. 세부 근거는
+[`toolroutebench/RESULTS.md`](toolroutebench/RESULTS.md)에 고정한다.
+
+- 현재 Regex Router를 제품 기준선으로 유지하고, 새 calibration과 봉인
+  Holdout에는 일반 대화·부정·가정·도메인 단어만 있는 hard negative를
+  보강한다.
+- 새 Holdout을 열기 전에 NORMAL 오활성률 상한, Regex 대비 개선 조건과
+  도구 분류 비회귀 조건을 등록한다.
+- actionability gate, positive-normal margin, multi-tool conflict margin과
+  Regex veto를 Dev에서 비교하고 후보 하나만 잠근다.
+- 안전 제약을 통과한 경우에만 Swift에 feature flag로 이식하고 Python과
+  판정 일치성을 확인한다. 권한·확인·취소·중복 실행 방지는 P0-4와 함께
+  iPhone에서 검증한다.
+
+**종료 조건:** 새 봉인 Holdout에서 NORMAL 오활성률이 고정 Regex 기준선보다
+낮고 사전 등록한 안전 상한을 통과하며, 도구 분류 품질이 사전 등록한
+비회귀 조건을 만족한다. 충돌·미지원·불명확 요청은 fail-closed여야 하고,
+Swift 판정 일치와 iPhone E2E 증거가 없으면 MVP 완료로 표시하지 않는다.
+
 ### P1-1. 현재 EdgeMem 기준선 보존
 
 - 저장 판단은 현재 wrapped-axis gate를 유지한다.
@@ -245,19 +277,13 @@ Embedding Router를 최종 해법으로 표현하지 않는다.
 
 ### 9월: 라우팅·평가 체계 동결
 
-1. **ToolUseBench v0와 Regex-first Router 강화**
-   - 현재 7개 도구에 대해 `normal`, 단일 tool, multi-tool conflict를 구분하고
-     direct, natural, hard negative, 부정·가정, 오타·생략 문항을 만든다.
-   - 단기 제품 경로는 결정론적 Regex-first를 유지하고, 도메인 단어만 나온
-     일반 대화를 도구로 오인하는 false activation을 최우선으로 줄인다.
-   - route의 tool별 precision/recall, normal false activation rate와 conflict
-     precision/recall을 Gemma parameter proposal의 field exact/schema pass와
-     분리해 보고한다.
-   - 날짜 해석은 timezone·과거 시각·월 경계·윤년을 포함하고 Swift validator와
-     같은 계약으로 채점한다.
-   - 장기 후보로 동일한 EmbeddingGemma를 재사용하는 tool-intent classifier를
-     비교한다. Regex와 Embedding 결과가 다를 때 조용히 한쪽으로 폴백하지 않고
-     명시적 정책으로 중재하며, 실행 직전 Swift 검증과 사용자 확인은 유지한다.
+1. **ToolRouteBench P0 통과 후보의 후속 확장**
+   - MVP P0-5의 안전 gate와 iPhone E2E를 통과한 후보가 있을 때만 시작한다.
+   - Pilot과 MVP 봉인셋은 다시 튜닝하지 않고 회귀 기준으로 보존한다.
+   - 새 도구·표현·오타 범위를 별도 Dev/Holdout으로 확장하고, route 품질은
+     Gemma parameter proposal의 field exact/schema pass와 분리해 보고한다.
+   - Regex와 Embedding이 다를 때의 중재 정책, Swift validator와 사용자 확인은
+     계속 명시적 계약으로 유지한다.
 
 2. **FacetRouteBench v3 확인 실험**
    - v2의 제품 통합 사실과 v3의 아직 검증되지 않은 연구 상태를 분리한다.
