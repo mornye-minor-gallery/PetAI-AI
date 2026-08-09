@@ -84,8 +84,8 @@ func localNotificationResultsProduceStableVisibleText() {
         tool: .scheduleLocalNotification,
         status: .success,
         data: .object([
-            "notificationID": .string(
-                "PetAI.LocalNotification.notification"
+            "notificationId": .string(
+                "local-notification-notification"
             ),
             "scheduledAt": .string("2026-08-05T15:00:00+09:00"),
         ])
