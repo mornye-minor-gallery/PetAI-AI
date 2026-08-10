@@ -256,12 +256,14 @@ func proposalHarnessSkipsGemmaForNormalAndConflictRoutes() async throws {
     let normal = try await harness.prepare(
         requestID: "normal",
         userMessage: "오늘 만 보 걸었어",
-        promptContext: context
+        promptContext: context,
+        allowedTools: Set(NativeToolKind.allCases)
     )
     let conflict = try await harness.prepare(
         requestID: "conflict",
         userMessage: "내일 일정 보여 주고 7시 알람도 맞춰 줘",
-        promptContext: context
+        promptContext: context,
+        allowedTools: Set(NativeToolKind.allCases)
     )
     let requests = await generator.receivedRequests()
 
@@ -274,6 +276,34 @@ func proposalHarnessSkipsGemmaForNormalAndConflictRoutes() async throws {
             )
     )
     #expect(requests.isEmpty)
+}
+
+@Test
+func proposalHarnessBlocksLockedToolBeforeGemma() async throws {
+    let generator = ProposalGeneratorStub(
+        call: NativeToolFunctionCall(
+            name: NativeToolKind.createAlarm.rawValue,
+            argumentsJSON: "{}"
+        )
+    )
+    let harness = NativeToolProposalHarness(
+        coordinator: NativeToolProposalCoordinator { _ in .null },
+        generator: generator
+    )
+
+    let outcome = try await harness.prepare(
+        requestID: "locked-alarm",
+        userMessage: "내일 아침 7시에 알람 맞춰 줘",
+        promptContext: NativeToolPromptContext(
+            currentDate: "2026-08-03",
+            currentDateTime: "2026-08-03T12:00",
+            timeZoneIdentifier: "Asia/Seoul"
+        ),
+        allowedTools: []
+    )
+
+    #expect(outcome == .locked(tool: .createAlarm))
+    #expect(await generator.receivedRequests().isEmpty)
 }
 
 @Test
@@ -306,7 +336,8 @@ func proposalHarnessRegistersOneValidatedProposalWithoutExecuting() async throws
             currentDate: "2026-08-03",
             currentDateTime: "2026-08-03T12:00",
             timeZoneIdentifier: "Asia/Seoul"
-        )
+        ),
+        allowedTools: Set(NativeToolKind.allCases)
     )
 
     guard case .proposal(let draft, let proposal, let event) = outcome else {
@@ -353,12 +384,14 @@ func localNotificationHarnessAsksForMissingRequiredInformation() async throws {
     let missingTime = try await harness.prepare(
         requestID: "notification-missing-time",
         userMessage: "약 먹으라고 알려 줘",
-        promptContext: context
+        promptContext: context,
+        allowedTools: Set(NativeToolKind.allCases)
     )
     let missingContent = try await harness.prepare(
         requestID: "notification-missing-content",
         userMessage: "오후 3시에 알림 설정해 줘",
-        promptContext: context
+        promptContext: context,
+        allowedTools: Set(NativeToolKind.allCases)
     )
     let requests = await generator.receivedRequests()
 

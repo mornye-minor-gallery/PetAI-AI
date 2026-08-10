@@ -29,6 +29,7 @@ public protocol NativeToolProposalGenerating: Sendable {
 public enum NativeToolProposalHarnessOutcome: Equatable, Sendable {
     case normal
     case conflict(message: String, tools: [NativeToolKind])
+    case locked(tool: NativeToolKind)
     case clarification(message: String)
     case proposal(
         draft: NativeToolProposal,
@@ -74,7 +75,8 @@ public struct NativeToolProposalHarness: Sendable {
     public func prepare(
         requestID: String,
         userMessage: String,
-        promptContext: NativeToolPromptContext
+        promptContext: NativeToolPromptContext,
+        allowedTools: Set<NativeToolKind>
     ) async throws -> NativeToolProposalHarnessOutcome {
         switch router.route(userMessage) {
         case .normal:
@@ -87,6 +89,9 @@ public struct NativeToolProposalHarness: Sendable {
             )
 
         case .tool(let selectedTool):
+            guard allowedTools.contains(selectedTool) else {
+                return .locked(tool: selectedTool)
+            }
             if selectedTool == .scheduleLocalNotification,
                let message = localNotificationClarifier.clarification(
                    for: userMessage

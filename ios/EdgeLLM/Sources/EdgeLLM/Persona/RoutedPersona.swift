@@ -42,8 +42,11 @@ public struct RoutedPersonaPromptSet: Equatable, Sendable {
         return sceneCards[scene]?.card
     }
 
-    public func responseSystemPrompt(activeCard: String?) -> String {
-        var sections = [core]
+    public func responseSystemPrompt(
+        activeCard: String?,
+        userProfileContext: UserProfileContext = UserProfileContext()
+    ) -> String {
+        var sections = [render(core, with: userProfileContext)]
         if let activeCard,
            !activeCard.trimmingCharacters(
                in: .whitespacesAndNewlines
@@ -52,12 +55,26 @@ public struct RoutedPersonaPromptSet: Equatable, Sendable {
             sections.append(
                 """
                 ## 이번 응답의 활성 장면 카드
-                \(activeCard) 다른 장면 규칙은 이번 응답에 사용하지 않는다.
+                \(render(activeCard, with: userProfileContext)) 다른 장면 규칙은 이번 응답에 사용하지 않는다.
                 """
             )
         }
+        sections.append(userProfileContext.promptSection())
         sections.append(MemoryTaggedChatPrompt.wrappedAxesV1)
         return sections.joined(separator: "\n\n")
+    }
+
+    private func render(
+        _ source: String,
+        with context: UserProfileContext
+    ) -> String {
+        source.replacingOccurrences(
+            of: "엘레나",
+            with: context.characterName
+        ).replacingOccurrences(
+            of: "Elena",
+            with: context.characterName
+        )
     }
 
 }
