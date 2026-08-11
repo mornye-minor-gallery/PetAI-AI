@@ -27,7 +27,10 @@ let package = Package(
         ),
         .testTarget(
             name: "EdgeLLMTests",
-            dependencies: ["EdgeLLM"]
+            dependencies: ["EdgeLLM"],
+            resources: [
+                .process("Resources"),
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]

@@ -41,7 +41,7 @@ public enum NativeToolProposalHarnessOutcome: Equatable, Sendable {
 public struct NativeToolProposalHarness: Sendable {
     public static let conflictMessage = "한 번에 하나씩 요청해 주세요."
 
-    private let router: KoreanNativeToolRouter
+    private let router: any NativeToolRouting
     private let promptRegistry: NativeToolPromptRegistry
     private let parser: NativeToolProposalParser
     private let validator: NativeToolProposalValidator
@@ -52,7 +52,7 @@ public struct NativeToolProposalHarness: Sendable {
     private let configuration: SLMConfiguration
 
     public init(
-        router: KoreanNativeToolRouter = KoreanNativeToolRouter(),
+        router: any NativeToolRouting,
         promptRegistry: NativeToolPromptRegistry = NativeToolPromptRegistry(),
         parser: NativeToolProposalParser = NativeToolProposalParser(),
         validator: NativeToolProposalValidator = NativeToolProposalValidator(),
@@ -78,7 +78,7 @@ public struct NativeToolProposalHarness: Sendable {
         promptContext: NativeToolPromptContext,
         allowedTools: Set<NativeToolKind>
     ) async throws -> NativeToolProposalHarnessOutcome {
-        switch router.route(userMessage) {
+        switch try await router.route(userMessage) {
         case .normal:
             return .normal
 

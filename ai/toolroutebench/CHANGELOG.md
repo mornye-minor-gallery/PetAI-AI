@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- HN+PetAI matched MLP와 `embedding-09`를 checksum 고정 float32 iOS 리소스로
+  내보내는 재현 가능한 exporter를 추가했다. 원본 `.npz`와 데이터 캐시는
+  계속 로컬에 두고 약 445KB의 런타임 가중치·프로토타입만 Git에 포함한다.
+- Swift 제품 경로를 Regex 직접 선택에서 단일 classification embedding을
+  공유하는 `MLP CALL/NO_CALL → embedding-09 Tool 선택` 2단계 구조로 교체했다.
+  라우팅 실패는 Tool을 실행하지 않고 일반 대화로 닫힌다.
 - 3i4K train 43,521건을 원본 발화 유형만 보존한 미라벨 PetAI 후보 풀로
   준비하고, Embedding Top-K·완화 임계값·Regex·선택적 Gemma 예측의 합집합과
   원본 라벨별 탈락 감사 표본을 생성하는 재현 가능한 마이닝 명령을 추가했다.

@@ -23,7 +23,11 @@ struct EmbeddingComparison: Sendable {
   let differentScore: Float
 }
 
-actor MemoryService {
+actor MemoryService: ClassificationEmbeddingProviding {
+  nonisolated let modelID =
+    "litert-community/embeddinggemma-300m-seq256-mixed-precision"
+  nonisolated let dimension = 768
+
   private let embedder = EmbeddingGemmaEmbedder()
   private var engine: MemoryEngine?
   private var preparationTask: Task<Void, Error>?
