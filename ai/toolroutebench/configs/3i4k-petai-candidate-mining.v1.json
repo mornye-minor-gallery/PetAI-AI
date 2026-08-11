@@ -1,0 +1,13 @@
+{
+  "schema_version": "toolroutebench-3i4k-petai-mining-config-v1",
+  "experiment_id": "3i4k-petai-candidate-mining-v1",
+  "source_split": "train",
+  "seed": 20260811,
+  "selection": {
+    "top_k_per_tool": 1000,
+    "relaxed_threshold_margin": 0.05,
+    "include_regex": true,
+    "include_optional_gemma_predictions": true,
+    "rejected_audit_per_source_label": 100
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "schema_version": "toolroutebench-actionability-config-v1",
+  "experiment_id": "3i4k-binary-mlp-smoke-v1",
+  "seed": 20260811,
+  "labels": {
+    "call": {
+      "2": "question",
+      "3": "command"
+    },
+    "no_call": {
+      "0": "fragment",
+      "1": "statement",
+      "4": "rhetorical_question",
+      "5": "rhetorical_command",
+      "6": "intonation_dependent"
+    }
+  },
+  "sources": {
+    "train_validation": {
+      "url": "https://raw.githubusercontent.com/warnikchow/3i4k/cfa90c15f808becafca2d8ef8649b8b71f6bbe71/data/train_val_test/fci_train_val.txt",
+      "sha256": "646f450b84992c6df806ea72aa35374db7ec30d7739920b86dfa878e73b69079"
+    },
+    "test": {
+      "url": "https://raw.githubusercontent.com/warnikchow/3i4k/cfa90c15f808becafca2d8ef8649b8b71f6bbe71/data/train_val_test/fci_test.txt",
+      "sha256": "d74c5b376c7d231bd4d5a94de855e47b6e70c96abeeaaf75cffbdb8506a87ff2"
+    }
+  },
+  "validation_fraction": 0.15,
+  "sample_quotas_per_source_label": {
+    "train": {
+      "0": 280,
+      "1": 280,
+      "2": 700,
+      "3": 700,
+      "4": 280,
+      "5": 280,
+      "6": 280
+    },
+    "validation": {
+      "0": 40,
+      "1": 40,
+      "2": 100,
+      "3": 100,
+      "4": 40,
+      "5": 40,
+      "6": 40
+    },
+    "test": {
+      "0": 60,
+      "1": 60,
+      "2": 150,
+      "3": 150,
+      "4": 60,
+      "5": 60,
+      "6": 60
+    }
+  },
+  "embedding": {
+    "model_id": "embeddinggemma-300m-seq256",
+    "dimension": 768,
+    "sequence_length": 256
+  },
+  "mlp": {
+    "hidden_units": 64,
+    "activation": "relu",
+    "solver": "adam",
+    "alpha": 0.01,
+    "batch_size": 32,
+    "learning_rate_init": 0.001,
+    "max_iter": 300
+  },
+  "threshold_selection": "validation_macro_f1"
+}

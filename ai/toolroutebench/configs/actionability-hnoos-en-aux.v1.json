@@ -1,0 +1,54 @@
+{
+  "schema_version": "toolroutebench-actionability-aux-config-v1",
+  "experiment_id": "hnoos-en-petai-relevant-v1",
+  "source_repository": {
+    "url": "https://github.com/frank7li/Generating-Hard-Negative-Out-of-Scope-Data-with-ChatGPT-for-Intent-Classification",
+    "commit": "b5a9cdbff3518acf987a509e3545560624d8c1a7"
+  },
+  "license": {
+    "status": "no_explicit_license_found",
+    "checked_at": "2026-08-11",
+    "policy": "research-only local download; do not commit or redistribute source rows"
+  },
+  "sources": {
+    "clinc150": {
+      "filename": "hard_negative_oos_clinc.json",
+      "url": "https://raw.githubusercontent.com/frank7li/Generating-Hard-Negative-Out-of-Scope-Data-with-ChatGPT-for-Intent-Classification/b5a9cdbff3518acf987a509e3545560624d8c1a7/hard-negative%20OOS%20datasets/hard_negative_oos_clinc.json",
+      "sha256": "dee498b874966c802a7f7612ab282cfbfc4ce87914db68d65ef9699d1e7b692b"
+    },
+    "hwu64": {
+      "filename": "hard_negative_oos_hwu64.json",
+      "url": "https://raw.githubusercontent.com/frank7li/Generating-Hard-Negative-Out-of-Scope-Data-with-ChatGPT-for-Intent-Classification/b5a9cdbff3518acf987a509e3545560624d8c1a7/hard-negative%20OOS%20datasets/hard_negative_oos_hwu64.json",
+      "sha256": "678683308c2feab41f6113c26d9eef2438c2d4c380e16ed9e4767d43d6f64e09"
+    }
+  },
+  "included_target_intents": [
+    "alarm",
+    "alarm_remove",
+    "alarm_set",
+    "calendar",
+    "calendar_update",
+    "cook_time",
+    "date",
+    "datetime_convert",
+    "datetime_query",
+    "expiration_date",
+    "meeting_schedule",
+    "reminder",
+    "schedule_maintenance",
+    "schedule_meeting",
+    "time",
+    "timer",
+    "timezone",
+    "todo_list_update",
+    "travel_notification"
+  ],
+  "excluded_petai_call_sha256": [
+    "b4dc8feaa6be3bf8c58e3a8b81a51774eaaddbdadc2f9063a41b67adb0982771",
+    "24e145dc6e0b89923a907ab4e6684e93ccb2ea65f89f95aa5e15fcb57c95e690",
+    "d710e2310f74aa795aecd23ecf48ae3b4ad29cd3822bca0b09153309bded5b0a",
+    "cc9327181608a05f7e9b3bc5d38ea88c644fbce4a53a0da94fba317363d01aed",
+    "6ee395c5f86ac71c96ab98246c4aa8c1252ae7cd22b16439b5c869d8e0289466",
+    "36df90dc6642d98c1ebc043cc05ce878fdfadd973509c0a8b79af75f860cec00"
+  ]
+}

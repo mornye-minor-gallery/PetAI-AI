@@ -36,8 +36,15 @@
       "required": ["candidate_id", "router_family", "config_sha256"],
       "properties": {
         "candidate_id": {"type": "string", "minLength": 1},
-        "router_family": {"enum": ["swift_regex", "embedding_similarity_multilabel"]},
-        "config_sha256": {"$ref": "#/$defs/sha256"}
+        "router_family": {
+          "enum": [
+            "swift_regex",
+            "embedding_similarity_multilabel",
+            "gemma_prompt_classifier"
+          ]
+        },
+        "config_sha256": {"$ref": "#/$defs/sha256"},
+        "prompt_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
     "dataset": {"$ref": "#/$defs/fileEvidence"},
@@ -53,7 +60,7 @@
         "additionalProperties": false,
         "required": ["role", "model_id", "artifact_sha256"],
         "properties": {
-          "role": {"enum": ["embedder", "tokenizer"]},
+          "role": {"enum": ["embedder", "tokenizer", "router"]},
           "model_id": {"type": "string", "minLength": 1},
           "artifact_sha256": {"$ref": "#/$defs/sha256"}
         }

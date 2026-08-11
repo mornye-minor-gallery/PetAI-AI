@@ -1,0 +1,12 @@
+{
+  "candidate_id": "gemma-e2b-prompt-router-retrospective-v1",
+  "router_family": "gemma_prompt_classifier",
+  "model_registry_id": "gemma-e2b-it",
+  "server_model_id": "gemma4-e2b",
+  "temperature": 0.0,
+  "top_p": 1.0,
+  "max_tokens": 32,
+  "invalid_or_multiple_label_fallback": "NORMAL",
+  "system_prompt": "../prompts/gemma-e2b-router-retrospective-v1.md",
+  "evaluation_scope": "pilot_holdout_retrospective"
+}

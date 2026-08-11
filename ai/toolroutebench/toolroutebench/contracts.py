@@ -62,6 +62,7 @@ def validate_contracts() -> None:
     tools = tool_contract["tool_order"]
     benchmark = load_benchmark_contract()
     config = read_json(CONFIGS_DIR / "embedding-router.pilot.v1.json")
+    gemma_config = read_json(CONFIGS_DIR / "gemma-router.retrospective.v1.json")
 
     swift_contract_path = REPOSITORY_ROOT / tool_contract["source"]
     try:
@@ -117,6 +118,16 @@ def validate_contracts() -> None:
             raise ToolRouteBenchError(f"{role} SHA-256 differs from runtime registry")
     if registry[embedding["model_id"]]["revision"] != embedding["model_revision"]:
         raise ToolRouteBenchError("embedding model revision differs from runtime registry")
+
+    if gemma_config.get("router_family") != "gemma_prompt_classifier":
+        raise ToolRouteBenchError("Gemma retrospective router family changed")
+    gemma_model = registry.get(gemma_config.get("model_registry_id"))
+    if gemma_model is None or gemma_model.get("role") != "chat":
+        raise ToolRouteBenchError("Gemma retrospective model differs from runtime registry")
+    gemma_prompt = (CONFIGS_DIR / gemma_config["system_prompt"]).resolve()
+    prompts_root = (REPOSITORY_ROOT / "ai/toolroutebench/prompts").resolve()
+    if gemma_prompt.parent != prompts_root or not gemma_prompt.is_file():
+        raise ToolRouteBenchError("Gemma retrospective prompt is missing or misplaced")
 
     schema_paths = [
         CONTRACTS_DIR / "dataset.schema.json",

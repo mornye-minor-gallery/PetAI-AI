@@ -1,0 +1,26 @@
+{
+  "schema_version": "toolroutebench-actionability-config-v1",
+  "experiment_id": "3i4k-petai-contract-actionability-mlp-v1",
+  "seed": 20260811,
+  "interpretation": {
+    "CALL": "explicit executable request matching at least one PetAI Tool contract",
+    "NO_CALL": "no executable request matching the current PetAI Tool contracts"
+  },
+  "training_label_status": "dual-session agreement authorized for experiment; not final human gold",
+  "embedding": {
+    "model_id": "embeddinggemma-300m-seq256",
+    "dimension": 768,
+    "sequence_length": 256
+  },
+  "mlp": {
+    "hidden_units": 64,
+    "activation": "relu",
+    "solver": "adam",
+    "alpha": 0.01,
+    "batch_size": 32,
+    "learning_rate_init": 0.001,
+    "max_iter": 600
+  },
+  "threshold_selection": "petai_dev_macro_f1",
+  "threshold_selection_track": "petai_dev"
+}

@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .common import ToolRouteBenchError, read_jsonl
+from .common import CONFIGS_DIR, PROMPTS_DIR, ToolRouteBenchError, read_jsonl
 from .authoring import (
     freeze_dataset,
     freeze_development_dataset,
@@ -12,6 +12,26 @@ from .authoring import (
     generate_candidates,
     validate_candidates,
     write_plan,
+)
+from .actionability import ACTIONABILITY_CONFIG, prepare_3i4k_actionability_dataset
+from .actionability_labeled import prepare_labeled_3i4k_actionability_dataset
+from .actionability_mlp import train_actionability_mlp
+from .hnoos import HNOOS_CONFIG, prepare_hnoos_actionability_auxiliary
+from .hnoos_translation import (
+    HNOOS_TRANSLATION_CONFIG,
+    HNOOS_TRANSLATION_PROMPT,
+    run_hnoos_korean_translation,
+)
+from .petai_candidate_mining import (
+    PETAI_MINING_CONFIG,
+    mine_3i4k_petai_candidates,
+    prepare_3i4k_petai_mining_pool,
+)
+from .petai_candidate_labeling import (
+    prepare_balanced_3i4k_actionability_pool,
+    prepare_3i4k_petai_labeling_queue,
+    reconcile_3i4k_petai_labels,
+    run_3i4k_petai_labeling_stage,
 )
 from .contracts import (
     validate_contracts,
@@ -21,6 +41,7 @@ from .contracts import (
     validate_run_manifest,
 )
 from .embedding import extract_embeddings, prepare_embedding_inputs
+from .gemma_runner import run_gemma_prompt_router
 from .runner import (
     create_holdout_lock,
     run_dev_grid,
@@ -31,7 +52,7 @@ from .regex_baseline import export_regex_predictions
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="ToolRouteBench Pilot harness")
+    parser = argparse.ArgumentParser(description="ToolRouteBench comparison harness")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("validate-contracts", help="validate frozen Pilot contracts")
 
@@ -126,6 +147,197 @@ def build_parser() -> argparse.ArgumentParser:
     regex_score.add_argument("--dataset-dir", type=Path, required=True)
     regex_score.add_argument("--predictions", type=Path, required=True)
     regex_score.add_argument("--output", type=Path, required=True)
+
+    gemma = commands.add_parser(
+        "run-gemma-router",
+        help="run the prompt-only Gemma 4 E2B IT retrospective router",
+    )
+    gemma.add_argument("--dataset", type=Path, required=True)
+    gemma.add_argument("--model-artifact", type=Path, required=True)
+    gemma.add_argument(
+        "--prompt",
+        type=Path,
+        default=PROMPTS_DIR / "gemma-e2b-router-retrospective-v1.md",
+    )
+    gemma.add_argument(
+        "--config",
+        type=Path,
+        default=CONFIGS_DIR / "gemma-router.retrospective.v1.json",
+    )
+    gemma.add_argument("--output-dir", type=Path, required=True)
+    gemma.add_argument("--base-url", default="http://127.0.0.1:9379")
+    gemma.add_argument("--runtime-version", required=True)
+    gemma.add_argument("--backend", choices=("cpu", "gpu"), default="cpu")
+    gemma.add_argument("--timeout-seconds", type=float, default=120.0)
+
+    actionability_data = commands.add_parser(
+        "prepare-3i4k-actionability",
+        help="prepare the deterministic binary 3i4K CALL/NO_CALL smoke dataset",
+    )
+    actionability_data.add_argument("--source-cache-dir", type=Path, required=True)
+    actionability_data.add_argument("--output-dir", type=Path, required=True)
+    actionability_data.add_argument(
+        "--config",
+        type=Path,
+        default=ACTIONABILITY_CONFIG,
+    )
+
+    actionability_mlp = commands.add_parser(
+        "train-actionability-mlp",
+        help="train and evaluate a binary MLP head over fixed EmbeddingGemma vectors",
+    )
+    actionability_mlp.add_argument("--public-embeddings", type=Path, required=True)
+    actionability_mlp.add_argument(
+        "--public-embedding-manifest", type=Path, required=True
+    )
+    actionability_mlp.add_argument("--output-dir", type=Path, required=True)
+    actionability_mlp.add_argument("--auxiliary-train-embeddings", type=Path)
+    actionability_mlp.add_argument(
+        "--auxiliary-train-embedding-manifest", type=Path
+    )
+    actionability_mlp.add_argument("--petai-train-dataset", type=Path)
+    actionability_mlp.add_argument("--petai-train-embeddings", type=Path)
+    actionability_mlp.add_argument("--petai-train-embedding-manifest", type=Path)
+    actionability_mlp.add_argument(
+        "--petai-train-mode",
+        choices=("call-only", "all"),
+        default="all",
+    )
+    actionability_mlp.add_argument("--petai-dev-dataset", type=Path)
+    actionability_mlp.add_argument("--petai-dev-embeddings", type=Path)
+    actionability_mlp.add_argument("--petai-holdout-dataset", type=Path)
+    actionability_mlp.add_argument("--petai-holdout-embeddings", type=Path)
+    actionability_mlp.add_argument(
+        "--config",
+        type=Path,
+        default=ACTIONABILITY_CONFIG,
+    )
+
+    labeled_actionability = commands.add_parser(
+        "prepare-labeled-3i4k-actionability",
+        help="split agreed PetAI contract labels and reuse their fixed embeddings",
+    )
+    labeled_actionability.add_argument(
+        "--balanced-pool-manifest", type=Path, required=True
+    )
+    labeled_actionability.add_argument("--source-embeddings", type=Path, required=True)
+    labeled_actionability.add_argument(
+        "--source-embedding-manifest", type=Path, required=True
+    )
+    labeled_actionability.add_argument("--output-dir", type=Path, required=True)
+    labeled_actionability.add_argument("--seed", type=int, default=20260811)
+
+    hnoos_data = commands.add_parser(
+        "prepare-hnoos-actionability-aux",
+        help="prepare the PetAI-relevant English hard-negative OOS train auxiliary",
+    )
+    hnoos_data.add_argument("--source-cache-dir", type=Path, required=True)
+    hnoos_data.add_argument("--output-dir", type=Path, required=True)
+    hnoos_data.add_argument("--config", type=Path, default=HNOOS_CONFIG)
+
+    hnoos_translation = commands.add_parser(
+        "translate-hnoos-actionability-aux",
+        help="translate the English HN-OOS auxiliary to Korean with local Gemma",
+    )
+    hnoos_translation.add_argument("--dataset", type=Path, required=True)
+    hnoos_translation.add_argument(
+        "--dataset-manifest", type=Path, required=True
+    )
+    hnoos_translation.add_argument("--model-artifact", type=Path, required=True)
+    hnoos_translation.add_argument(
+        "--prompt", type=Path, default=HNOOS_TRANSLATION_PROMPT
+    )
+    hnoos_translation.add_argument(
+        "--config", type=Path, default=HNOOS_TRANSLATION_CONFIG
+    )
+    hnoos_translation.add_argument("--output-dir", type=Path, required=True)
+    hnoos_translation.add_argument("--base-url", default="http://127.0.0.1:9379")
+    hnoos_translation.add_argument("--runtime-version", required=True)
+    hnoos_translation.add_argument(
+        "--backend", choices=("cpu", "gpu"), default="cpu"
+    )
+    hnoos_translation.add_argument("--timeout-seconds", type=float, default=120.0)
+
+    mining_pool = commands.add_parser(
+        "prepare-3i4k-petai-mining-pool",
+        help="prepare the full unlabeled 3i4K train pool for PetAI candidate search",
+    )
+    mining_pool.add_argument("--source-cache-dir", type=Path, required=True)
+    mining_pool.add_argument("--output-dir", type=Path, required=True)
+    mining_pool.add_argument(
+        "--source-config",
+        type=Path,
+        default=ACTIONABILITY_CONFIG,
+    )
+
+    mine_candidates = commands.add_parser(
+        "mine-3i4k-petai-candidates",
+        help="rank the full 3i4K train pool for PetAI contract labeling",
+    )
+    mine_candidates.add_argument("--pool", type=Path, required=True)
+    mine_candidates.add_argument("--pool-manifest", type=Path, required=True)
+    mine_candidates.add_argument("--query-embeddings", type=Path, required=True)
+    mine_candidates.add_argument(
+        "--query-embedding-manifest", type=Path, required=True
+    )
+    mine_candidates.add_argument("--prototype-embeddings", type=Path, required=True)
+    mine_candidates.add_argument(
+        "--prototype-embedding-manifest", type=Path, required=True
+    )
+    mine_candidates.add_argument("--selected-candidate", type=Path, required=True)
+    mine_candidates.add_argument("--output-dir", type=Path, required=True)
+    mine_candidates.add_argument(
+        "--config", type=Path, default=PETAI_MINING_CONFIG
+    )
+    mine_candidates.add_argument("--gemma-predictions", type=Path)
+
+    labeling_queue = commands.add_parser(
+        "prepare-3i4k-petai-labeling-queue",
+        help="combine mined candidates and rejected audit rows for blind labeling",
+    )
+    labeling_queue.add_argument("--mining-manifest", type=Path, required=True)
+    labeling_queue.add_argument("--output-dir", type=Path, required=True)
+
+    labeling_stage = commands.add_parser(
+        "run-3i4k-petai-labeling-stage",
+        help="run one independent PetAI contract labeling stage",
+    )
+    labeling_stage.add_argument("--queue", type=Path, required=True)
+    labeling_stage.add_argument("--queue-manifest", type=Path, required=True)
+    labeling_stage.add_argument("--output-dir", type=Path, required=True)
+    labeling_stage.add_argument(
+        "--stage", choices=("contract", "blind"), required=True
+    )
+    labeling_stage.add_argument("--codex-bin", default="codex")
+    labeling_stage.add_argument("--batch-size", type=int, default=100)
+    labeling_stage.add_argument("--timeout-seconds", type=float, default=600)
+
+    reconcile_labels = commands.add_parser(
+        "reconcile-3i4k-petai-labels",
+        help="keep only exact non-ambiguous agreement from both labeling stages",
+    )
+    reconcile_labels.add_argument("--queue", type=Path, required=True)
+    reconcile_labels.add_argument("--queue-manifest", type=Path, required=True)
+    reconcile_labels.add_argument("--contract-manifest", type=Path, required=True)
+    reconcile_labels.add_argument("--blind-manifest", type=Path, required=True)
+    reconcile_labels.add_argument("--output-dir", type=Path, required=True)
+    reconcile_labels.add_argument(
+        "--audit-per-partition-label", type=int, default=50
+    )
+    reconcile_labels.add_argument("--seed", type=int, default=20260811)
+
+    balanced_pool = commands.add_parser(
+        "prepare-balanced-3i4k-actionability-pool",
+        help="balance provisional agreed 3i4K CALL and NO_CALL rows",
+    )
+    balanced_pool.add_argument(
+        "--reconciliation-manifest", type=Path, required=True
+    )
+    balanced_pool.add_argument("--output-dir", type=Path, required=True)
+    balanced_pool.add_argument(
+        "--candidate-no-call-fraction", type=float, default=0.8
+    )
+    balanced_pool.add_argument("--seed", type=int, default=20260811)
 
     lock = commands.add_parser("create-holdout-lock")
     lock.add_argument("--selected-candidate", type=Path, required=True)
@@ -256,6 +468,151 @@ def main() -> None:
                     dataset_dir=args.dataset_dir,
                     predictions_path=args.predictions,
                     output_path=args.output,
+                )
+            )
+        elif args.command == "run-gemma-router":
+            print(
+                run_gemma_prompt_router(
+                    dataset_path=args.dataset,
+                    model_artifact_path=args.model_artifact,
+                    prompt_path=args.prompt,
+                    config_path=args.config,
+                    output_dir=args.output_dir,
+                    base_url=args.base_url,
+                    runtime_version=args.runtime_version,
+                    backend=args.backend,
+                    timeout_seconds=args.timeout_seconds,
+                )
+            )
+        elif args.command == "prepare-3i4k-actionability":
+            print(
+                prepare_3i4k_actionability_dataset(
+                    source_cache_dir=args.source_cache_dir,
+                    output_dir=args.output_dir,
+                    config_path=args.config,
+                )
+            )
+        elif args.command == "train-actionability-mlp":
+            print(
+                train_actionability_mlp(
+                    public_embeddings_path=args.public_embeddings,
+                    public_embedding_manifest_path=args.public_embedding_manifest,
+                    output_dir=args.output_dir,
+                    auxiliary_train_embeddings_path=args.auxiliary_train_embeddings,
+                    auxiliary_train_embedding_manifest_path=(
+                        args.auxiliary_train_embedding_manifest
+                    ),
+                    petai_train_dataset_path=args.petai_train_dataset,
+                    petai_train_embeddings_path=args.petai_train_embeddings,
+                    petai_train_embedding_manifest_path=(
+                        args.petai_train_embedding_manifest
+                    ),
+                    petai_train_mode=args.petai_train_mode,
+                    petai_dev_dataset_path=args.petai_dev_dataset,
+                    petai_dev_embeddings_path=args.petai_dev_embeddings,
+                    petai_holdout_dataset_path=args.petai_holdout_dataset,
+                    petai_holdout_embeddings_path=args.petai_holdout_embeddings,
+                    config_path=args.config,
+                )
+            )
+        elif args.command == "prepare-labeled-3i4k-actionability":
+            print(
+                prepare_labeled_3i4k_actionability_dataset(
+                    balanced_pool_manifest_path=args.balanced_pool_manifest,
+                    source_embeddings_path=args.source_embeddings,
+                    source_embedding_manifest_path=args.source_embedding_manifest,
+                    output_dir=args.output_dir,
+                    seed=args.seed,
+                )
+            )
+        elif args.command == "prepare-hnoos-actionability-aux":
+            print(
+                prepare_hnoos_actionability_auxiliary(
+                    source_cache_dir=args.source_cache_dir,
+                    output_dir=args.output_dir,
+                    config_path=args.config,
+                )
+            )
+        elif args.command == "translate-hnoos-actionability-aux":
+            print(
+                run_hnoos_korean_translation(
+                    dataset_path=args.dataset,
+                    dataset_manifest_path=args.dataset_manifest,
+                    model_artifact_path=args.model_artifact,
+                    prompt_path=args.prompt,
+                    config_path=args.config,
+                    output_dir=args.output_dir,
+                    base_url=args.base_url,
+                    runtime_version=args.runtime_version,
+                    backend=args.backend,
+                    timeout_seconds=args.timeout_seconds,
+                )
+            )
+        elif args.command == "prepare-3i4k-petai-mining-pool":
+            print(
+                prepare_3i4k_petai_mining_pool(
+                    source_cache_dir=args.source_cache_dir,
+                    output_dir=args.output_dir,
+                    source_config_path=args.source_config,
+                )
+            )
+        elif args.command == "mine-3i4k-petai-candidates":
+            print(
+                mine_3i4k_petai_candidates(
+                    pool_path=args.pool,
+                    pool_manifest_path=args.pool_manifest,
+                    query_embeddings_path=args.query_embeddings,
+                    query_embedding_manifest_path=(
+                        args.query_embedding_manifest
+                    ),
+                    prototype_embeddings_path=args.prototype_embeddings,
+                    prototype_embedding_manifest_path=(
+                        args.prototype_embedding_manifest
+                    ),
+                    selected_candidate_path=args.selected_candidate,
+                    output_dir=args.output_dir,
+                    config_path=args.config,
+                    gemma_predictions_path=args.gemma_predictions,
+                )
+            )
+        elif args.command == "prepare-3i4k-petai-labeling-queue":
+            print(
+                prepare_3i4k_petai_labeling_queue(
+                    mining_manifest_path=args.mining_manifest,
+                    output_dir=args.output_dir,
+                )
+            )
+        elif args.command == "run-3i4k-petai-labeling-stage":
+            print(
+                run_3i4k_petai_labeling_stage(
+                    queue_path=args.queue,
+                    queue_manifest_path=args.queue_manifest,
+                    output_dir=args.output_dir,
+                    stage=args.stage,
+                    codex_bin=args.codex_bin,
+                    batch_size=args.batch_size,
+                    timeout_seconds=args.timeout_seconds,
+                )
+            )
+        elif args.command == "reconcile-3i4k-petai-labels":
+            print(
+                reconcile_3i4k_petai_labels(
+                    queue_path=args.queue,
+                    queue_manifest_path=args.queue_manifest,
+                    contract_manifest_path=args.contract_manifest,
+                    blind_manifest_path=args.blind_manifest,
+                    output_dir=args.output_dir,
+                    audit_per_partition_label=args.audit_per_partition_label,
+                    seed=args.seed,
+                )
+            )
+        elif args.command == "prepare-balanced-3i4k-actionability-pool":
+            print(
+                prepare_balanced_3i4k_actionability_pool(
+                    reconciliation_manifest_path=args.reconciliation_manifest,
+                    output_dir=args.output_dir,
+                    candidate_no_call_fraction=args.candidate_no_call_fraction,
+                    seed=args.seed,
                 )
             )
         elif args.command == "create-holdout-lock":

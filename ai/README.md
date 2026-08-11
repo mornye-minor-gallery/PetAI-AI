@@ -1,7 +1,7 @@
 # PetAI AI workspace
 
 status:: active
-last_reviewed:: 2026-08-09
+last_reviewed:: 2026-08-11
 
 `ai/`는 PetAI에 직접 필요한 온디바이스 모델·대화·메모리 연구를 재현하는
 공간이다. 이 문서는 각 연구의 **연구 상태**, **제품 반영 상태**, **다음
@@ -57,7 +57,7 @@ PetAI는 게임이 본체이고 AI는 표현 계층이다. 관계 수치, 보상
 | [`memory-classifier/`](memory-classifier/) | P/E 축 저장 판정, MLP 기준선, Gemma 메모리 헤더 실험 | frozen historical baseline | `save(P=X,E=Y)`와 fail-closed gate만 integrated | 새 프롬프트 변경이 있을 때만 별도 holdout으로 회귀 평가. MLP 폴백은 제품에 넣지 않음 |
 | [`mrbench-custom/`](mrbench-custom/) | 엘레나 지식 경계와 장면별 페르소나 라우팅 | frozen best-found MVP candidate, not gold | core·scene card를 generic `RoutedPersona` 경로로 integrated | 현재 1회 생성 경로의 iPhone 지연·메모리·발열과 알려진 경계 실패를 검증 |
 | [`facetroutebench/`](facetroutebench/) | Gemma 장면 라우터와 EmbeddingGemma 유사도 라우터를 비교하는 20-route 계약과 route별 threshold 연구 | v2 회고 실험 종료, v3 확인 실험 active | v2 Embedding Router candidate integrated | 새 v3 Dev/Frozen 확인과 iPhone 지연·메모리·발열 검증 |
-| [`toolroutebench/`](toolroutebench/) | 7개 네이티브 Tool의 Embedding-only multi-label 라우팅과 Regex 기준선 비교 | Pilot sealed Holdout 완료, MVP 안전성 개선 active | not integrated | 새 calibration/holdout에서 안전 gate를 먼저 고정하고 Regex 중재 후보 비교 |
+| [`toolroutebench/`](toolroutebench/) | 7개 네이티브 Tool의 Regex·Embedding·prompt-only Gemma 라우팅 비교 | Pilot sealed Holdout 및 Gemma 회고 비교 완료, MVP 안전성 개선 active | not integrated | 새 calibration/holdout에서 actionability 안전 gate를 먼저 고정하고 후보 비교 |
 | [`edgemembench/`](edgemembench/) | A 저장, B 검색, C 시간 충돌, D 기권의 494문항과 Dense/temporal/cohort 진단 | v0 benchmark frozen, resolver research paused | Dense cosine 검색만 integrated | MVP 뒤 구조화 상태·valid time·결정론적 reducer 연구의 기준선으로 사용 |
 | [`profile-memory-kv/`](profile-memory-kv/) | 닫힌 key 하나와 value 또는 `null`을 출력하는 24문항 smoke | exploratory, paused | not integrated | 새 holdout에서 기권 성능을 먼저 확인한 뒤 structured proposal 연구 지속 여부 결정 |
 
@@ -80,7 +80,9 @@ PetAI는 게임이 본체이고 AI는 표현 계층이다. 관계 수치, 보상
 - ToolRouteBench Pilot의 Embedding 후보는 봉인 Holdout에서 도구 분류 품질을
   높였지만 NORMAL 오활성률을 Regex 기준선보다 낮추지 못했다. 따라서 현재
   제품의 `KoreanNativeToolRouter`는 그대로 유지하며, Pilot 후보는 제품에
-  통합하지 않는다.
+  통합하지 않는다. Prompt-only Gemma 회고 후보는 Exact 95.31%로 더 높았지만
+  일반대화 24건 중 9건을 Tool로 오실행했고 이미 본 Holdout을 사용했으므로
+  역시 제품에 통합하지 않는다.
 - EdgeMemBench의 global timestamp reranking은 Hit@1을 33.33%에서 40.58%로
   올렸지만 2건을 악화시켰다. cohort oracle과 실제 정책의 큰 격차는 단순
   시간 가중치보다 `answer-bearing state`와 valid time 표현이 병목임을

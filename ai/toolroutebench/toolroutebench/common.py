@@ -5,7 +5,7 @@ import hashlib
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
@@ -30,23 +30,24 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
+def iter_jsonl(path: Path) -> Iterator[dict[str, Any]]:
     try:
-        for line_number, line in enumerate(
-            path.read_text(encoding="utf-8").splitlines(), start=1
-        ):
-            if not line.strip():
-                continue
-            value = json.loads(line)
-            if not isinstance(value, dict):
-                raise ToolRouteBenchError(
-                    f"{path}:{line_number}: JSONL record must be an object"
-                )
-            records.append(value)
+        with path.open(encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                if not line.strip():
+                    continue
+                value = json.loads(line)
+                if not isinstance(value, dict):
+                    raise ToolRouteBenchError(
+                        f"{path}:{line_number}: JSONL record must be an object"
+                    )
+                yield value
     except (OSError, json.JSONDecodeError) as error:
         raise ToolRouteBenchError(f"could not read JSONL {path}: {error}") from error
-    return records
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    return list(iter_jsonl(path))
 
 
 def canonical_json(value: Any) -> str:

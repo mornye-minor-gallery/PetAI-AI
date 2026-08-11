@@ -10,6 +10,7 @@ from typing import Any
 from .common import (
     REPOSITORY_ROOT,
     ToolRouteBenchError,
+    append_jsonl,
     git_commit,
     read_json,
     read_jsonl,
@@ -233,9 +234,14 @@ def extract_embeddings(
         output_dir.mkdir(parents=True)
         write_json(request_path, {"created_at": utc_now(), "request": request})
         results = []
+    input_ids = [item["embedding_id"] for item in inputs]
+    if len(set(input_ids)) != len(input_ids):
+        raise ToolRouteBenchError("embedding inputs contain duplicate IDs")
     processed = {item["embedding_id"] for item in results}
     if len(processed) != len(results):
         raise ToolRouteBenchError("embedding checkpoint has duplicate IDs")
+    if not processed <= set(input_ids):
+        raise ToolRouteBenchError("embedding checkpoint contains unknown IDs")
     runtime = EmbeddingGemmaRuntime(model_path, tokenizer_path)
     started = time.perf_counter()
     try:
@@ -243,23 +249,23 @@ def extract_embeddings(
             if item["embedding_id"] in processed:
                 continue
             vector, elapsed_ms = runtime.embed(item["text"])
-            results.append(
-                {
-                    **item,
-                    "embedding": vector,
-                    "inference_elapsed_ms": elapsed_ms,
-                }
-            )
-            if len(results) % 25 == 0:
-                write_jsonl(output_path, results, overwrite=output_path.exists())
+            result = {
+                **item,
+                "embedding": vector,
+                "inference_elapsed_ms": elapsed_ms,
+            }
+            append_jsonl(output_path, result)
+            results.append(result)
+            processed.add(item["embedding_id"])
             if index == 1 or index % 50 == 0:
                 print(f"embedded {index}/{len(inputs)}", flush=True)
     finally:
         runtime.close()
-    expected = {item["embedding_id"] for item in inputs}
-    if {item["embedding_id"] for item in results} != expected:
+    expected = set(input_ids)
+    if processed != expected or len(results) != len(inputs):
         raise ToolRouteBenchError("embedding run ended before all inputs completed")
-    write_jsonl(output_path, results, overwrite=output_path.exists())
+    if not output_path.exists():
+        write_jsonl(output_path, [])
     registry = _registry()
     manifest = {
         "schema_version": "toolroutebench-embedding-run-v1",
