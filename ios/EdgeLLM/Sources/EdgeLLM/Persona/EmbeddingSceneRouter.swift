@@ -347,23 +347,11 @@ public struct EmbeddingSceneRouterArtifactRegistry: Sendable {
         dimension: Int,
         count: Int
     ) throws -> [[Float]] {
-        let expectedByteCount = dimension * count * MemoryLayout<UInt32>.size
-        guard data.count == expectedByteCount else {
+        guard let values = Float32ArtifactDecoder.decodeLittleEndian(
+            data,
+            expectedCount: dimension * count
+        ) else {
             throw EmbeddingSceneRouterError.invalidVectorPayload
-        }
-
-        var values = [Float]()
-        values.reserveCapacity(dimension * count)
-        var byteIndex = data.startIndex
-        for _ in 0..<(dimension * count) {
-            let nextIndex = data.index(byteIndex, offsetBy: 4)
-            let bits = data[byteIndex..<nextIndex]
-                .enumerated()
-                .reduce(UInt32(0)) { partial, pair in
-                    partial | (UInt32(pair.element) << UInt32(pair.offset * 8))
-                }
-            values.append(Float(bitPattern: bits))
-            byteIndex = nextIndex
         }
 
         return stride(from: 0, to: values.count, by: dimension).map { offset in

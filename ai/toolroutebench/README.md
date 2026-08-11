@@ -11,8 +11,9 @@ Pilot 데이터 생성, group-aware 5-fold OOF 후보 선택과 봉인 Holdout 1
 완료했다. Embedding 후보는 분류 품질을 높였지만 NORMAL 오활성률을 현재 Regex
 기준선보다 낮추지 못했다. Pilot의 Regex 대비 비열등 계약은 충족했지만 절대
 오활성률 45.83%는 제품 교체 근거로 부족하다. 이 연구는 MVP P0로 계속하며,
-현재 Swift `KoreanNativeToolRouter`는 제품 경로와 고정 비교 기준선으로
-유지한다.
+Swift `KoreanNativeToolRouter`는 고정 비교 기준선으로만 유지한다. 현재 제품
+경로는 2026-08-11 승인에 따라 matched MLP로 실행 가능성을 먼저 거르고,
+`CALL`일 때만 `embedding-09`로 도구를 선택한다.
 
 추가한 prompt-only Gemma 회고 비교는 Exact 95.31%, Macro-F1 97.46%로 가장
 높았지만, 일반대화 24건 중 9건(37.50%)을 Tool로 잘못 실행했다. 기존
@@ -39,8 +40,9 @@ Holdout을 개선하지 못했다. 같은 문장을 Gemma 4 E2B IT로 한국어 
 확인했다. 기존 Holdout과 문장이 같은 `CALL` 3건은 학습에서 제외하고,
 `CALL` 81건·`NO_CALL` 84건과 한국어 HN-OOS 174건을 함께 학습했다. 회고
 Holdout에서 Gate Accuracy 94.79%, Tool 요청 재현율 94.64%, NORMAL 오활성률
-4.17%를 기록했다. 방향성은 확인했지만 이미 열린 Holdout이므로 제품에는
-통합하지 않는다.
+4.17%를 기록했다. 방향성은 확인했지만 이미 열린 Holdout이므로 확인적 제품
+성능으로 해석하지 않는다. 현재 통합은 MVP 실기기 검증을 위한 회고 SOTA 후보
+채택이며, 새 Holdout 전까지 연구 상태는 유지한다.
 
 ## 먼저 읽을 문서
 
@@ -251,6 +253,31 @@ uv run --project ai/toolroutebench trbench train-actionability-mlp \
 최종 설정은 제품 분포와 같은 `petai_dev`에서 threshold를 선택하고 `test`와
 PetAI Holdout은 선택에 사용하지 않는다. 기존 PetAI Holdout은 이미 열린 세트라
 회고 비교용이며 새 비공개 Holdout으로 해석하지 않는다.
+
+### iOS 2단계 Tool Router 산출물
+
+현재 회고 평가에서 안전 지표가 가장 좋았던 HN+PetAI matched MLP와
+`embedding-09`를 Swift 런타임 포맷으로 내보낼 수 있다. 원본 `.npz`, 학습
+데이터와 임베딩 캐시는 계속 `.artifacts/`에만 두고, 검증된 float32 런타임
+가중치·프로토타입·manifest만
+`ios/EdgeLLM/Sources/EdgeLLM/Resources/ToolRouting/`에 커밋한다.
+
+```bash
+uv run --project ai/toolroutebench \
+  python -m toolroutebench.ios_tool_router_export \
+  --weights ai/toolroutebench/.artifacts/actionability-3i4k-hnoos-en-smoke-v1/ko-authoring-matched-final-v2/model_weights.npz \
+  --result ai/toolroutebench/.artifacts/actionability-3i4k-hnoos-en-smoke-v1/ko-authoring-matched-final-v2/result.json \
+  --selected-candidate ai/toolroutebench/.artifacts/pilot-v0.1.0/dev-grid-oof/selected_candidate.json \
+  --prototype-embeddings ai/toolroutebench/.artifacts/pilot-v0.1.0/embedding-run/embeddings.jsonl \
+  --prototype-embedding-manifest ai/toolroutebench/.artifacts/pilot-v0.1.0/embedding-run/embedding_manifest.json \
+  --output-dir ios/EdgeLLM/Sources/EdgeLLM/Resources/ToolRouting \
+  --replace
+```
+
+Swift는 문장당 classification embedding을 한 번 만들고 `MLP → CALL/NO_CALL`을
+먼저 판정한다. `CALL`만 같은 벡터를 `embedding-09`에 전달하며, Regex와 별도
+Gemma 라우팅 호출은 제품 경로에서 사용하지 않는다. 이 후보는 열린 Holdout의
+회고 SOTA이며 새 미열람 Holdout과 실제 iPhone E2E는 여전히 `UNVERIFIED`다.
 
 ## HN-OOS 영어·한국어 보조 학습
 

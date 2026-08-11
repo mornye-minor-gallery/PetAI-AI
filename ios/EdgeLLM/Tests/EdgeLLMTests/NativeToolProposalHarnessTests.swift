@@ -234,6 +234,18 @@ private actor ProposalGeneratorStub: NativeToolProposalGenerating {
     }
 }
 
+private struct NativeToolRouterStub: NativeToolRouting {
+    let routes: [String: NativeToolRoute]
+
+    init(_ routes: [String: NativeToolRoute]) {
+        self.routes = routes
+    }
+
+    func route(_ utterance: String) async throws -> NativeToolRoute {
+        routes[utterance] ?? .normal
+    }
+}
+
 @Test
 func proposalHarnessSkipsGemmaForNormalAndConflictRoutes() async throws {
     let generator = ProposalGeneratorStub(
@@ -244,6 +256,13 @@ func proposalHarnessSkipsGemmaForNormalAndConflictRoutes() async throws {
     )
     let coordinator = NativeToolProposalCoordinator { _ in .null }
     let harness = NativeToolProposalHarness(
+        router: NativeToolRouterStub([
+            "오늘 만 보 걸었어": .normal,
+            "내일 일정 보여 주고 7시 알람도 맞춰 줘": .conflict([
+                .createAlarm,
+                .getCalendarEvents,
+            ]),
+        ]),
         coordinator: coordinator,
         generator: generator
     )
@@ -287,6 +306,9 @@ func proposalHarnessBlocksLockedToolBeforeGemma() async throws {
         )
     )
     let harness = NativeToolProposalHarness(
+        router: NativeToolRouterStub([
+            "내일 아침 7시에 알람 맞춰 줘": .tool(.createAlarm),
+        ]),
         coordinator: NativeToolProposalCoordinator { _ in .null },
         generator: generator
     )
@@ -325,6 +347,9 @@ func proposalHarnessRegistersOneValidatedProposalWithoutExecuting() async throws
         calendar: seoulCalendarForHarness()
     )
     let harness = NativeToolProposalHarness(
+        router: NativeToolRouterStub([
+            "내일 아침 7시에 운동 알람 맞춰 줘": .tool(.createAlarm),
+        ]),
         validator: validator,
         coordinator: coordinator,
         generator: generator
@@ -372,6 +397,10 @@ func localNotificationHarnessAsksForMissingRequiredInformation() async throws {
     )
     let coordinator = NativeToolProposalCoordinator { _ in .null }
     let harness = NativeToolProposalHarness(
+        router: NativeToolRouterStub([
+            "약 먹으라고 알려 줘": .tool(.scheduleLocalNotification),
+            "오후 3시에 알림 설정해 줘": .tool(.scheduleLocalNotification),
+        ]),
         coordinator: coordinator,
         generator: generator
     )
