@@ -1,0 +1,21 @@
+{"id":"step-ready-01","slice":"ready","tool":"get_step_count","user":"오늘 걸음 수 알려줘","expected":{"startDate":"2026-08-13","endDate":"2026-08-13","aggregation":"total"},"criticalFields":["startDate","endDate","aggregation"],"textEvidence":{}}
+{"id":"step-ready-02","slice":"ready","tool":"get_step_count","user":"8월 10일부터 12일까지 날짜별 걸음 수 보여줘","expected":{"startDate":"2026-08-10","endDate":"2026-08-12","aggregation":"daily"},"criticalFields":["startDate","endDate","aggregation"],"textEvidence":{}}
+{"id":"alarm-ready-01","slice":"ready","tool":"create_alarm","user":"내일 오전 7시에 알람 맞춰줘","expected":{"date":"2026-08-14","hour":7,"minute":0,"label":"알람"},"criticalFields":["date","hour","minute"],"textEvidence":{"label":["알람"]}}
+{"id":"alarm-ready-02","slice":"ready","tool":"create_alarm","user":"8월 15일 오후 2시 30분에 약속 알람 맞춰줘","expected":{"date":"2026-08-15","hour":14,"minute":30,"label":"약속"},"criticalFields":["date","hour","minute"],"textEvidence":{"label":["약속"]}}
+{"id":"alarms-ready-01","slice":"ready","tool":"list_alarms","user":"내 알람 목록 보여줘","expected":{},"criticalFields":[],"textEvidence":{}}
+{"id":"alarms-ready-02","slice":"ready","tool":"list_alarms","user":"내가 설정한 알람 뭐 있어?","expected":{},"criticalFields":[],"textEvidence":{}}
+{"id":"timer-ready-01","slice":"ready","tool":"create_timer","user":"10초 타이머 맞춰줘","expected":{"durationSeconds":10,"label":"타이머"},"criticalFields":["durationSeconds"],"textEvidence":{"label":["타이머"]}}
+{"id":"timer-ready-02","slice":"ready","tool":"create_timer","user":"라면 3분 타이머 시작해줘","expected":{"durationSeconds":180,"label":"라면"},"criticalFields":["durationSeconds"],"textEvidence":{"label":["라면"]}}
+{"id":"notification-ready-01","slice":"ready","tool":"schedule_local_notification","user":"내일 오후 3시에 약 먹으라고 알려줘","expected":{"dateTime":"2026-08-14T15:00","title":"약 먹기","body":"약 먹기"},"criticalFields":["dateTime"],"textEvidence":{"title":["약"],"body":["약"]}}
+{"id":"notification-ready-02","slice":"ready","tool":"schedule_local_notification","user":"오늘 밤 10시에 물 마시라고 알려줘","expected":{"dateTime":"2026-08-13T22:00","title":"물 마시기","body":"물 마시기"},"criticalFields":["dateTime"],"textEvidence":{"title":["물"],"body":["물"]}}
+{"id":"calendar-query-ready-01","slice":"ready","tool":"get_calendar_events","user":"내일 일정 보여줘","expected":{"startDate":"2026-08-14","endDate":"2026-08-14"},"criticalFields":["startDate","endDate"],"textEvidence":{}}
+{"id":"calendar-query-ready-02","slice":"ready","tool":"get_calendar_events","user":"8월 15일부터 17일까지 일정 확인해줘","expected":{"startDate":"2026-08-15","endDate":"2026-08-17"},"criticalFields":["startDate","endDate"],"textEvidence":{}}
+{"id":"calendar-create-ready-01","slice":"ready","tool":"create_calendar_event","user":"내일 오후 2시에 멘토링 일정 추가해줘","expected":{"title":"멘토링","startDateTime":"2026-08-14T14:00"},"criticalFields":["startDateTime"],"textEvidence":{"title":["멘토링"]}}
+{"id":"calendar-create-ready-02","slice":"ready","tool":"create_calendar_event","user":"8월 16일 오전 10시부터 11시까지 병원 일정 추가해줘","expected":{"title":"병원","startDateTime":"2026-08-16T10:00","endDateTime":"2026-08-16T11:00"},"criticalFields":["startDateTime","endDateTime"],"textEvidence":{"title":["병원"]}}
+{"id":"step-defense-01","slice":"defense","tool":"get_step_count","user":"나 오늘 산책하러 갈 거야","expected":null,"criticalFields":[],"textEvidence":{}}
+{"id":"alarm-defense-01","slice":"defense","tool":"create_alarm","user":"알람 소리가 너무 커서 놀랐어","expected":null,"criticalFields":[],"textEvidence":{}}
+{"id":"alarms-defense-01","slice":"defense","tool":"list_alarms","user":"알람 기능이 있으면 편하겠다","expected":null,"criticalFields":[],"textEvidence":{}}
+{"id":"timer-defense-01","slice":"defense","tool":"create_timer","user":"타이머 맞춰달라고 이따가 말할게","expected":null,"criticalFields":[],"textEvidence":{}}
+{"id":"notification-defense-01","slice":"defense","tool":"schedule_local_notification","user":"나중에 알려달라고 할 수도 있어","expected":null,"criticalFields":[],"textEvidence":{}}
+{"id":"calendar-query-defense-01","slice":"defense","tool":"get_calendar_events","user":"이번 주 일정이 꽉 찼다고 친구가 말했어","expected":null,"criticalFields":[],"textEvidence":{}}
+{"id":"calendar-create-defense-01","slice":"defense","tool":"create_calendar_event","user":"일정을 추가할까 고민 중이야","expected":null,"criticalFields":[],"textEvidence":{}}

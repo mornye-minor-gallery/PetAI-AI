@@ -58,6 +58,7 @@ PetAI는 게임이 본체이고 AI는 표현 계층이다. 관계 수치, 보상
 | [`mrbench-custom/`](mrbench-custom/) | 엘레나 지식 경계와 장면별 페르소나 라우팅 | frozen best-found MVP candidate, not gold | core·scene card를 generic `RoutedPersona` 경로로 integrated | 현재 1회 생성 경로의 iPhone 지연·메모리·발열과 알려진 경계 실패를 검증 |
 | [`facetroutebench/`](facetroutebench/) | Gemma 장면 라우터와 EmbeddingGemma 유사도 라우터를 비교하는 20-route 계약과 route별 threshold 연구 | v2 회고 실험 종료, v3 확인 실험 active | v2 Embedding Router candidate integrated | 새 v3 Dev/Frozen 확인과 iPhone 지연·메모리·발열 검증 |
 | [`toolroutebench/`](toolroutebench/) | 7개 네이티브 Tool의 Regex·Embedding·prompt-only Gemma 라우팅 비교 | matched MLP 회고 SOTA와 `embedding-09` 2단계 후보 구현, 새 Holdout 연구 active | provisional iOS integration | iPhone E2E와 새 calibration/holdout에서 안전성 확인 |
+| [`needle2-argument-canary/`](needle2-argument-canary/) | Router가 Tool 하나를 선택한 뒤 Needle 2와 Gemma E2B의 한국어 인자 제안 비교 | exploratory zero-shot canary complete | not integrated | Needle은 한국어 PetAI fine-tune과 새 미열람 Holdout을 통과하기 전 제품 통합하지 않음 |
 | [`edgemembench/`](edgemembench/) | A 저장, B 검색, C 시간 충돌, D 기권의 494문항과 Dense/temporal/cohort 진단 | v0 benchmark frozen, resolver research paused | Dense cosine 검색만 integrated | MVP 뒤 구조화 상태·valid time·결정론적 reducer 연구의 기준선으로 사용 |
 | [`profile-memory-kv/`](profile-memory-kv/) | 닫힌 key 하나와 value 또는 `null`을 출력하는 24문항 smoke | exploratory, paused | not integrated | 새 holdout에서 기권 성능을 먼저 확인한 뒤 structured proposal 연구 지속 여부 결정 |
 

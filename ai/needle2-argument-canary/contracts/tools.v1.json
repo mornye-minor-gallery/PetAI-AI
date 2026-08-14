@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "source": "ios/EdgeLLMLab/EdgeLLMLab/Runtime/LiteRTLMNativeToolProposalGenerator.swift",
+  "tools": {
+    "get_step_count": {
+      "description": "지정 기간의 걸음 수 조회 파라미터를 제안한다.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "startDate": { "type": "string", "description": "시작일 YYYY-MM-DD" },
+          "endDate": { "type": "string", "description": "종료일 YYYY-MM-DD" },
+          "aggregation": { "type": "string", "description": "total 또는 daily" }
+        },
+        "required": ["startDate", "endDate", "aggregation"]
+      }
+    },
+    "create_alarm": {
+      "description": "알람 생성 파라미터를 제안한다.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "date": { "type": "string", "description": "알람 날짜 YYYY-MM-DD" },
+          "hour": { "type": "integer", "description": "0부터 23까지의 시" },
+          "minute": { "type": "integer", "description": "0부터 59까지의 분" },
+          "label": { "type": "string", "description": "짧은 알람 이름" }
+        },
+        "required": ["date", "hour", "minute", "label"]
+      }
+    },
+    "list_alarms": {
+      "description": "PetAI 알람 목록 조회를 제안한다.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    "create_timer": {
+      "description": "카운트다운 타이머 파라미터를 제안한다.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "durationSeconds": { "type": "integer", "description": "1부터 86400까지의 지속 시간(초)" },
+          "label": { "type": "string", "description": "짧은 타이머 이름" }
+        },
+        "required": ["durationSeconds", "label"]
+      }
+    },
+    "schedule_local_notification": {
+      "description": "로컬 알림 예약 파라미터를 제안한다.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dateTime": { "type": "string", "description": "알림 시각 YYYY-MM-DDTHH:mm" },
+          "title": { "type": "string", "description": "짧은 알림 제목" },
+          "body": { "type": "string", "description": "사용자에게 표시할 알림 본문" }
+        },
+        "required": ["dateTime", "title", "body"]
+      }
+    },
+    "get_calendar_events": {
+      "description": "캘린더 조회 기간을 제안한다.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "startDate": { "type": "string", "description": "시작일 YYYY-MM-DD" },
+          "endDate": { "type": "string", "description": "종료일 YYYY-MM-DD" }
+        },
+        "required": ["startDate", "endDate"]
+      }
+    },
+    "create_calendar_event": {
+      "description": "캘린더 일정 생성 파라미터를 제안한다.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "description": "일정 제목" },
+          "startDateTime": { "type": "string", "description": "시작 시각 YYYY-MM-DDTHH:mm" },
+          "endDateTime": { "type": "string", "description": "선택적 종료 시각 YYYY-MM-DDTHH:mm", "nullable": true },
+          "location": { "type": "string", "description": "선택적 장소", "nullable": true }
+        },
+        "required": ["title", "startDateTime"]
+      }
+    }
+  }
+}
