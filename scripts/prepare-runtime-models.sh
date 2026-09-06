@@ -19,7 +19,7 @@ and verifies every file against ai/models/runtime-models.json.
 Options:
   --verify-only  Do not download; verify files already present.
   --validate-registry-only
-                 Validate registry schema and asset-pack IDs, then exit.
+                 Validate the model registry without downloading files, then exit.
   -h, --help     Show this help.
 EOF
 }
@@ -117,21 +117,16 @@ command -v jq >/dev/null 2>&1 || fail "jq is required"
 jq -e '
   .schemaVersion == 1
   and (.artifacts | type == "array" and length > 0)
-  and (.assetPacks | type == "array" and length > 0)
-  and (
-    [.assetPacks[].id] as $pack_ids
-    | ($pack_ids | length) == ($pack_ids | unique | length)
-    and all(
-      $pack_ids[];
-      type == "string"
-      and test("^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$")
-    )
-    and all(
-      .artifacts[].assetPackId;
-      . as $artifact_pack_id
-      | $pack_ids
-      | index($artifact_pack_id) != null
-    )
+  and ([.artifacts[].id] | length == (unique | length))
+  and all(.artifacts[];
+    (.id | type == "string" and length > 0)
+    and (.repository | type == "string" and length > 0)
+    and (.revision | test("^[0-9a-f]{40}$"))
+    and (.sha256 | test("^[0-9a-f]{64}$"))
+    and (.bytes | type == "number" and . > 0)
+    and (.relativePath | type == "string" and length > 0
+      and (startswith("/") | not) and (split("/") | index("..") == null))
+    and (.requiresAuthentication | type == "boolean")
   )
 ' "${REGISTRY_PATH}" >/dev/null \
   || fail "registry schema is invalid"

@@ -24,7 +24,7 @@ bash scripts/build-ios-litertlm-from-source.sh
 The script:
 
 1. fetches `mornye-minor-gallery/LiteRT-LM` at
-   `80f301ff9a3b02c2c1e7be2dd1a567752f7b51b6`;
+   `7285e1fa7b2428c5de3b2af7d51fe8342080657d`;
 2. downloads only the iOS Git LFS dependencies;
 3. runs the upstream Bazel target `//swift:CLiteRTLM` with
    `LITERT_LM_FST_CONSTRAINTS_DISABLED=1`;
@@ -39,12 +39,9 @@ artifacts and remain Git-ignored. Inspect the pinned contract without building:
 bash scripts/build-ios-litertlm-from-source.sh --print-config
 ```
 
-Unity's existing iOS post-processor copies
-`ios/.artifacts/CLiteRTLM.xcframework` into the exported Xcode project.
 EdgeLLM Lab resolves the same local artifact through the Git-ignored
 `Artifacts/CLiteRTLM.xcframework` link. The preparation/build scripts create
-that link after validating the framework, so both clients use one native
-binary and one C ABI.
+that link after validating the framework, so the Lab uses the pinned native binary and C ABI.
 
 The build disables the optional FST constrained-decoding provider because
 PetAI does not currently enable constrained decoding or native function

@@ -1,0 +1,27 @@
+# Local environments, model files and generated artifacts
+.DS_Store
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.build/
+.swiftpm/
+.artifacts/
+Artifacts/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.local.*
+*.env
+.env*
+*.litertlm
+*.tflite
+*.gguf
+*.safetensors
+*.npz
+*.xcframework
+*.xcframework.zip
+*.mobileprovision
+*.p12
+*.pem
+*.key

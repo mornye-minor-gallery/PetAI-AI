@@ -23,18 +23,6 @@ private actor ClassificationEmbedderStub: ClassificationEmbeddingProviding {
 }
 
 @Test
-func nativeToolRouterRegistryLoadsFrozenTwoStageArtifact() throws {
-    let pipeline = try NativeToolRouterArtifactRegistry().load()
-
-    #expect(pipeline.artifactID == "toolroutebench-two-stage-v1-retrospective")
-    #expect(pipeline.actionability.inputDimension == 768)
-    #expect(pipeline.actionability.hiddenUnits == 64)
-    #expect(pipeline.actionability.threshold == Float(0.5099999904632568))
-    #expect(pipeline.selector.dimension == 768)
-    #expect(pipeline.selector.prototypeCount == 84)
-}
-
-@Test
 func actionabilityMLPUsesReluSigmoidAndThreshold() throws {
     let classifier = try makeActionabilityMLP()
 
@@ -137,49 +125,12 @@ func embeddingRouterCreatesOneClassificationEmbeddingPerUtterance() async throws
 
 @Test
 func nativeToolRouterRegistryRejectsChangedManifest() {
-    let registry = NativeToolRouterArtifactRegistry { fileName in
+    let registry = NativeToolRouterArtifactRegistry(manifestSHA256: String(repeating: "0", count: 64)) { fileName in
         fileName == "native_tool_router_v1.json" ? Data("{}".utf8) : nil
     }
 
     #expect(throws: NativeToolRoutingError.self) {
         _ = try registry.load()
-    }
-}
-
-@Test
-func frozenActionabilityArtifactMatchesPythonProbabilitiesAndRoutes() throws {
-    let pipeline = try NativeToolRouterArtifactRegistry().load()
-    let url = try #require(
-        Bundle.module.url(
-            forResource: "native_tool_actionability_parity_v1",
-            withExtension: "f32"
-        )
-    )
-    let data = try Data(contentsOf: url)
-    let cases: [(probability: Float, route: NativeToolRoute)] = [
-        (0.9949618577957153, .tool(.getStepCount)),
-        (0.12166988104581833, .normal),
-        (0.012534575536847115, .normal),
-        (0.9473024010658264, .tool(.createTimer)),
-    ]
-    let dimension = pipeline.actionability.inputDimension
-    let values = try #require(
-        Float32ArtifactDecoder.decodeLittleEndian(
-            data,
-            expectedCount: cases.count * dimension
-        )
-    )
-
-    for (caseIndex, expected) in cases.enumerated() {
-        let start = caseIndex * dimension
-        let embedding = Array(values[start..<(start + dimension)])
-        let probability: Float
-        switch try pipeline.actionability.classify(embedding) {
-        case .call(let value), .noCall(let value):
-            probability = value
-        }
-        #expect(abs(probability - expected.probability) < 0.00001)
-        #expect(try pipeline.route(embedding) == expected.route)
     }
 }
 

@@ -64,11 +64,13 @@ def select_petai_relevant_hnoos(
     rows: Iterable[dict[str, str]],
     *,
     included_target_intents: set[str],
-    excluded_petai_call_utterances: set[str],
+    excluded_petai_call_sha256: set[str],
 ) -> list[dict[str, Any]]:
-    normalized_exclusions = {
-        normalize_utterance(utterance) for utterance in excluded_petai_call_utterances
-    }
+    # Store exclusion fingerprints so the public contract contains no source text.
+    normalized_exclusions = excluded_petai_call_sha256
+    if any(len(value) != 64 or any(c not in "0123456789abcdef" for c in value)
+           for value in normalized_exclusions):
+        raise ToolRouteBenchError("HN-OOS exclusions must be lowercase SHA-256 digests")
     selected: list[dict[str, Any]] = []
     seen_utterances: set[str] = set()
     encountered_exclusions: set[str] = set()
@@ -83,8 +85,9 @@ def select_petai_relevant_hnoos(
         if row["target_intent"] not in included_target_intents:
             continue
         utterance = row["utterance"]
-        if utterance in normalized_exclusions:
-            encountered_exclusions.add(utterance)
+        utterance_sha256 = hashlib.sha256(utterance.encode("utf-8")).hexdigest()
+        if utterance_sha256 in normalized_exclusions:
+            encountered_exclusions.add(utterance_sha256)
             continue
         if utterance in seen_utterances:
             continue
@@ -159,8 +162,8 @@ def prepare_hnoos_actionability_auxiliary(
     selected = select_petai_relevant_hnoos(
         parsed_rows,
         included_target_intents=set(config["included_target_intents"]),
-        excluded_petai_call_utterances=set(
-            config["excluded_petai_call_utterances"]
+        excluded_petai_call_sha256=set(
+            config["excluded_petai_call_sha256"]
         ),
     )
     output_dir.mkdir(parents=True)
@@ -199,8 +202,8 @@ def prepare_hnoos_actionability_auxiliary(
         "sources": cached_sources,
         "selection": {
             "included_target_intents": config["included_target_intents"],
-            "excluded_petai_call_utterances": config[
-                "excluded_petai_call_utterances"
+            "excluded_petai_call_sha256": config[
+                "excluded_petai_call_sha256"
             ],
             "meaning": (
                 "Source target intent is provenance only; every retained row is "

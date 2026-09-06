@@ -16,7 +16,7 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "CLiteRT",
-            path: "../../.artifacts/CLiteRT.xcframework.zip"
+            path: "../../.artifacts/CLiteRT.xcframework"
         ),
         .binaryTarget(
             name: "CSentencePiece",

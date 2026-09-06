@@ -87,7 +87,7 @@ uv run --project ai/facetroutebench frbench compare-route-thresholds \
 
 ```bash
 FACET_GEMMA=/absolute/path/to/gemma-e2b-it.litertlm
-LITERT_PYTHON=/path/to/workspace
+LITERT_PYTHON=/path/to/litert-environment/bin/python
 uv run --project ai/facetroutebench frbench run-gemma --dataset "$FACET_WORK/dataset/dev.v3.jsonl" --model "$FACET_GEMMA" --output-dir "$FACET_WORK/gemma-dev-controlled" --workers 2 --runtime-python "$LITERT_PYTHON"
 uv run --project ai/facetroutebench frbench run-gemma --dataset "$FACET_WORK/dataset/frozen.v3.jsonl" --model "$FACET_GEMMA" --output-dir "$FACET_WORK/gemma-frozen-controlled" --workers 2 --runtime-python "$LITERT_PYTHON"
 uv run --project ai/facetroutebench frbench run-gemma --dataset "$FACET_WORK/dataset/context_challenge.v3.jsonl" --model "$FACET_GEMMA" --output-dir "$FACET_WORK/gemma-context-current" --no-include-history --workers 2 --runtime-python "$LITERT_PYTHON"

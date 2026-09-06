@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import hashlib
 
 from toolroutebench.common import ToolRouteBenchError
 from toolroutebench.hnoos import parse_hnoos_records, select_petai_relevant_hnoos
@@ -30,7 +31,7 @@ class HardNegativeOOSDatasetTests(unittest.TestCase):
         selected = select_petai_relevant_hnoos(
             rows,
             included_target_intents={"timer", "alarm_set"},
-            excluded_petai_call_utterances={"synthetic reminder request 2"},
+            excluded_petai_call_sha256={hashlib.sha256(b"synthetic reminder request 2").hexdigest()},
         )
         self.assertEqual(len(selected), 1)
         self.assertEqual(selected[0]["utterance"], "does a timer measure minutes")
@@ -46,7 +47,7 @@ class HardNegativeOOSDatasetTests(unittest.TestCase):
             select_petai_relevant_hnoos(
                 rows,
                 included_target_intents={"timer"},
-                excluded_petai_call_utterances={"missing row"},
+                excluded_petai_call_sha256={hashlib.sha256(b"missing row").hexdigest()},
             )
 
 

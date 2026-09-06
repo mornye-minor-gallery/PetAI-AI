@@ -14,7 +14,9 @@ committed. Prepare the XCFrameworks before opening or building EdgeLLMLab:
 scripts/prepare-ios-embedding-dependencies.sh
 ```
 
-The first preparation builds LiteRT from the pinned official source and can
-take several minutes. The runtime is CPU-only for this spike. Metal support,
-Unity export, memory persistence, and model downloading are separate follow-up
-work.
+Preparation downloads a pinned release and validates its checksum and provenance.
+Use `--build-from-source` to build the pinned LiteRT and SentencePiece revisions
+instead. The runtime is CPU-only. Model weights are acquired separately.
+
+The adapter follows the Apache-2.0 Google sample. See `LICENSE` and
+[third-party notices](../../../THIRD_PARTY_NOTICES.md).

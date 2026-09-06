@@ -61,7 +61,7 @@ Holdout으로 재사용할 수 없다. 아래 실행은 동일 192건에서 현�
 Embedding과 prompt-only Gemma의 동작을 직접 관찰하기 위한 회고 실험이다.
 
 ```bash
-/path/to/workspace serve --host 127.0.0.1 --port 9379
+/path/to/litert-lm serve --host 127.0.0.1 --port 9379
 
 uv run --project ai/toolroutebench trbench run-gemma-router \
   --dataset ai/toolroutebench/.artifacts/pilot-v0.1.0/holdout-dataset/holdout.jsonl \
@@ -143,7 +143,7 @@ uv run --project ai/toolroutebench trbench prepare-hnoos-actionability-aux \
   --source-cache-dir ai/toolroutebench/.artifacts/actionability-3i4k-hnoos-en-smoke-v1/sources \
   --output-dir ai/toolroutebench/.artifacts/actionability-3i4k-hnoos-en-smoke-v1/hnoos-dataset
 
-/path/to/workspace serve --host 127.0.0.1 --port 9379
+/path/to/litert-lm serve --host 127.0.0.1 --port 9379
 
 uv run --project ai/toolroutebench trbench translate-hnoos-actionability-aux \
   --dataset ai/toolroutebench/.artifacts/actionability-3i4k-hnoos-en-smoke-v1/hnoos-dataset/dataset.jsonl \

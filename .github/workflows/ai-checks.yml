@@ -1,0 +1,63 @@
+name: AI checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Python and Swift contracts
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Record toolchain
+        run: |
+          swift --version
+          uv --version
+      - name: Install locked test environment
+        run: uv sync --frozen
+      - name: Run model-free checks
+        run: uv run --frozen python scripts/check.py --swift
+      - name: Preserve check results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-results
+          path: .artifacts/checks/
+
+  lab:
+    name: Unsigned standalone Lab build
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v5
+      - name: Prepare pinned native dependencies
+        run: |
+          bash scripts/prepare-ios-native-dependencies.sh
+          bash scripts/prepare-ios-embedding-dependencies.sh
+      - name: Build standalone simulator app
+        run: |
+          xcodebuild \
+            -project ios/EdgeLLMLab/EdgeLLMLab.xcodeproj \
+            -scheme EdgeLLMLab \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .artifacts/lab-build \
+            CODE_SIGNING_ALLOWED=NO build
