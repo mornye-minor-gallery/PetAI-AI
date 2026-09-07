@@ -44,10 +44,14 @@ public struct RoutedPersonaPromptSet: Equatable, Sendable {
 
     public func responseSystemPrompt(
         activeCard: String?,
-        userProfileContext: UserProfileContext = UserProfileContext()
+        userProfileContext: UserProfileContext = UserProfileContext(),
+        configuration: PersonaResponseConfiguration = .production
     ) -> String {
-        var sections = [render(core, with: userProfileContext)]
-        if let activeCard,
+        var sections: [String] = []
+        if configuration.includePersona {
+            sections.append(render(core, with: userProfileContext))
+        }
+        if configuration.includePersona, let activeCard,
            !activeCard.trimmingCharacters(
                in: .whitespacesAndNewlines
            ).isEmpty
@@ -59,8 +63,20 @@ public struct RoutedPersonaPromptSet: Equatable, Sendable {
                 """
             )
         }
-        sections.append(userProfileContext.promptSection())
-        sections.append(MemoryTaggedChatPrompt.wrappedAxesV1)
+        if configuration.includeSessionContext {
+            sections.append(userProfileContext.promptSection())
+        }
+        if configuration.enforceCharacterName, configuration.nameRuleStyle == .identityStatement {
+            sections.append(configuration.nameInstruction(characterName: userProfileContext.characterName))
+        }
+        if configuration.memoryClassification {
+            sections.append(MemoryTaggedChatPrompt.wrappedAxesV1)
+        }
+        // Keep the response action after the format contract so "first sentence"
+        // cannot be mistaken for replacing the memory-classification header.
+        if configuration.enforceCharacterName, configuration.nameRuleStyle != .identityStatement {
+            sections.append(configuration.nameInstruction(characterName: userProfileContext.characterName))
+        }
         return sections.joined(separator: "\n\n")
     }
 

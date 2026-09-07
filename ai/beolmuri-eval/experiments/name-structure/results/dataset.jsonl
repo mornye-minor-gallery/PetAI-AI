@@ -1,0 +1,40 @@
+{"id": "name-01-wrong_name", "pair_id": "pair-01", "kind": "wrong_name", "character_name": "엘레나", "called_name": "아영", "user_message": "아영아, 오늘 뭐 했어?"}
+{"id": "name-01-correct_name", "pair_id": "pair-01", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 뭐 했어?"}
+{"id": "name-02-wrong_name", "pair_id": "pair-02", "kind": "wrong_name", "character_name": "엘레나", "called_name": "아영", "user_message": "아영아, 지금 뭐 하고 있어?"}
+{"id": "name-02-correct_name", "pair_id": "pair-02", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 지금 뭐 하고 있어?"}
+{"id": "name-03-wrong_name", "pair_id": "pair-03", "kind": "wrong_name", "character_name": "엘레나", "called_name": "아영", "user_message": "아영아, 나랑 잠깐 이야기할래?"}
+{"id": "name-03-correct_name", "pair_id": "pair-03", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 나랑 잠깐 이야기할래?"}
+{"id": "name-04-wrong_name", "pair_id": "pair-04", "kind": "wrong_name", "character_name": "엘레나", "called_name": "아영", "user_message": "아영아, 오늘 기분은 어때?"}
+{"id": "name-04-correct_name", "pair_id": "pair-04", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 기분은 어때?"}
+{"id": "name-05-wrong_name", "pair_id": "pair-05", "kind": "wrong_name", "character_name": "엘레나", "called_name": "민수", "user_message": "민수야, 오늘 뭐 했어?"}
+{"id": "name-05-correct_name", "pair_id": "pair-05", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 뭐 했어?"}
+{"id": "name-06-wrong_name", "pair_id": "pair-06", "kind": "wrong_name", "character_name": "엘레나", "called_name": "민수", "user_message": "민수야, 지금 뭐 하고 있어?"}
+{"id": "name-06-correct_name", "pair_id": "pair-06", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 지금 뭐 하고 있어?"}
+{"id": "name-07-wrong_name", "pair_id": "pair-07", "kind": "wrong_name", "character_name": "엘레나", "called_name": "민수", "user_message": "민수야, 나랑 잠깐 이야기할래?"}
+{"id": "name-07-correct_name", "pair_id": "pair-07", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 나랑 잠깐 이야기할래?"}
+{"id": "name-08-wrong_name", "pair_id": "pair-08", "kind": "wrong_name", "character_name": "엘레나", "called_name": "민수", "user_message": "민수야, 오늘 기분은 어때?"}
+{"id": "name-08-correct_name", "pair_id": "pair-08", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 기분은 어때?"}
+{"id": "name-09-wrong_name", "pair_id": "pair-09", "kind": "wrong_name", "character_name": "엘레나", "called_name": "수진", "user_message": "수진아, 오늘 뭐 했어?"}
+{"id": "name-09-correct_name", "pair_id": "pair-09", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 뭐 했어?"}
+{"id": "name-10-wrong_name", "pair_id": "pair-10", "kind": "wrong_name", "character_name": "엘레나", "called_name": "수진", "user_message": "수진아, 지금 뭐 하고 있어?"}
+{"id": "name-10-correct_name", "pair_id": "pair-10", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 지금 뭐 하고 있어?"}
+{"id": "name-11-wrong_name", "pair_id": "pair-11", "kind": "wrong_name", "character_name": "엘레나", "called_name": "수진", "user_message": "수진아, 나랑 잠깐 이야기할래?"}
+{"id": "name-11-correct_name", "pair_id": "pair-11", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 나랑 잠깐 이야기할래?"}
+{"id": "name-12-wrong_name", "pair_id": "pair-12", "kind": "wrong_name", "character_name": "엘레나", "called_name": "수진", "user_message": "수진아, 오늘 기분은 어때?"}
+{"id": "name-12-correct_name", "pair_id": "pair-12", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 기분은 어때?"}
+{"id": "name-13-wrong_name", "pair_id": "pair-13", "kind": "wrong_name", "character_name": "엘레나", "called_name": "지훈", "user_message": "지훈아, 오늘 뭐 했어?"}
+{"id": "name-13-correct_name", "pair_id": "pair-13", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 뭐 했어?"}
+{"id": "name-14-wrong_name", "pair_id": "pair-14", "kind": "wrong_name", "character_name": "엘레나", "called_name": "지훈", "user_message": "지훈아, 지금 뭐 하고 있어?"}
+{"id": "name-14-correct_name", "pair_id": "pair-14", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 지금 뭐 하고 있어?"}
+{"id": "name-15-wrong_name", "pair_id": "pair-15", "kind": "wrong_name", "character_name": "엘레나", "called_name": "지훈", "user_message": "지훈아, 나랑 잠깐 이야기할래?"}
+{"id": "name-15-correct_name", "pair_id": "pair-15", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 나랑 잠깐 이야기할래?"}
+{"id": "name-16-wrong_name", "pair_id": "pair-16", "kind": "wrong_name", "character_name": "엘레나", "called_name": "지훈", "user_message": "지훈아, 오늘 기분은 어때?"}
+{"id": "name-16-correct_name", "pair_id": "pair-16", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 기분은 어때?"}
+{"id": "name-17-wrong_name", "pair_id": "pair-17", "kind": "wrong_name", "character_name": "엘레나", "called_name": "서연", "user_message": "서연아, 오늘 뭐 했어?"}
+{"id": "name-17-correct_name", "pair_id": "pair-17", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 뭐 했어?"}
+{"id": "name-18-wrong_name", "pair_id": "pair-18", "kind": "wrong_name", "character_name": "엘레나", "called_name": "서연", "user_message": "서연아, 지금 뭐 하고 있어?"}
+{"id": "name-18-correct_name", "pair_id": "pair-18", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 지금 뭐 하고 있어?"}
+{"id": "name-19-wrong_name", "pair_id": "pair-19", "kind": "wrong_name", "character_name": "엘레나", "called_name": "서연", "user_message": "서연아, 나랑 잠깐 이야기할래?"}
+{"id": "name-19-correct_name", "pair_id": "pair-19", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 나랑 잠깐 이야기할래?"}
+{"id": "name-20-wrong_name", "pair_id": "pair-20", "kind": "wrong_name", "character_name": "엘레나", "called_name": "서연", "user_message": "서연아, 오늘 기분은 어때?"}
+{"id": "name-20-correct_name", "pair_id": "pair-20", "kind": "correct_name", "character_name": "엘레나", "called_name": "엘레나", "user_message": "엘레나야, 오늘 기분은 어때?"}

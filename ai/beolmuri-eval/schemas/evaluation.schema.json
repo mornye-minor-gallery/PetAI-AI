@@ -1,0 +1,132 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "task": {
+      "const": "name-identity"
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_class": {
+          "const": "synthetic"
+        }
+      },
+      "required": [
+        "path",
+        "data_class"
+      ]
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "variant": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "repeats": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "variant",
+        "repeats",
+        "timeout_seconds"
+      ]
+    },
+    "variants": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "includePersona": {
+            "type": "boolean"
+          },
+          "includeSessionContext": {
+            "type": "boolean"
+          },
+          "enforceCharacterName": {
+            "type": "boolean"
+          },
+          "memoryClassification": {
+            "type": "boolean"
+          },
+          "thinking": {
+            "type": "boolean"
+          },
+          "nameRuleStyle": {
+            "enum": [
+              "identity-statement",
+              "response-action"
+            ]
+          }
+        },
+        "required": [
+          "includePersona",
+          "includeSessionContext",
+          "enforceCharacterName",
+          "memoryClassification"
+        ]
+      }
+    },
+    "judge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "const": "codex-cli"
+        },
+        "model": {
+          "const": "gpt-5.6-luna"
+        },
+        "reasoning_effort": {
+          "const": "medium"
+        },
+        "rubric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "reasoning_effort",
+        "rubric",
+        "schema"
+      ]
+    }
+  },
+  "required": [
+    "version",
+    "task",
+    "dataset",
+    "run",
+    "variants",
+    "judge"
+  ]
+}

@@ -1,0 +1,63 @@
+version: 1
+task: name-identity
+
+dataset:
+  path: ../datasets/name-identity.jsonl
+  data_class: synthetic
+
+run:
+  variant: baseline
+  repeats: 3
+  timeout_seconds: 180
+
+variants:
+  baseline:
+    includePersona: true
+    includeSessionContext: true
+    enforceCharacterName: false
+    memoryClassification: true
+  name-rule:
+    includePersona: true
+    includeSessionContext: true
+    enforceCharacterName: true
+    memoryClassification: true
+  answer-only:
+    includePersona: true
+    includeSessionContext: true
+    enforceCharacterName: false
+    memoryClassification: false
+  combined:
+    includePersona: true
+    includeSessionContext: true
+    enforceCharacterName: true
+    memoryClassification: false
+
+  name-only:
+    includePersona: false
+    includeSessionContext: false
+    enforceCharacterName: true
+    memoryClassification: false
+  persona-name:
+    includePersona: true
+    includeSessionContext: false
+    enforceCharacterName: true
+    memoryClassification: false
+  persona-name-memory:
+    includePersona: true
+    includeSessionContext: false
+    enforceCharacterName: true
+    memoryClassification: true
+
+  name-rule-thinking:
+    includePersona: true
+    includeSessionContext: true
+    enforceCharacterName: true
+    memoryClassification: true
+    thinking: true
+
+judge:
+  provider: codex-cli
+  model: gpt-5.6-luna
+  reasoning_effort: medium
+  rubric: ../judges/name-identity.md
+  schema: ../schemas/name-judgment.schema.json

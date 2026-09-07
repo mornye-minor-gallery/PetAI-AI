@@ -118,12 +118,18 @@ public struct MemoryTaggedChatOutcome: Equatable, Sendable {
 
 public enum MemoryTaggedChatProcessor {
     public static func run(
+        configuration: PersonaResponseConfiguration = .production,
         primaryStream:
             () async throws -> AsyncThrowingStream<String, Error>,
         retryStream:
             () async throws -> AsyncThrowingStream<String, Error>,
         receiveVisibleText: (String) async -> Void
     ) async throws -> MemoryTaggedChatOutcome {
+        if !configuration.memoryClassification {
+            return try await AnswerOnlyChatProcessor.run(
+                stream: primaryStream(), receiveVisibleText: receiveVisibleText
+            )
+        }
         let primary = try await decode(
             stream: primaryStream(),
             receiveVisibleText: receiveVisibleText
