@@ -1,7 +1,7 @@
 import Foundation
 
 /// One policy controls both prompt instructions and response interpretation.
-/// Defaults preserve the shipped pipeline; callers must opt in to alternatives.
+/// The product selects its policy explicitly; evaluation callers select each condition.
 public struct PersonaResponseConfiguration: Codable, Equatable, Sendable {
     /// Core and active scene rules form one persona component for ablation.
     public var includePersona: Bool
@@ -16,7 +16,9 @@ public struct PersonaResponseConfiguration: Codable, Equatable, Sendable {
     }
     public var nameRuleStyle: NameRuleStyle?
 
-    public static let production = Self()
+    public static let production = Self(
+        enforceCharacterName: true, nameRuleStyle: .responseAction
+    )
 
     public init(
         includePersona: Bool = true, includeSessionContext: Bool = true,

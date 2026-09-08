@@ -35,11 +35,13 @@ import Testing
     }
 }
 
-@Test func productionPersonaConfigurationPreservesExactPrompt() throws {
+@Test func productionPersonaConfigurationEnablesResponseAction() throws {
     let prompts = try RoutedPersonaPromptRegistry().load()
     let profile = UserProfileContext()
-    let expected = [prompts.core.replacingOccurrences(of: "Elena", with: "엘레나"), profile.promptSection(), MemoryTaggedChatPrompt.wrappedAxesV1]
+    let expected = [prompts.core.replacingOccurrences(of: "Elena", with: "엘레나"), profile.promptSection(), MemoryTaggedChatPrompt.wrappedAxesV1, PersonaResponseConfiguration(enforceCharacterName: true).nameInstruction(characterName: "엘레나")]
         .joined(separator: "\n\n")
+    #expect(PersonaResponseConfiguration.production.enforceCharacterName)
+    #expect(PersonaResponseConfiguration.production.nameRuleStyle == .responseAction)
     #expect(prompts.responseSystemPrompt(activeCard: nil) == expected)
     #expect(prompts.responseSystemPrompt(activeCard: nil, configuration: .production) == expected)
 }

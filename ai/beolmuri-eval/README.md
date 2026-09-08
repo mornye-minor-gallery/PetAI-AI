@@ -11,8 +11,8 @@ status:: active
 
 초안은 **단일 턴, GENERAL 장면 고정, 빈 기억, 빈 대화 이력**을 사용한다.
 장면 라우터, EdgeMem 검색·저장, OS 도구 실행과 Unity UI의 통합 평가는 아니다.
-제품의 기본 프롬프트와 응답 처리 동작은 변경하지 않으며 실험 설정은 평가
-실행부에서만 선택한다. 평가 실행 파일은 앱의 release target에 포함하지 않는다.
+실험 설정은 평가 실행부에서 선택하며 제품 설정을 덮어쓰지 않는다.
+제품은 개선된 이름 정정 규칙을 기본으로 사용하고, 평가의 각 조건은 YAML에 명시한다. 평가 실행 파일은 앱의 release target에 포함하지 않는다.
 
 Gemma는 제품 모델 레지스트리의 `.litertlm` 파일을 GPU에서 실행한다.
 macOS에서는 WebGPU를 통해 Metal을 사용하며, GPU 초기화 실패는 오류로 보고한다.
@@ -249,8 +249,9 @@ LiteRT-LM의 Python conversation API에는 출력 토큰 제한 인자가 없어
 [실험 설정과 계획](experiments/name-structure/README.md)은 짧은 이름 지시를
 앞에 둔 `identity-statement`와 정정 행동·예시를 마지막에 둔 `response-action`을
 비교한다. `nameRuleStyle`을 YAML에서 선택하며 Swift가 두 구조를 직접 조립한다.
-생략하면 이름 규칙을 켠 실험은 `response-action`을 사용한다. 제품 기본값의
-`enforceCharacterName: false`에는 영향을 주지 않는다.
+생략하면 이름 규칙을 켠 실험은 `response-action`을 사용한다. 제품 기본값은
+`enforceCharacterName: true`, `nameRuleStyle: response-action`이다. 실험 결과
+문서의 비활성 기본값 설명은 해당 실험 실행 시점의 조건이다.
 
 채점은 단순 이름 언급과 명확한 자기 이름 정정을 구분한다. 보정 전 예비
 수치를 새 기준의 수치와 합산하지 않는다. 공개 가능한 합성 증거를 내보낼 때는
