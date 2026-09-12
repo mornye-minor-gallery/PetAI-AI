@@ -275,6 +275,9 @@ func koreanRouterTreatsRelativeDurationAlarmsAsTimers() {
         "10초 뒤 알람 맞춰 줘",
         "10분 후 알람 설정해 줘",
         "한 시간 뒤에 깨워 줘",
+        "다섯 분 뒤 깨워줘",
+        "여섯 시간 후 알람 맞춰줘",
+        "한 시간 반 뒤 깨워 줘",
         "ㄷ10초뒤 알람 맞춰줘",
     ]
 
@@ -285,6 +288,33 @@ func koreanRouterTreatsRelativeDurationAlarmsAsTimers() {
     #expect(
         router.route("내일 아침 7시에 알람 맞춰 줘")
             == .tool(.createAlarm)
+    )
+}
+
+@Test
+func koreanRouterSupportsTimerCreationPhrases() {
+    let router = KoreanNativeToolRouter()
+    for utterance in [
+        "10분 타이머 만들어줘",
+        "30초 타이머 등록해 줘",
+        "타이머 5분 추가해줘",
+        "두 시간 카운트다운 만들어 줘",
+    ] {
+        #expect(router.route(utterance) == .tool(.createTimer))
+    }
+    #expect(router.route("타이머 만드는 방법이 궁금해") == .normal)
+    #expect(router.route("타이머를 등록했어") == .normal)
+}
+
+@Test
+func koreanRouterPreservesOtherIntentsAlongsideRelativeTimer() {
+    let router = KoreanNativeToolRouter()
+    #expect(
+        router.route("내일 일정을 보여 주고 다섯 분 뒤 알람 맞춰 줘")
+            == .conflict([.createTimer, .getCalendarEvents])
+    )
+    #expect(
+        router.route("한 시간 뒤 알람 목록 보여줘") == .tool(.listAlarms)
     )
 }
 
@@ -313,6 +343,50 @@ func koreanRouterRejectsMultipleToolIntentsAsConflict() {
     #expect(
         route == .conflict([.createAlarm, .getCalendarEvents])
     )
+}
+
+private actor NativeToolFallbackProbe: NativeToolRouting {
+    private let result: NativeToolRoute
+    private var invocationCount = 0
+
+    init(result: NativeToolRoute) {
+        self.result = result
+    }
+
+    func route(_ utterance: String) -> NativeToolRoute {
+        invocationCount += 1
+        return result
+    }
+
+    func count() -> Int { invocationCount }
+}
+
+@Test
+func koreanLexicalFirstRouterGuaranteesExplicitAlarmAndTimerCommands() async throws {
+    let fallback = NativeToolFallbackProbe(result: .normal)
+    let router = KoreanLexicalFirstNativeToolRouter(fallback: fallback)
+
+    #expect(
+        try await router.route("내일 아침 8시에 알람 맞춰줘")
+            == .tool(.createAlarm)
+    )
+    #expect(
+        try await router.route("1분 타이머 맞춰줘")
+            == .tool(.createTimer)
+    )
+    #expect(await fallback.count() == 0)
+}
+
+@Test
+func koreanLexicalFirstRouterFallsBackForOrdinaryConversation() async throws {
+    let fallback = NativeToolFallbackProbe(result: .tool(.getStepCount))
+    let router = KoreanLexicalFirstNativeToolRouter(fallback: fallback)
+
+    #expect(
+        try await router.route("오늘 기분 어때?")
+            == .tool(.getStepCount)
+    )
+    #expect(await fallback.count() == 1)
 }
 
 @Test
