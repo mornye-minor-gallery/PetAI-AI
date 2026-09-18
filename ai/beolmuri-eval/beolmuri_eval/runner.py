@@ -9,6 +9,7 @@ from .doctor import build, inspect_environment, swift_binary
 from .judge import grade
 from .metrics import summarize, compare_results
 from .process import Worker, heartbeat, execute
+from .prompt_prepare import prepare_prompt
 from .storage import atomic_json, read_json, records, run_lock, event
 
 
@@ -34,18 +35,21 @@ def create_run(args):
     commit = execute(["git", "rev-parse", "HEAD"], cwd=root)[0].strip()
     manifest = {
         "schema_version": 2, "run_id": run_id, "source_commit": commit, "source_sha256": source_sha(root),
-        "variant": plan.variant, "configuration": plan.configuration, "scope": SCOPE,
+        "variant": plan.variant, "configuration": plan.configuration, "scope": "single-turn-fixed-general-recalled-memory" if plan.memories else SCOPE,
         "input_files": inputs, "evaluation_config": plan.document,
+        "history": plan.history, "history_sha256": digest(plan.history),
+        "memories": plan.memories, "memories_sha256": digest(plan.memories),
         "cases": cases, "dataset_sha256": digest(cases), "repeats": plan.repeats,
         "seed_policy": "repeat-index; paired inputs use the same seed; bitwise reproducibility not claimed",
         "model": detail["deployment_model"], "litert_python": detail["litert_python"],
         "runtime": {"version": detail["litert_native_library"]["version"],
                     "backend": detail["litert_native_library"]["backend"],
-                    "speculative_decoding": False, "kv_capacity": "artifact default",
+                    "speculative_decoding": False, "max_num_tokens": plan.max_num_tokens,
                     "mobile_parity": environment["runtime_parity"]},
         "judge": {**plan.judge,
                   "codex": args.codex, "cli_version": detail["codex_cli"],
                   "rubric_sha256": digest(plan.judge["rubric"]), "schema_sha256": digest(plan.judge["output_schema"])},
+        "prompt_budget": plan.prompt_budget,
         "timeout_seconds": plan.timeout_seconds,
         "data_policy": "synthetic suite only; user-approved remote Codex judging; local results retained until removed",
     }
@@ -105,15 +109,19 @@ def run(directory, resume=False):
                                     if load is None:
                                         load = native.call("load", timeout=max(timeout, 180),
                                                            model=manifest["model"]["path"],
-                                                           cache_dir=str(directory / "native-cache"))
+                                                           cache_dir=str(directory / "native-cache"),
+                                                           max_num_tokens=manifest["runtime"]["max_num_tokens"])
                                         event(directory, "model_loaded", load_ms=load["load_ms"])
-                                    prepared = swift.call("prepare", configuration=manifest["configuration"],
-                                                          characterName=case["character_name"], userMessage=case["user_message"])
+                                    prepared = prepare_prompt(swift, native, configuration=manifest["configuration"],
+                                        case=case, history=manifest.get("history", []), memories=manifest["memories"],
+                                        max_num_tokens=manifest["runtime"]["max_num_tokens"],
+                                        prompt_budget=manifest.get("prompt_budget"), timeout=timeout)
                                     record["input"] = prepared
                                     record["status"] = "prepared"
                                     atomic_json(path, record)
                                     native.call("start", system_prompt=prepared["system_prompt"],
-                                                sampling=prepared["sampling"], seed=repeat)
+                                                sampling=prepared["sampling"], seed=repeat,
+                                                reserve_output=manifest.get("prompt_budget") is not None)
                                     primary = native.call("generate", message=prepared["user_prompt"], timeout=timeout)
                                     # Save raw generation before parsing or requesting any retry.
                                     record["primary"] = primary
@@ -167,6 +175,11 @@ def compare(left, right):
     for key in ("dataset_sha256", "repeats", "seed_policy", "scope", "runtime", "judge"):
         if first[key] != second[key]:
             raise ValueError(f"comparison mismatch: {key}")
+    for key in ("history_sha256", "memories_sha256"):
+        if first.get(key) != second.get(key):
+            raise ValueError(f"comparison mismatch: {key}")
+    if first.get("prompt_budget") != second.get("prompt_budget"):
+        raise ValueError("comparison prompt budgets differ")
     if first["model"]["sha256"] != second["model"]["sha256"]:
         raise ValueError("comparison model differs")
     a, b = records(left), records(right)

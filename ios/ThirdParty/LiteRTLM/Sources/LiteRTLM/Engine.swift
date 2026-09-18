@@ -255,6 +255,11 @@ public actor Engine {
     if !messagesJsonStr.isEmpty {
       litert_lm_conversation_config_set_messages(cConversationConfig, messagesJsonStr)
     }
+    if let thinking = conversationConfig.thinkingEnabled {
+      let data = try JSONSerialization.data(withJSONObject: ["enable_thinking": thinking])
+      let context = String(decoding: data, as: UTF8.self)
+      litert_lm_conversation_config_set_extra_context(cConversationConfig, context)
+    }
     litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(
       cConversationConfig,
       conversationConfig.filterChannelContentFromKVCache)
@@ -278,6 +283,30 @@ public actor Engine {
       toolManager: toolManager,
       telemetryContext: telemetryContext
     )
+  }
+
+  /// Uses the tokenizer belonging to this loaded engine. Invoke before generation;
+  /// the runtime owner must serialize preparation against active native inference.
+  public func countTokens(_ text: String) throws -> Int {
+    try NativeTokenization.count(text, engine: handle)
+  }
+
+  /// Measures a fresh text request with the same thinking context as generation.
+  /// It creates a temporary conversation and never modifies a live conversation.
+  /// This text-only path excludes tool templates and arbitrary extra context.
+  public func measureTextPrompt(systemPrompt: String, userPrompt: String, thinkingEnabled: Bool) throws -> PromptTokenCount {
+    let probe = try createConversation(with: .init(systemMessage: Message(systemPrompt, role: .system),
+      filterChannelContentFromKVCache: true, thinkingEnabled: thinkingEnabled))
+    let before = try probe.getTokenCount()
+    guard before >= 0 else { throw LiteRTLMError.engine(.invalidTokenCount) }
+    let rendered = try probe.renderMessageIntoString(Message(userPrompt))
+    guard !rendered.isEmpty else { throw LiteRTLMError.engine(.tokenizationFailed) }
+    let submitted = try countTokens(rendered)
+    guard try probe.getTokenCount() == before else {
+      throw LiteRTLMError.engine(.promptInspectionChangedState)
+    }
+    guard submitted <= Int.max - before else { throw LiteRTLMError.engine(.invalidTokenCount) }
+    return .init(cachedTokens: before, submittedTokens: submitted)
   }
 
   deinit {

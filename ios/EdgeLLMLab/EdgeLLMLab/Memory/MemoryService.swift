@@ -171,6 +171,18 @@ actor MemoryService: ClassificationEmbeddingProviding {
     return await engine.recall(request)
   }
 
+  func embedWorldInfoQuery(_ text: String) async throws -> [Float] {
+    _ = try requirePrepared()
+    try Task.checkCancellation()
+    return try await embedder.embedQuery(text)
+  }
+
+  func embedWorldInfoDocument(_ text: String) async throws -> [Float] {
+    _ = try requirePrepared()
+    try Task.checkCancellation()
+    return try await embedder.embedDocument(text)
+  }
+
   func embedClassification(_ text: String) async throws -> [Float] {
     _ = try requirePrepared()
     try Task.checkCancellation()

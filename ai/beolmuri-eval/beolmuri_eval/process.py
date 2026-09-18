@@ -70,13 +70,14 @@ class Worker:
         self.reader = threading.Thread(target=read, daemon=True)
         self.reader.start()
 
-    def call(self, operation, timeout=180, **payload):
+    def call(self, operation, timeout=180, measurement_handler=None, **payload):
         check_cancel()
         request_id = uuid.uuid4().hex
         request = {"id": request_id, "operation": operation, **payload}
         self.process.stdin.write(json.dumps(request, ensure_ascii=False) + "\n")
         self.process.stdin.flush()
         deadline = time.monotonic() + timeout
+        measurement_sequence = 0
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -92,6 +93,27 @@ class Worker:
             response = json.loads(line)
             if response.get("id") != request_id or response.get("protocol_version") != 1:
                 raise ValueError("worker protocol/id mismatch")
+            if response.get("status") == "measurement_required":
+                measurement_sequence += 1
+                if response.get("measurement_id") != measurement_sequence:
+                    self.close()
+                    raise ValueError("measurement sequence mismatch")
+                answer = {"id": request_id, "protocol_version": 1,
+                          "status": "measurement_result", "measurement_id": measurement_sequence}
+                try:
+                    if measurement_handler is None:
+                        raise RuntimeError("no native token measurer connected")
+                    check_cancel()
+                    response["remaining_seconds"] = remaining
+                    answer["tokens"] = measurement_handler(response)
+                    if type(answer["tokens"]) is not int:
+                        raise ValueError("native token count must be an integer")
+                except Exception as error:
+                    answer.pop("tokens", None)
+                    answer["error"] = str(error)
+                self.process.stdin.write(json.dumps(answer, ensure_ascii=False) + "\n")
+                self.process.stdin.flush()
+                continue
             if response.get("status") == "error":
                 raise RuntimeError(response.get("error", "worker error"))
             return response

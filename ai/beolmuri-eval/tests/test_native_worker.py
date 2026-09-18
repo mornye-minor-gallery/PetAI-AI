@@ -31,3 +31,20 @@ class NativeWorkerTests(unittest.TestCase):
                 NativeRuntime("model.litertlm", tmp)
         self.assertEqual(library.Engine.call_count, 1)
         library.Backend.CPU.assert_not_called()
+
+    def test_input_tokens_use_native_template_and_cached_tokens(self):
+        runtime = NativeRuntime.__new__(NativeRuntime)
+        runtime.max_num_tokens = 4096
+        runtime.reserved_output_tokens = None
+        runtime.engine = Mock()
+        runtime.engine.tokenize.return_value = [1, 2, 3, 4]
+        runtime.conversation = Mock()
+        runtime.conversation.token_count = 11
+        runtime.conversation.render_message_to_string.return_value = '<user>question<assistant>'
+        runtime.conversation.send_message_async.return_value = iter([{'content':[{'type':'text','text':'답변'}]}])
+        result = runtime.generate('question')
+        self.assertEqual(result['input_tokens'], 15)
+        self.assertIsNone(result['output_tokens'])
+        runtime.engine.tokenize.assert_called_once_with('<user>question<assistant>')
+        self.assertEqual(result['token_accounting']['cached_tokens_before'], 11)
+        runtime.conversation.send_message_async.assert_called_once_with('question')

@@ -21,8 +21,10 @@ class FakeWorker:
 
     def call(self, operation, **kwargs):
         if operation == "load":
+            assert kwargs["max_num_tokens"] == 8096
             return {"load_ms": 1}
         if operation == "prepare":
+            assert kwargs["memories"] == ["산책을 좋아한다."]
             return {"system_prompt": "system", "user_prompt": "user", "sampling": {}}
         if operation == "generate":
             self.__class__.generations += 1
@@ -38,6 +40,7 @@ class RunnerTests(unittest.TestCase):
             directory = Path(tmp)
             manifest = {"run_id": "test", "timeout_seconds": 2, "cases": load_plan(limit_pairs=1).cases[:1], "repeats": 1,
                         "variant": "baseline", "configuration": load_plan().configuration,
+                        "runtime": {"max_num_tokens": 8096}, "memories": ["산책을 좋아한다."],
                         "input_files": {}, "litert_python": "python", "model": {"path": "model"}, "judge": {"codex": "codex"}}
             atomic_json(directory / "manifest.json", manifest)
             FakeWorker.generations = 0

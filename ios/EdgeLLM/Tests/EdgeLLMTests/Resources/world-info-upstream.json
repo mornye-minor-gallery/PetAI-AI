@@ -1,0 +1,3835 @@
+{
+  "revision": "06bde939fb1e9c4c8d8641d810f0a916b5bce127",
+  "tokenizer": "UTF-16 length; empty string uses emptyTokens",
+  "cases": [
+    {
+      "id": "primary-and-disabled",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "hit",
+            "keys": [
+              "서울"
+            ],
+            "content": "hit"
+          },
+          {
+            "id": "miss",
+            "keys": [
+              "부산"
+            ],
+            "content": "miss"
+          },
+          {
+            "id": "disabled",
+            "keys": [
+              "서울"
+            ],
+            "content": "disabled",
+            "enabled": false
+          },
+          {
+            "id": "constant",
+            "keys": [],
+            "content": "constant",
+            "constant": true
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "hit",
+          "constant"
+        ],
+        "before": "",
+        "after": "constant\nhit",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "AND_ANY-서울",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "AND_ANY"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "AND_ANY-서울 카페",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "AND_ANY"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "AND_ANY-서울 카페 공원",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "AND_ANY"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페 공원"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "NOT_ALL-서울",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "NOT_ALL"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "NOT_ALL-서울 카페",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "NOT_ALL"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "NOT_ALL-서울 카페 공원",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "NOT_ALL"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페 공원"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "NOT_ANY-서울",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "NOT_ANY"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "NOT_ANY-서울 카페",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "NOT_ANY"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "NOT_ANY-서울 카페 공원",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "NOT_ANY"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페 공원"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "AND_ALL-서울",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "AND_ALL"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "AND_ALL-서울 카페",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "AND_ALL"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "AND_ALL-서울 카페 공원",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [
+              "카페",
+              "공원"
+            ],
+            "secondaryLogic": "AND_ALL"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페 공원"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "empty-secondary",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "secondaryKeys": [],
+            "secondaryLogic": "NOT_ANY"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "depth-global",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "scanDepth": 1,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "이전"
+            ],
+            "content": "a"
+          }
+        ]
+      },
+      "messages": [
+        "현재",
+        "이전"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "depth-override",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "scanDepth": 1,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "이전"
+            ],
+            "content": "a",
+            "scanDepth": 2
+          }
+        ]
+      },
+      "messages": [
+        "현재",
+        "이전"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "scan-note",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "노트"
+            ],
+            "content": "a"
+          }
+        ]
+      },
+      "messages": [
+        "현재"
+      ],
+      "note": {
+        "text": "노트",
+        "active": true,
+        "scan": true
+      },
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "노트",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "zero-depth-skips-note",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "노트"
+            ],
+            "content": "a",
+            "scanDepth": 0
+          }
+        ]
+      },
+      "messages": [
+        "현재"
+      ],
+      "note": {
+        "text": "노트",
+        "active": true,
+        "scan": true
+      },
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "노트",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "note-scan-disabled",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "노트"
+            ],
+            "content": "a"
+          }
+        ]
+      },
+      "messages": [
+        "현재"
+      ],
+      "note": {
+        "text": "노트",
+        "active": true,
+        "scan": false
+      },
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "노트",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "case",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "fold",
+            "keys": [
+              "cat"
+            ],
+            "content": "fold"
+          },
+          {
+            "id": "exact",
+            "keys": [
+              "cat"
+            ],
+            "content": "exact",
+            "caseSensitive": true
+          }
+        ]
+      },
+      "messages": [
+        "CAT"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "fold"
+        ],
+        "before": "",
+        "after": "fold",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "word-boundary",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "plain",
+            "keys": [
+              "cat"
+            ],
+            "content": "plain"
+          },
+          {
+            "id": "word",
+            "keys": [
+              "cat"
+            ],
+            "content": "word",
+            "matchWholeWords": true
+          }
+        ]
+      },
+      "messages": [
+        "scatter"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "plain"
+        ],
+        "before": "",
+        "after": "plain",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "korean-js-boundary",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "word",
+            "keys": [
+              "서울"
+            ],
+            "content": "word",
+            "matchWholeWords": true
+          }
+        ]
+      },
+      "messages": [
+        "서울역"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "word"
+        ],
+        "before": "",
+        "after": "word",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "multiword-substring",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "phrase",
+            "keys": [
+              "red cat"
+            ],
+            "content": "phrase",
+            "matchWholeWords": true
+          }
+        ]
+      },
+      "messages": [
+        "bred cats"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "phrase"
+        ],
+        "before": "",
+        "after": "phrase",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "selection-render-order",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "high",
+            "keys": [
+              "서울"
+            ],
+            "content": "high",
+            "order": 200
+          },
+          {
+            "id": "low",
+            "keys": [
+              "서울"
+            ],
+            "content": "low",
+            "order": 10
+          },
+          {
+            "id": "equal1",
+            "keys": [
+              "서울"
+            ],
+            "content": "equal1"
+          },
+          {
+            "id": "equal2",
+            "keys": [
+              "서울"
+            ],
+            "content": "equal2"
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "high",
+          "equal1",
+          "equal2",
+          "low"
+        ],
+        "before": "",
+        "after": "low\nequal2\nequal1\nhigh",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "budget-equality-stops",
+      "settings": {
+        "tokenBudget": 5,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "large",
+            "keys": [
+              "서울"
+            ],
+            "content": "1234",
+            "order": 200
+          },
+          {
+            "id": "small",
+            "keys": [
+              "서울"
+            ],
+            "content": "x"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "budget-near-edge",
+      "settings": {
+        "tokenBudget": 6,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "fit",
+            "keys": [
+              "서울"
+            ],
+            "content": "1234"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "fit"
+        ],
+        "before": "",
+        "after": "1234",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "empty-token-count",
+      "settings": {
+        "tokenBudget": 6,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "full",
+            "keys": [
+              "서울"
+            ],
+            "content": "1234"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 1,
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "ignore-budget",
+      "settings": {
+        "tokenBudget": 5,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "large",
+            "keys": [
+              "서울"
+            ],
+            "content": "1234",
+            "order": 200
+          },
+          {
+            "id": "small",
+            "keys": [
+              "서울"
+            ],
+            "content": "x"
+          },
+          {
+            "id": "ignore",
+            "keys": [
+              "서울"
+            ],
+            "content": "ignore",
+            "ignoreBudget": true,
+            "order": 0
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "ignore"
+        ],
+        "before": "",
+        "after": "ignore",
+        "note": "",
+        "top": [],
+        "bottom": []
+      }
+    },
+    {
+      "id": "note-destination-false",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "top",
+            "keys": [
+              "서울"
+            ],
+            "content": "top",
+            "position": "before-note"
+          },
+          {
+            "id": "bottom",
+            "keys": [
+              "서울"
+            ],
+            "content": "bottom",
+            "position": "after-note"
+          },
+          {
+            "id": "before",
+            "keys": [
+              "서울"
+            ],
+            "content": "before",
+            "position": "before-character"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": {
+        "text": "",
+        "active": false,
+        "scan": false
+      },
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "top",
+          "bottom",
+          "before"
+        ],
+        "before": "before",
+        "after": "",
+        "note": "",
+        "top": [
+          "top"
+        ],
+        "bottom": [
+          "bottom"
+        ]
+      }
+    },
+    {
+      "id": "note-destination-true",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "top",
+            "keys": [
+              "서울"
+            ],
+            "content": "top",
+            "position": "before-note"
+          },
+          {
+            "id": "bottom",
+            "keys": [
+              "서울"
+            ],
+            "content": "bottom",
+            "position": "after-note"
+          },
+          {
+            "id": "before",
+            "keys": [
+              "서울"
+            ],
+            "content": "before",
+            "position": "before-character"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": {
+        "text": "노트",
+        "active": true,
+        "scan": false
+      },
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "top",
+          "bottom",
+          "before"
+        ],
+        "before": "before",
+        "after": "",
+        "note": "top\n노트\nbottom",
+        "top": [
+          "top"
+        ],
+        "bottom": [
+          "bottom"
+        ]
+      }
+    },
+    {
+      "id": "empty-note-fill",
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "entries": [
+          {
+            "id": "top",
+            "keys": [
+              "서울"
+            ],
+            "content": "top",
+            "position": "before-note"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": {
+        "text": "",
+        "active": true,
+        "scan": false
+      },
+      "emptyTokens": 0,
+      "expected": {
+        "selected": [
+          "top"
+        ],
+        "before": "",
+        "after": "",
+        "note": "top\n",
+        "top": [
+          "top"
+        ],
+        "bottom": []
+      }
+    },
+    {
+      "id": "advanced-recursive-chain",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "recursive": true
+        },
+        "entries": [
+          {
+            "id": "first",
+            "keys": [
+              "서울"
+            ],
+            "content": "다음"
+          },
+          {
+            "id": "second",
+            "keys": [
+              "다음"
+            ],
+            "content": "마지막"
+          },
+          {
+            "id": "third",
+            "keys": [
+              "마지막"
+            ],
+            "content": "third"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "first",
+          "second",
+          "third"
+        ],
+        "before": "",
+        "after": "third\n마지막\n다음",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-recursive-disabled",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "first",
+            "keys": [
+              "서울"
+            ],
+            "content": "다음"
+          },
+          {
+            "id": "second",
+            "keys": [
+              "다음"
+            ],
+            "content": "마지막"
+          },
+          {
+            "id": "third",
+            "keys": [
+              "마지막"
+            ],
+            "content": "third"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "first"
+        ],
+        "before": "",
+        "after": "다음",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-recursive-one-step",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "recursive": true,
+          "maximumSteps": 1
+        },
+        "entries": [
+          {
+            "id": "first",
+            "keys": [
+              "서울"
+            ],
+            "content": "다음"
+          },
+          {
+            "id": "second",
+            "keys": [
+              "다음"
+            ],
+            "content": "마지막"
+          },
+          {
+            "id": "third",
+            "keys": [
+              "마지막"
+            ],
+            "content": "third"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "first"
+        ],
+        "before": "",
+        "after": "다음",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-recursive-two-steps",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "recursive": true,
+          "maximumSteps": 2
+        },
+        "entries": [
+          {
+            "id": "first",
+            "keys": [
+              "서울"
+            ],
+            "content": "다음"
+          },
+          {
+            "id": "second",
+            "keys": [
+              "다음"
+            ],
+            "content": "마지막"
+          },
+          {
+            "id": "third",
+            "keys": [
+              "마지막"
+            ],
+            "content": "third"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "first",
+          "second"
+        ],
+        "before": "",
+        "after": "마지막\n다음",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-prevent-recursion",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "recursive": true
+        },
+        "entries": [
+          {
+            "id": "first",
+            "keys": [
+              "서울"
+            ],
+            "content": "다음",
+            "rules": {
+              "preventRecursion": true
+            }
+          },
+          {
+            "id": "second",
+            "keys": [
+              "다음"
+            ],
+            "content": "second"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "first"
+        ],
+        "before": "",
+        "after": "다음",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-exclude-recursion",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "recursive": true
+        },
+        "entries": [
+          {
+            "id": "first",
+            "keys": [
+              "서울"
+            ],
+            "content": "다음"
+          },
+          {
+            "id": "second",
+            "keys": [
+              "다음"
+            ],
+            "content": "second",
+            "rules": {
+              "excludeRecursion": true
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "first"
+        ],
+        "before": "",
+        "after": "다음",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-delayed-recursion",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "recursive": true
+        },
+        "entries": [
+          {
+            "id": "delayed",
+            "keys": [
+              "서울"
+            ],
+            "content": "delayed",
+            "rules": {
+              "delayUntilRecursion": 1
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-delayed-recursion-levels",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "recursive": true
+        },
+        "entries": [
+          {
+            "id": "level1",
+            "keys": [
+              "서울"
+            ],
+            "content": "다음",
+            "rules": {
+              "delayUntilRecursion": 1
+            }
+          },
+          {
+            "id": "level3",
+            "keys": [
+              "다음"
+            ],
+            "content": "level3",
+            "rules": {
+              "delayUntilRecursion": 3
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "level1",
+          "level3"
+        ],
+        "before": "",
+        "after": "level3\n다음",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-minimum-activation-depth",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "minimumActivations": 1
+        },
+        "entries": [
+          {
+            "id": "deep",
+            "keys": [
+              "과거"
+            ],
+            "content": "deep"
+          }
+        ]
+      },
+      "messages": [
+        "현재",
+        "최근",
+        "과거"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 3,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "deep"
+        ],
+        "before": "",
+        "after": "deep",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-minimum-activation-depth-cap",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "minimumActivations": 1,
+          "maximumDepth": 2
+        },
+        "entries": [
+          {
+            "id": "deep",
+            "keys": [
+              "과거"
+            ],
+            "content": "deep"
+          }
+        ]
+      },
+      "messages": [
+        "현재",
+        "최근",
+        "조금전",
+        "과거"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 4,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-probability-zero",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "never",
+            "keys": [
+              "서울"
+            ],
+            "content": "never",
+            "rules": {
+              "probability": 0
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-probability-full",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "always",
+            "keys": [
+              "서울"
+            ],
+            "content": "always",
+            "rules": {
+              "probability": 100
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "always"
+        ],
+        "before": "",
+        "after": "always",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-probability-sequence",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "half",
+            "keys": [
+              "서울"
+            ],
+            "content": "half",
+            "rules": {
+              "probability": 50
+            }
+          },
+          {
+            "id": "ninety",
+            "keys": [
+              "서울"
+            ],
+            "content": "ninety",
+            "rules": {
+              "probability": 90
+            }
+          },
+          {
+            "id": "ten",
+            "keys": [
+              "서울"
+            ],
+            "content": "ten",
+            "rules": {
+              "probability": 10
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "ninety"
+        ],
+        "before": "",
+        "after": "ninety",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-probability-failed-not-retried",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "recursive": true
+        },
+        "entries": [
+          {
+            "id": "half",
+            "keys": [
+              "서울"
+            ],
+            "content": "half",
+            "rules": {
+              "probability": 50
+            }
+          },
+          {
+            "id": "trigger",
+            "keys": [
+              "서울"
+            ],
+            "content": "서울"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "trigger"
+        ],
+        "before": "",
+        "after": "서울",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-group-equal-weight",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "rules": {
+              "groups": [
+                "g"
+              ]
+            }
+          },
+          {
+            "id": "b",
+            "keys": [
+              "서울"
+            ],
+            "content": "b",
+            "rules": {
+              "groups": [
+                "g"
+              ]
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "b"
+        ],
+        "before": "",
+        "after": "b",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-group-unequal-weight",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "rules": {
+              "groups": [
+                "g"
+              ],
+              "groupWeight": 99
+            }
+          },
+          {
+            "id": "b",
+            "keys": [
+              "서울"
+            ],
+            "content": "b",
+            "rules": {
+              "groups": [
+                "g"
+              ],
+              "groupWeight": 1
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-group-zero-weights",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "rules": {
+              "groups": [
+                "g"
+              ],
+              "groupWeight": 0
+            }
+          },
+          {
+            "id": "b",
+            "keys": [
+              "서울"
+            ],
+            "content": "b",
+            "rules": {
+              "groups": [
+                "g"
+              ],
+              "groupWeight": 0
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-group-priority",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "high",
+            "keys": [
+              "서울"
+            ],
+            "content": "high",
+            "rules": {
+              "groups": [
+                "g"
+              ]
+            },
+            "order": 200
+          },
+          {
+            "id": "override",
+            "keys": [
+              "서울"
+            ],
+            "content": "override",
+            "rules": {
+              "groups": [
+                "g"
+              ],
+              "groupOverride": true
+            },
+            "order": 1
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "override"
+        ],
+        "before": "",
+        "after": "override",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-group-scoring",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "groupScoring": true
+        },
+        "entries": [
+          {
+            "id": "one",
+            "keys": [
+              "서울"
+            ],
+            "content": "one",
+            "rules": {
+              "groups": [
+                "g"
+              ]
+            }
+          },
+          {
+            "id": "two",
+            "keys": [
+              "서울",
+              "카페"
+            ],
+            "content": "two",
+            "rules": {
+              "groups": [
+                "g"
+              ]
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "two"
+        ],
+        "before": "",
+        "after": "two",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-group-scoring-entry-override",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "one",
+            "keys": [
+              "서울"
+            ],
+            "content": "one",
+            "rules": {
+              "groups": [
+                "g"
+              ],
+              "groupScoring": false
+            }
+          },
+          {
+            "id": "two",
+            "keys": [
+              "서울",
+              "카페"
+            ],
+            "content": "two",
+            "rules": {
+              "groups": [
+                "g"
+              ],
+              "groupScoring": true
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울 카페"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "two"
+        ],
+        "before": "",
+        "after": "two",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-group-overlap",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "both",
+            "keys": [
+              "서울"
+            ],
+            "content": "both",
+            "rules": {
+              "groups": [
+                "a",
+                "b"
+              ]
+            }
+          },
+          {
+            "id": "a",
+            "keys": [
+              "서울"
+            ],
+            "content": "a",
+            "rules": {
+              "groups": [
+                "a"
+              ]
+            }
+          },
+          {
+            "id": "b",
+            "keys": [
+              "서울"
+            ],
+            "content": "b",
+            "rules": {
+              "groups": [
+                "b"
+              ]
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "a"
+        ],
+        "before": "",
+        "after": "a",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-group-block-recursion",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "recursive": true
+        },
+        "entries": [
+          {
+            "id": "first",
+            "keys": [
+              "서울"
+            ],
+            "content": "다음",
+            "rules": {
+              "groups": [
+                "g"
+              ]
+            }
+          },
+          {
+            "id": "second",
+            "keys": [
+              "다음"
+            ],
+            "content": "second",
+            "rules": {
+              "groups": [
+                "g"
+              ]
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "first"
+        ],
+        "before": "",
+        "after": "다음",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-delay-not-ready",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "delayed",
+            "keys": [
+              "서울"
+            ],
+            "content": "delayed",
+            "rules": {
+              "delay": 2
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-delay-ready",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "delayed",
+            "keys": [
+              "서울"
+            ],
+            "content": "delayed",
+            "rules": {
+              "delay": 2
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울",
+        "이전"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 2,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "delayed"
+        ],
+        "before": "",
+        "after": "delayed",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-sticky-cooldown-initial-state",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "timed",
+            "keys": [
+              "서울"
+            ],
+            "content": "timed",
+            "rules": {
+              "sticky": 3,
+              "cooldown": 2
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "timed"
+        ],
+        "before": "",
+        "after": "timed",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {
+            "fixture.timed": {
+              "hash": "fixture-0",
+              "start": 1,
+              "end": 4,
+              "protected": false
+            }
+          },
+          "cooldown": {
+            "fixture.timed": {
+              "hash": "fixture-0",
+              "start": 1,
+              "end": 3,
+              "protected": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "advanced-regex-lookbehind",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "regex",
+            "keys": [
+              "/(?<=서)울/u"
+            ],
+            "content": "regex"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "regex"
+        ],
+        "before": "",
+        "after": "regex",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-regex-invalid-is-plaintext",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "invalid",
+            "keys": [
+              "/[/"
+            ],
+            "content": "invalid"
+          }
+        ]
+      },
+      "messages": [
+        "/[/"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "invalid"
+        ],
+        "before": "",
+        "after": "invalid",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-regex-flags-override-settings",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "regex",
+            "keys": [
+              "/cat/i"
+            ],
+            "content": "regex",
+            "caseSensitive": true,
+            "matchWholeWords": true
+          }
+        ]
+      },
+      "messages": [
+        "SCATTER"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "regex"
+        ],
+        "before": "",
+        "after": "regex",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-decorator-activate",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "forced",
+            "keys": [
+              "없음"
+            ],
+            "content": "@@activate\nforced"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "forced"
+        ],
+        "before": "",
+        "after": "forced",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-decorator-suppress",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "suppressed",
+            "keys": [
+              "서울"
+            ],
+            "content": "@@dont_activate\nsuppressed",
+            "constant": true
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-decorator-fallback",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "fallback",
+            "keys": [
+              "없음"
+            ],
+            "content": "@@unknown\n@@@activate\nfallback"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "fallback"
+        ],
+        "before": "",
+        "after": "fallback",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-decorator-prefix-not-exact",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "prefix",
+            "keys": [
+              "없음"
+            ],
+            "content": "@@activate extra\nprefix"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-trigger-filter",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "normal",
+            "keys": [
+              "서울"
+            ],
+            "content": "normal",
+            "rules": {
+              "triggers": [
+                "normal"
+              ]
+            }
+          },
+          {
+            "id": "swipe",
+            "keys": [
+              "서울"
+            ],
+            "content": "swipe",
+            "rules": {
+              "triggers": [
+                "swipe"
+              ]
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "normal"
+        ],
+        "before": "",
+        "after": "normal",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-character-filter",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "match",
+            "keys": [
+              "서울"
+            ],
+            "content": "match",
+            "rules": {
+              "characterNames": [
+                "momo"
+              ]
+            }
+          },
+          {
+            "id": "excluded",
+            "keys": [
+              "서울"
+            ],
+            "content": "excluded",
+            "rules": {
+              "characterNames": [
+                "momo"
+              ],
+              "excludeCharacters": true
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "momo",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "match"
+        ],
+        "before": "",
+        "after": "match",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-tag-filter",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "match",
+            "keys": [
+              "서울"
+            ],
+            "content": "match",
+            "rules": {
+              "characterTags": [
+                "pet"
+              ]
+            }
+          },
+          {
+            "id": "excluded",
+            "keys": [
+              "서울"
+            ],
+            "content": "excluded",
+            "rules": {
+              "characterTags": [
+                "pet"
+              ],
+              "excludeCharacters": true
+            }
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [
+          "pet"
+        ],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "match"
+        ],
+        "before": "",
+        "after": "match",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-scan-character-description",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "field",
+            "keys": [
+              "고양이"
+            ],
+            "content": "field",
+            "rules": {
+              "scanFields": [
+                "characterDescription"
+              ]
+            }
+          }
+        ]
+      },
+      "messages": [
+        "현재"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {
+          "characterDescription": "고양이"
+        },
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "field"
+        ],
+        "before": "",
+        "after": "field",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-external-activation",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "forced",
+            "keys": [
+              "없음"
+            ],
+            "content": "forced"
+          }
+        ]
+      },
+      "messages": [
+        "현재"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [
+          "forced"
+        ],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "forced"
+        ],
+        "before": "",
+        "after": "forced",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-vector-host-activation",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "retrieved",
+            "keys": [],
+            "content": "retrieved",
+            "rules": {
+              "vectorized": true
+            }
+          }
+        ]
+      },
+      "messages": [
+        "현재"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [
+          "retrieved"
+        ],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "retrieved"
+        ],
+        "before": "",
+        "after": "retrieved",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-outlet-order",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "high",
+            "keys": [
+              "서울"
+            ],
+            "content": "high",
+            "rules": {
+              "outlet": "room"
+            },
+            "position": "outlet",
+            "order": 200
+          },
+          {
+            "id": "low",
+            "keys": [
+              "서울"
+            ],
+            "content": "low",
+            "rules": {
+              "outlet": "room"
+            },
+            "position": "outlet",
+            "order": 10
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "high",
+          "low"
+        ],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {
+          "room": [
+            "high",
+            "low"
+          ]
+        },
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-in-chat-role-depth",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "deep",
+            "keys": [
+              "서울"
+            ],
+            "content": "deep",
+            "rules": {
+              "depth": 3,
+              "role": "assistant"
+            },
+            "position": "in-chat"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "deep"
+        ],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [
+          {
+            "depth": 3,
+            "entries": [
+              "deep"
+            ],
+            "role": 2
+          }
+        ],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-example-positions",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {},
+        "entries": [
+          {
+            "id": "top",
+            "keys": [
+              "서울"
+            ],
+            "content": "top",
+            "position": "before-examples"
+          },
+          {
+            "id": "bottom",
+            "keys": [
+              "서울"
+            ],
+            "content": "bottom",
+            "position": "after-examples"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [
+          "top",
+          "bottom"
+        ],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [
+          {
+            "position": 1,
+            "content": "bottom"
+          },
+          {
+            "position": 0,
+            "content": "top"
+          }
+        ],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-budget-percent",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "budgetPercent": 50
+        },
+        "entries": [
+          {
+            "id": "large",
+            "keys": [
+              "서울"
+            ],
+            "content": "123456"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 10,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    },
+    {
+      "id": "advanced-budget-cap",
+      "advanced": true,
+      "settings": {
+        "tokenBudget": 1000,
+        "includeNames": false,
+        "rules": {
+          "budgetCap": 5
+        },
+        "entries": [
+          {
+            "id": "large",
+            "keys": [
+              "서울"
+            ],
+            "content": "123456"
+          }
+        ]
+      },
+      "messages": [
+        "서울"
+      ],
+      "note": null,
+      "emptyTokens": 0,
+      "context": {
+        "characterName": "",
+        "characterTags": [],
+        "trigger": "normal",
+        "scanFields": {},
+        "externallyActivated": [],
+        "vectorMatches": [],
+        "messageNumber": 1,
+        "contextTokens": 8096,
+        "randomSeed": 1
+      },
+      "expected": {
+        "selected": [],
+        "before": "",
+        "after": "",
+        "note": "",
+        "top": [],
+        "bottom": [],
+        "outlets": {},
+        "depth": [],
+        "examples": [],
+        "timedState": {
+          "sticky": {},
+          "cooldown": {}
+        }
+      }
+    }
+  ]
+}

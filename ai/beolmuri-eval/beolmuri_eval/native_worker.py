@@ -14,7 +14,10 @@ import time
 
 
 class NativeRuntime:
-    def __init__(self, model, cache_dir):
+    def __init__(self, model, cache_dir, max_num_tokens=4096):
+        if type(max_num_tokens) is not int or not 1 <= max_num_tokens <= 2147483647:
+            raise ValueError("max_num_tokens must be a positive Int32")
+        self.max_num_tokens = max_num_tokens
         if importlib.metadata.version("litert-lm") != "0.13.1":
             raise RuntimeError("native adapter requires litert-lm 0.13.1")
         import litert_lm
@@ -24,16 +27,14 @@ class NativeRuntime:
         os.makedirs(cache_dir, exist_ok=True)
         started = time.monotonic()
         self.engine = litert_lm.Engine(model, backend=litert_lm.Backend.GPU(),
-                                       cache_dir=cache_dir, enable_speculative_decoding=False)
+                                       cache_dir=cache_dir, max_num_tokens=max_num_tokens, enable_speculative_decoding=False)
         self.load_ms = (time.monotonic() - started) * 1000
         self.conversation = None
+        self.reserved_output_tokens = None
 
-    def start(self, system_prompt, sampling, seed):
+    def _create_conversation(self, system_prompt, sampling, seed):
         from litert_lm.utils import _sampler_config_to_params
         from litert_lm.conversation import Conversation
-        if self.conversation:
-            self.conversation.close()
-            self.conversation = None
         lib = self.engine._lib
         session = lib.litert_lm_session_config_create()
         config = lib.litert_lm_conversation_config_create()
@@ -56,16 +57,63 @@ class NativeRuntime:
             pointer = lib.litert_lm_conversation_create(self.engine._engine_ptr, config)
             if not pointer:
                 raise RuntimeError("native conversation creation failed")
-            self.conversation = Conversation(lib, pointer, engine=self.engine, messages=messages,
+            return Conversation(lib, pointer, engine=self.engine, messages=messages,
                                              sampler_config=sampler,
                                              extra_context={"enable_thinking": sampling["thinking"]})
         finally:
             lib.litert_lm_conversation_config_delete(config)
             lib.litert_lm_session_config_delete(session)
 
-    def generate(self, message):
+    def start(self, system_prompt, sampling, seed, reserve_output=False):
+        if self.conversation:
+            self.conversation.close()
+            self.conversation = None
+        self.reserved_output_tokens = sampling['max_output_tokens'] if reserve_output else None
+        self.conversation = self._create_conversation(system_prompt, sampling, seed)
+
+    def count_tokens(self, text):
+        if not isinstance(text, str) or "\0" in text:
+            raise ValueError("tokenizer requires text without embedded nulls")
+        return len(self.engine.tokenize(text))
+
+    def _measure(self, conversation, message):
+        cached = conversation.token_count
+        rendered = conversation.render_message_to_string(message)
+        if not rendered:
+            raise RuntimeError("native prompt rendering returned empty text")
+        if conversation.token_count != cached:
+            raise RuntimeError("prompt inspection changed native token state")
+        submitted = self.count_tokens(rendered)
+        if type(cached) is not int or cached < 0:
+            raise ValueError("invalid native cached token count")
+        total = cached + submitted
+        return {"input_tokens": total, "max_num_tokens": self.max_num_tokens,
+                "available_output_tokens": self.max_num_tokens - total,
+                "token_accounting": {"method": "native-kv-plus-rendered-message-tokenizer",
+                                     "cached_tokens_before": cached, "submitted_tokens": submitted}}
+
+    def measure_prompt(self, system_prompt, message, sampling):
+        # Same template/thinking/filter configuration as generation. The probe
+        # owns its session; an existing conversation and its retry KV are untouched.
+        probe = self._create_conversation(system_prompt, sampling, seed=0)
+        try:
+            return self._measure(probe, message)
+        finally:
+            probe.close()
+
+    def measure(self, message):
         if self.conversation is None:
             raise RuntimeError("conversation not started")
+        result = self._measure(self.conversation, message)
+        if result['available_output_tokens'] <= 0:
+            raise ValueError(f"input {result['input_tokens']} leaves no output space in context capacity {self.max_num_tokens}")
+        if (self.reserved_output_tokens is not None
+                and result['available_output_tokens'] < self.reserved_output_tokens):
+            raise ValueError(f"input {result['input_tokens']} + reserved output {self.reserved_output_tokens} exceeds {self.max_num_tokens}")
+        return result
+
+    def generate(self, message):
+        measurement = self.measure(message)
         started = time.monotonic()
         first = None
         chunks = []
@@ -77,8 +125,10 @@ class NativeRuntime:
                     chunks.append(item["text"])
         return {"status": "generated", "chunks": chunks,
                 "first_output_ms": first, "elapsed_ms": (time.monotonic() - started) * 1000,
-                "input_tokens": None, "output_tokens": None,
-                "telemetry_note": "token/thermal/device-memory metrics unavailable in this adapter"}
+                **measurement, "output_tokens": None,
+                "token_accounting": {**measurement["token_accounting"],
+                                     "context_tokens_after": self.conversation.token_count},
+                "telemetry_note": "input includes native template tokens; output/thermal/device-memory metrics unavailable"}
 
     def close(self):
         if self.conversation:
@@ -106,11 +156,19 @@ def main():
                 elif operation == "load":
                     if runtime:
                         raise RuntimeError("engine already loaded")
-                    runtime = NativeRuntime(request["model"], request["cache_dir"])
+                    runtime = NativeRuntime(request["model"], request["cache_dir"], request.get("max_num_tokens", 4096))
                     result = {"status": "loaded", "load_ms": runtime.load_ms}
                 elif operation == "start":
-                    runtime.start(request["system_prompt"], request["sampling"], request["seed"])
+                    runtime.start(request["system_prompt"], request["sampling"], request["seed"],
+                                  reserve_output=request.get("reserve_output", False))
                     result = {"status": "started"}
+                elif operation == "count_tokens":
+                    result = {"status": "measured", "tokens": runtime.count_tokens(request["text"])}
+                elif operation == "measure_prompt":
+                    result = {"status": "measured", **runtime.measure_prompt(
+                        request["system_prompt"], request["message"], request["sampling"])}
+                elif operation == "measure":
+                    result = {"status": "measured", **runtime.measure(request["message"])}
                 elif operation == "generate":
                     result = runtime.generate(request["message"])
                 else:

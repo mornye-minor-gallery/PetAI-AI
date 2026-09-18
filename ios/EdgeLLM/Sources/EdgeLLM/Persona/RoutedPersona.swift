@@ -42,55 +42,14 @@ public struct RoutedPersonaPromptSet: Equatable, Sendable {
         return sceneCards[scene]?.card
     }
 
+    // Used when preparing the initial conversation before a user message exists.
     public func responseSystemPrompt(
         activeCard: String?,
         userProfileContext: UserProfileContext = UserProfileContext(),
         configuration: PersonaResponseConfiguration = .production
     ) -> String {
-        var sections: [String] = []
-        if configuration.includePersona {
-            sections.append(render(core, with: userProfileContext))
-        }
-        if configuration.includePersona, let activeCard,
-           !activeCard.trimmingCharacters(
-               in: .whitespacesAndNewlines
-           ).isEmpty
-        {
-            sections.append(
-                """
-                ## 이번 응답의 활성 장면 카드
-                \(render(activeCard, with: userProfileContext)) 다른 장면 규칙은 이번 응답에 사용하지 않는다.
-                """
-            )
-        }
-        if configuration.includeSessionContext {
-            sections.append(userProfileContext.promptSection())
-        }
-        if configuration.enforceCharacterName, configuration.nameRuleStyle == .identityStatement {
-            sections.append(configuration.nameInstruction(characterName: userProfileContext.characterName))
-        }
-        if configuration.memoryClassification {
-            sections.append(MemoryTaggedChatPrompt.wrappedAxesV1)
-        }
-        // Keep the response action after the format contract so "first sentence"
-        // cannot be mistaken for replacing the memory-classification header.
-        if configuration.enforceCharacterName, configuration.nameRuleStyle != .identityStatement {
-            sections.append(configuration.nameInstruction(characterName: userProfileContext.characterName))
-        }
-        return sections.joined(separator: "\n\n")
-    }
-
-    private func render(
-        _ source: String,
-        with context: UserProfileContext
-    ) -> String {
-        source.replacingOccurrences(
-            of: "엘레나",
-            with: context.characterName
-        ).replacingOccurrences(
-            of: "Elena",
-            with: context.characterName
-        )
+        DialoguePromptRenderer.systemPrompt(prompts: self, activeCard: activeCard,
+            userProfileContext: userProfileContext, configuration: configuration)
     }
 
 }
@@ -214,83 +173,6 @@ public struct RoutedPersonaPromptRegistry: Sendable {
             }
         }
         return nil
-    }
-}
-
-public struct RoutedPersonaSessionContext: Equatable, Sendable {
-    public enum Role: String, Equatable, Sendable {
-        case user = "사용자"
-        case assistant = "캐릭터"
-    }
-
-    public struct Turn: Equatable, Sendable {
-        public let role: Role
-        public let text: String
-
-        public init(role: Role, text: String) {
-            self.role = role
-            self.text = text
-        }
-    }
-
-    public let maximumTurnCount: Int
-    public private(set) var turns: [Turn]
-
-    public init(
-        maximumTurnCount: Int = SLMConfiguration.production.persona
-            .recentMessageLimit,
-        turns: [Turn] = []
-    ) {
-        self.maximumTurnCount = max(0, maximumTurnCount)
-        self.turns = Array(turns.suffix(max(0, maximumTurnCount)))
-    }
-
-    public mutating func appendExchange(
-        userMessage: String,
-        assistantMessage: String
-    ) {
-        append(.user, text: userMessage)
-        append(.assistant, text: assistantMessage)
-    }
-
-    public mutating func removeAll() {
-        turns.removeAll()
-    }
-
-    public func responseInput(memoryAugmentedUserMessage: String) -> String {
-        renderedInput(
-            currentSectionTitle: "현재 사용자 입력과 회수 기억",
-            currentText: memoryAugmentedUserMessage
-        )
-    }
-
-    private mutating func append(_ role: Role, text: String) {
-        let normalized = text.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        guard !normalized.isEmpty, maximumTurnCount > 0 else { return }
-        turns.append(Turn(role: role, text: normalized))
-        if turns.count > maximumTurnCount {
-            turns.removeFirst(turns.count - maximumTurnCount)
-        }
-    }
-
-    private func renderedInput(
-        currentSectionTitle: String,
-        currentText: String
-    ) -> String {
-        var sections: [String] = []
-        if !turns.isEmpty {
-            let history = turns.map { "\($0.role.rawValue): \($0.text)" }
-                .joined(separator: "\n")
-            sections.append("## 최근 대화\n\(history)")
-        }
-        sections.append(
-            "## \(currentSectionTitle)\n" + currentText.trimmingCharacters(
-                in: .whitespacesAndNewlines
-            )
-        )
-        return sections.joined(separator: "\n\n")
     }
 }
 

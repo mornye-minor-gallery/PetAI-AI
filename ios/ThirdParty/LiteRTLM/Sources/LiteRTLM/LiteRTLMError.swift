@@ -38,6 +38,10 @@ public enum LiteRTLMError: Error, LocalizedError, Equatable {
     case failedToCreateSettings
     case failedToCreateEngine
     case notInitialized
+    case invalidTokenizationInput
+    case tokenizationFailed
+    case invalidTokenCount
+    case promptInspectionChangedState
     case failedToCreateSessionConfig
     case failedToCreateConversationConfig
     case failedToCreateConversation
@@ -56,6 +60,14 @@ public enum LiteRTLMError: Error, LocalizedError, Equatable {
         return "Failed to create engine."
       case .notInitialized:
         return "Engine is not initialized."
+      case .invalidTokenizationInput:
+        return "Tokenization input contains an embedded null character."
+      case .tokenizationFailed:
+        return "Native tokenization failed."
+      case .invalidTokenCount:
+        return "Native token measurement returned an invalid count."
+      case .promptInspectionChangedState:
+        return "Prompt inspection changed the native token state."
       case .failedToCreateSessionConfig:
         return "Failed to create session config."
       case .failedToCreateConversationConfig:

@@ -9,70 +9,7 @@ import EdgeLLM
 import LiteRTLM
 #endif
 
-struct TopKTelemetrySummary: Sendable, Equatable, Encodable {
-    let tokenCount: Int
-    let droppedEventCount: Int
-    let maximumCandidateCount: Int
-    let averageTopKEntropy: Float
-    let averageTop1Top2Margin: Float
-    let minimumTop1Top2Margin: Float
-    let sampledFromTop1Rate: Float
-    let metricTemperature: Float
-}
-
 actor LiteRTLMRuntime: LLMRuntime {
-    private struct TopKTelemetryAccumulator {
-        var tokenCount = 0
-        var droppedEventCount = 0
-        var maximumCandidateCount = 0
-        var entropySum: Float = 0
-        var marginSum: Float = 0
-        var minimumMargin = Float.greatestFiniteMagnitude
-        var sampledFromTop1Count = 0
-        var metricTemperature: Float = 1
-
-        mutating func append(_ drain: TopKTelemetryDrain) {
-            droppedEventCount += drain.droppedEventCount
-            for event in drain.events {
-                tokenCount += 1
-                maximumCandidateCount = max(
-                    maximumCandidateCount,
-                    event.candidates.count
-                )
-                entropySum += event.topKEntropy
-                marginSum += event.top1Top2Margin
-                minimumMargin = min(
-                    minimumMargin,
-                    event.top1Top2Margin
-                )
-                metricTemperature = event.metricTemperature
-                if event.candidates.first?.tokenID
-                    == event.sampledTokenID
-                {
-                    sampledFromTop1Count += 1
-                }
-            }
-        }
-
-        func summary() -> TopKTelemetrySummary? {
-            guard tokenCount > 0 else {
-                return nil
-            }
-            let count = Float(tokenCount)
-            return TopKTelemetrySummary(
-                tokenCount: tokenCount,
-                droppedEventCount: droppedEventCount,
-                maximumCandidateCount: maximumCandidateCount,
-                averageTopKEntropy: entropySum / count,
-                averageTop1Top2Margin: marginSum / count,
-                minimumTop1Top2Margin: minimumMargin,
-                sampledFromTop1Rate:
-                    Float(sampledFromTop1Count) / count,
-                metricTemperature: metricTemperature
-            )
-        }
-    }
-
     private final class SendableConversation: @unchecked Sendable {
         let value: Conversation
 
@@ -85,15 +22,17 @@ actor LiteRTLMRuntime: LLMRuntime {
         subsystem: Bundle.main.bundleIdentifier ?? "EdgeLLMLab",
         category: "LiteRTLMRuntime"
     )
-    private let slmConfiguration: SLMConfiguration
-    private var currentState: RuntimeState = .modelRequired
-    private var engine: Engine?
-    private var conversation: Conversation?
+    let slmConfiguration: SLMConfiguration
+    var currentState: RuntimeState = .modelRequired
+    var engine: Engine?
+    var conversation: Conversation?
     private var isolatedConversation: Conversation?
-    private var conversationConfiguration: ConversationConfiguration?
+    var conversationConfiguration: ConversationConfiguration?
     private var scopedModelURL: URL?
     private var isAccessingSecurityScopedModel = false
-    private var cancelRequested = false
+    var cancelRequested = false
+    var isPreparingInput = false
+    var conversationDialogueBudget: DialogueTokenBudget?
     private var activeGenerationID: UUID?
     private var activeGenerationTask: Task<Void, Never>?
     private var activeContinuation:
@@ -110,7 +49,7 @@ actor LiteRTLMRuntime: LLMRuntime {
     }
 
     var state: RuntimeState {
-        currentState
+        isPreparingInput ? .preparingInput : currentState
     }
 
     func prepare(modelURL: URL) async throws {
@@ -132,6 +71,7 @@ actor LiteRTLMRuntime: LLMRuntime {
             let configuration = try EngineConfig(
                 modelPath: modelURL.path,
                 backend: .cpu(),
+                maxNumTokens: slmConfiguration.dialogueBudget.contextTokens,
                 cacheDir: cacheURL.path
             )
             let candidate = Engine(engineConfig: configuration)
@@ -152,6 +92,13 @@ actor LiteRTLMRuntime: LLMRuntime {
     func startConversation(
         configuration: ConversationConfiguration
     ) async throws {
+        try requireNativeIdle()
+        isPreparingInput = true
+        defer { isPreparingInput = false }
+        try await replaceConversation(configuration: configuration)
+    }
+
+    func replaceConversation(configuration: ConversationConfiguration) async throws {
         guard let engine else {
             throw RuntimeError.modelNotPrepared
         }
@@ -170,13 +117,15 @@ actor LiteRTLMRuntime: LLMRuntime {
                 filterChannelContentFromKVCache: true,
                 topKTelemetryCandidateCount:
                     configuration.topKTelemetryCandidateCount,
-                maxOutputTokens: configuration.maxOutputTokens
+                maxOutputTokens: configuration.maxOutputTokens,
+                thinkingEnabled: configuration.thinkingEnabled
             )
 
             conversation = try await engine.createConversation(
                 with: nativeConfiguration
             )
             conversationConfiguration = configuration
+            conversationDialogueBudget = nil
             currentState = .ready
         } catch {
             currentState = .failed(message: error.localizedDescription)
@@ -189,11 +138,8 @@ actor LiteRTLMRuntime: LLMRuntime {
     func generateStream(
         prompt: String
     ) async throws -> AsyncThrowingStream<String, Error> {
-        try await generateStream(
-            prompt: prompt,
-            thinkingEnabled: slmConfiguration.generation
-                .responseThinkingDefault
-        )
+        guard let configuration = conversationConfiguration else { throw RuntimeError.conversationNotStarted }
+        return try await generateStream(prompt: prompt, thinkingEnabled: configuration.thinkingEnabled)
     }
 
     func generateStream(
@@ -207,9 +153,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         guard !normalizedPrompt.isEmpty else {
             throw RuntimeError.emptyPrompt
         }
-        guard currentState != .generating else {
-            throw RuntimeError.runtimeBusy
-        }
+        try requireNativeIdle()
         guard engine != nil else {
             throw RuntimeError.modelNotPrepared
         }
@@ -218,6 +162,21 @@ actor LiteRTLMRuntime: LLMRuntime {
         }
 
         cancelRequested = false
+        if let budget = conversationDialogueBudget {
+            guard conversationConfiguration?.thinkingEnabled == thinkingEnabled else {
+                throw RuntimeError.generationFailed(message: "Prepared dialogue thinking configuration changed")
+            }
+            isPreparingInput = true
+            do {
+                try await checkConversationBudget(conversation, prompt: normalizedPrompt, budget: budget)
+                try Task.checkCancellation()
+                guard !cancelRequested else { throw RuntimeError.generationCancelled }
+                isPreparingInput = false
+            } catch {
+                isPreparingInput = false
+                throw error
+            }
+        }
         currentState = .generating
         let generationID = UUID()
         let startedAt = Date()
@@ -313,9 +272,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         else {
             throw RuntimeError.emptyPrompt
         }
-        guard currentState != .generating else {
-            throw RuntimeError.runtimeBusy
-        }
+        try requireNativeIdle()
         guard let engine else {
             throw RuntimeError.modelNotPrepared
         }
@@ -375,6 +332,7 @@ actor LiteRTLMRuntime: LLMRuntime {
     }
 
     func cancel() async {
+        if isPreparingInput { cancelRequested = true; return }
         guard
             currentState == .generating,
             let generationID = activeGenerationID,
@@ -433,28 +391,18 @@ actor LiteRTLMRuntime: LLMRuntime {
     }
 
     func resetConversation() async throws {
+        try requireNativeIdle()
         guard let configuration = conversationConfiguration else {
             throw RuntimeError.conversationNotStarted
         }
-        guard currentState != .generating else {
-            logger.error(
-                "Conversation reset rejected while generation is active"
-            )
-            throw RuntimeError.runtimeBusy
-        }
-
+        let budget = conversationDialogueBudget
         conversation = nil
         try await startConversation(configuration: configuration)
+        conversationDialogueBudget = budget
     }
 
     func unload() async throws {
-        guard currentState != .generating else {
-            logger.error(
-                "Unload rejected while generation is active; use cancel first"
-            )
-            throw RuntimeError.runtimeBusy
-        }
-
+        try requireNativeIdle()
         logger.notice("Unloading LiteRT-LM runtime")
         cancellationTimeoutTask?.cancel()
         cancellationTimeoutTask = nil
@@ -467,6 +415,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         isolatedConversation = nil
         conversation = nil
         conversationConfiguration = nil
+        conversationDialogueBudget = nil
         engine = nil
         releaseSecurityScopedModel()
         currentState = .modelRequired
@@ -620,69 +569,3 @@ actor LiteRTLMRuntime: LLMRuntime {
         isAccessingSecurityScopedModel = false
     }
 }
-
-#if canImport(LiteRTLM) || canImport(CLiteRTLM)
-extension LiteRTLMRuntime: NativeToolProposalGenerating {
-    func generateFunctionCall(
-        _ request: NativeToolGenerationRequest
-    ) async throws -> NativeToolFunctionCall {
-        guard currentState != .generating else {
-            throw RuntimeError.runtimeBusy
-        }
-        guard let engine else {
-            throw RuntimeError.modelNotPrepared
-        }
-
-        currentState = .generating
-        do {
-            try await LiteRTLMNativeToolCallCapture.shared.begin(
-                expectedTool: request.selectedTool
-            )
-            let sampling = slmConfiguration.generation
-                .deterministicSampling
-            let sampler = try SamplerConfig(
-                topK: sampling.samplerTopK,
-                topP: sampling.topP,
-                temperature: sampling.temperature
-            )
-            let configuration = ConversationConfig(
-                systemMessage: Message(
-                    request.systemPrompt,
-                    role: .system
-                ),
-                tools: [
-                    LiteRTLMNativeToolFactory.makeTool(
-                        for: request.selectedTool
-                    ),
-                ],
-                samplerConfig: sampler,
-                filterChannelContentFromKVCache: true,
-                maxOutputTokens: slmConfiguration.generation
-                    .maxOutputTokens
-            )
-            let toolConversation = try await engine.createConversation(
-                with: configuration
-            )
-            _ = try await toolConversation.sendMessage(
-                Message(request.userMessage),
-                extraContext: [
-                    "enable_thinking": request.reasoningEnabled,
-                ]
-            )
-            let call = try await LiteRTLMNativeToolCallCapture.shared.finish()
-            currentState = .ready
-            return call
-        } catch {
-            if let call = try? await
-                LiteRTLMNativeToolCallCapture.shared.finish()
-            {
-                currentState = .ready
-                return call
-            }
-            await LiteRTLMNativeToolCallCapture.shared.cancel()
-            currentState = .ready
-            throw error
-        }
-    }
-}
-#endif

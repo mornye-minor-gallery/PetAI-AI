@@ -26,6 +26,13 @@ def resolve_run(value):
 def parser():
     result = argparse.ArgumentParser(description="Swift 공유 코어 기반 캐릭터 이름 평가")
     commands = result.add_subparsers(dest="command", required=True)
+    world = commands.add_parser("world-info", help="공유 Swift 코어로 원본 로어북 조회·편집; 추론 없음")
+    world.add_argument("action", choices=("inspect", "export", "upsert", "remove"))
+    world.add_argument("--book", required=True)
+    world.add_argument("--name", required=True)
+    world.add_argument("--entry", help="정규화된 WorldInfoEntry JSON 파일")
+    world.add_argument("--entry-id")
+    world.add_argument("--output", help="원본 형식 JSON 저장; 기존 파일 덮어쓰기 금지")
     commands.add_parser("build", help="Swift 평가 실행부 빌드")
     doctor = commands.add_parser("doctor", help="모델·Swift·Codex·LiteRT-LM 점검")
     doctor.add_argument("--probe", action="store_true", help="Gemma와 Luna 실제 호출 포함")
@@ -39,7 +46,9 @@ def parser():
     start.add_argument("--timeout", type=int)
     validation = commands.add_parser("validate", help="YAML·JSONL·채점 기준을 모델 호출 없이 검증")
     validation.add_argument("--config", default=str(default_config_path()))
-    for command in (doctor, start):
+    measurement = commands.add_parser("measure-context", help="Swift 입력 조립과 토큰 계측만 수행; 추론·채점 없음")
+    measurement.add_argument("--config", default=str(default_config_path()))
+    for command in (doctor, start, measurement):
         command.add_argument("--model")
         command.add_argument("--litert-python")
         command.add_argument("--codex", default="codex")
@@ -57,7 +66,10 @@ def parser():
 def main():
     args = parser().parse_args()
     try:
-        if args.command == "build":
+        if args.command == "world-info":
+            from .world_info import control
+            emit(control(args))
+        elif args.command == "build":
             emit({"swift_worker": str(build(repository()))})
         elif args.command == "doctor":
             report = inspect_environment(args.model, args.litert_python, args.codex, args.probe,
@@ -67,6 +79,9 @@ def main():
             else:
                 print(render_doctor(report, color=supports_color(sys.stdout)))
             return 0 if report["ready"] else 1
+        elif args.command == "measure-context":
+            from .context_measure import measure_context
+            emit(measure_context(args.config, args.model, args.litert_python, args.codex))
         elif args.command == "validate":
             plan = load_plan(args.config)
             emit({"valid": True, "config": str(plan.config_path), "cases": len(plan.cases),

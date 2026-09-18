@@ -1,19 +1,19 @@
 public struct SLMConfiguration: Equatable, Sendable {
     public struct Memory: Equatable, Sendable {
         public let recallLimit: Int
-        public let promptTokenBudget: Int
+        public let promptByteBudget: Int
         public let minimumSimilarity: Float
 
         public init(
             recallLimit: Int,
-            promptTokenBudget: Int,
+            promptByteBudget: Int,
             minimumSimilarity: Float
         ) {
             precondition(recallLimit > 0)
-            precondition(promptTokenBudget > 0)
+            precondition(promptByteBudget > 0)
             precondition((-1...1).contains(minimumSimilarity))
             self.recallLimit = recallLimit
-            self.promptTokenBudget = promptTokenBudget
+            self.promptByteBudget = promptByteBudget
             self.minimumSimilarity = minimumSimilarity
         }
     }
@@ -96,6 +96,9 @@ public struct SLMConfiguration: Equatable, Sendable {
     public let persona: Persona
     public let diagnostics: Diagnostics
     public let runtimeSafety: RuntimeSafety
+    public let dialogueBudget: DialogueTokenBudget
+    public let authorsNote: AuthorsNoteSettings?
+    public let worldInfo: WorldInfoSettings?
 
     public init(
         id: String,
@@ -103,7 +106,10 @@ public struct SLMConfiguration: Equatable, Sendable {
         generation: Generation,
         persona: Persona,
         diagnostics: Diagnostics,
-        runtimeSafety: RuntimeSafety
+        runtimeSafety: RuntimeSafety,
+        dialogueBudget: DialogueTokenBudget = .production,
+        authorsNote: AuthorsNoteSettings? = nil,
+        worldInfo: WorldInfoSettings? = nil
     ) {
         precondition(!id.isEmpty)
         self.id = id
@@ -112,6 +118,9 @@ public struct SLMConfiguration: Equatable, Sendable {
         self.persona = persona
         self.diagnostics = diagnostics
         self.runtimeSafety = runtimeSafety
+        self.dialogueBudget = dialogueBudget
+        self.authorsNote = authorsNote
+        self.worldInfo = worldInfo
     }
 }
 
@@ -120,7 +129,7 @@ public extension SLMConfiguration {
         id: "petai-slm-v1",
         memory: Memory(
             recallLimit: 10,
-            promptTokenBudget: 10_000,
+            promptByteBudget: 10_000,
             minimumSimilarity: 0.3
         ),
         generation: Generation(
@@ -139,7 +148,8 @@ public extension SLMConfiguration {
             routerThinkingEnabled: false,
             toolReasoningEnabled: false
         ),
-        persona: Persona(recentMessageLimit: 6),
+        // Each user/assistant message counts separately: 20 messages retain 10 exchanges.
+        persona: Persona(recentMessageLimit: 20),
         diagnostics: Diagnostics(telemetryCandidateCount: 8),
         runtimeSafety: RuntimeSafety(cancellationTimeoutSeconds: 10)
     )

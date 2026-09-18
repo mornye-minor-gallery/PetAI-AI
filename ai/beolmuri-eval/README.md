@@ -7,6 +7,56 @@ status:: active
 실행한다. Python은 실행 관리, LiteRT-LM 연결, Codex CLI 채점과 수치 집계를
 담당한다. Unity를 실행하거나 제품의 대화 로직을 Python으로 재작성하지 않는다.
 
+## 공용 프롬프트 조립
+
+앱과 평가 워커는 `ios/EdgeLLM/Sources/EdgeLLM/Dialogue`의
+`DialoguePromptComposer.prepare`를 호출한다. 입력은 캐릭터 자료·프로필·이력·검색 기억·현재 발화이며,
+`DialoguePromptPolicy`가 기존 페르소나 설정과 이름 지시 배치를 결정한다.
+`system`, `before-current`, `after-current` 모두 같은 Swift 구현을 사용한다.
+워커는 고정 자료를 공급하며 완성된 문자열을 잘라 이름 지시를 삽입하지 않는다.
+
+`prepare` 결과의 `prompt_trace`에는 실제 시스템·사용자 항목 순서, 입력 바이트 수,
+기억별 포함·제외 이유가 들어간다. 기본 YAML은 아래 토큰 예산을 사용한다.
+`prompt_budget`이 없는 기존 연구 YAML은 UTF-8 바이트 예산으로 재현한다.
+실제 이력 유지·기억 검색·도구 실행·응답 저장은 조립기가 수행하지 않는다.
+
+기존 입력과의 일치는 `ios/EdgeLLM/Tests/EdgeLLMTests/Resources/dialogue-prompt-baseline.json`의
+24개 고정 입력과 조립 전 워커 출력의 SHA-256으로 검증한다. Swift 계약 테스트와
+`tests/test_prompt_composer.py`가 공용 조립기와 워커 양쪽을 확인한다.
+이 검증은 프롬프트 일치를 확인하며 대화 품질이나 iPhone 실행을 증명하지 않는다.
+
+## 실제 토큰 기반 입력 준비
+
+기본 `configs/name-identity.yaml`의 초기 설정:
+
+```yaml
+runtime:
+  max_num_tokens: 8096
+prompt_budget:
+  memory_tokens: 2048
+  output_tokens: 1024
+```
+
+기억 구역은 헤더까지 포함해 최대 2,048토큰이며, 전체 입력 최대 7,072 안에
+포함된다. 현재 발화·이력·노트 등 모든 입력과 네이티브 템플릿을 합쳐 확인하고
+출력 1,024토큰을 확보하지 못하면 오류로 중단한다. 품질 튜닝 전 시작값이다.
+`runtime.max_num_tokens`를 명시해야 하며 출력 예약량은 실제 생성 상한에도 적용한다.
+
+Swift의 공용 Composer가 기억을 선택한다. Python `prompt_prepare`는 Swift 워커의
+측정 요청만 네이티브 토크나이저로 전달한다. 최종 입력 측정은 생성과 같은 thinking
+설정의 임시 conversation을 사용한다. 실패하면 바이트 계산으로 대체하지 않는다.
+재시도는 현재 KV까지 포함해 출력 공간을 다시 검사한다.
+
+결과의 `input.prompt_trace.tokenBudget`에 전체 입력·기억 사용량·출력 예약량·남은
+문맥 공간을 저장한다. `sections`에는 캐릭터·장면·프로필·이력·기억·현재 발화·노트
+등의 독립 토큰 수가 있다. 이 값을 단순 합산해 최종 입력 토큰 수로 해석하지 않는다.
+`measure-context` 결과에도 같은 trace를 포함한다. 본문은 기존 prepared 결과로 확인한다.
+
+기존 실험 YAML의 예산과 출력 상한은 유지한다. `prompt_budget`을 추가하면 새 토큰
+선택 경로가 되므로 새 run으로 시작해야 한다. 서로 다른 예산을 같은 프롬프트 조건의
+결과로 비교하지 않도록 manifest에 예산을 기록하고 비교 시 일치를 검사한다.
+
+
 ## 실행 범위
 
 초안은 **단일 턴, GENERAL 장면 고정, 빈 기억, 빈 대화 이력**을 사용한다.
@@ -256,3 +306,91 @@ LiteRT-LM의 Python conversation API에는 출력 토큰 제한 인자가 없어
 채점은 단순 이름 언급과 명확한 자기 이름 정정을 구분한다. 보정 전 예비
 수치를 새 기준의 수치와 합산하지 않는다. 공개 가능한 합성 증거를 내보낼 때는
 실험 폴더의 `export.py`를 사용하며, 로컬 경로와 CLI 세션 로그는 제외한다.
+
+### Author’s Note 설정
+
+기존 YAML의 원하는 variant 안에 `authorsNote`를 추가한다. 아래 문구는 연결 예시이며
+품질 검증을 거친 지시가 아니다. 다른 variant와 동일한 이력·기억·샘플러를 유지하면
+노트 위치와 주기를 독립적으로 비교할 수 있다.
+
+```yaml
+    authorsNote:
+      defaults:
+        text: "엘레나의 말투를 유지하면서 사용자의 질문에 답한다."
+        interval: 1
+        position: in-chat
+        depth: 1
+        role: system
+      allowWorldInfoScan: false
+```
+
+`chat`으로 개별 필드를 재정의하고, `character: {text: "...", enabled: true, mode: before}`로
+캐릭터별 본문을 합성할 수 있다. 위치는 `in-chat`, `before-system`, `after-system`이다.
+`in-chat` 깊이 0은 현재 발화 뒤, 1은 앞이다. 시스템 역할은 요청 메타데이터이며,
+이력 중간 노트는 실제 LiteRT-LM 사용자 문자열에 들어간다.
+
+`beolmuri-eval validate --config <설정.yaml>`으로 설정을 검사하고,
+`beolmuri-eval measure-context --config <설정.yaml>`으로 추론 없이 최종 입력과 토큰을
+확인한다. 측정에는 배포 모델과 네이티브 토크나이저가 필요하다.
+`prompt_trace.authorsNote`의 상태·누적 사용자 번호와 `insertions`의 위치·실제 역할을
+확인할 수 있다. 노트를 켜도 전체 입력·출력 예산은 그대로 적용되며, 초과하면 노트를
+몰래 제거하지 않고 오류를 반환한다. 설정과 추적은 실행 기록에 함께 저장된다.
+
+### World Info 설정
+
+토큰 예산을 켠 평가 YAML의 variant 안에 `worldInfo`를 추가한다. 다음은 합성 자료를
+이용한 연결 예시이며 품질 튜닝 값이 아니다. 기존 데이터셋·이력·기억 파일은 그대로 쓸 수 있다.
+
+```yaml
+    worldInfo:
+      tokenBudget: 512
+      scanDepth: 2
+      includeNames: false
+      entries:
+        - id: cafe
+          keys: [카페]
+          secondaryKeys: [서울, 산책]
+          secondaryLogic: AND_ANY
+          content: "별빛 카페는 마을 중앙에 있다."
+          order: 100
+          position: after-character
+        - id: cafe-note
+          keys: [카페]
+          content: "카페 설명은 지금 질문에 필요한 만큼만 사용한다."
+          position: before-note
+```
+
+`worldInfo`에는 실제 토크나이저를 연결하는 상위 `prompt_budget`과 `runtime` 설정이
+필요하다. 기존 바이트 실험에 WI만 추가하면 검증 오류가 발생한다. 주기·깊이는 같은
+variant의 `authorsNote`로 조절한다. 노트 설정이 없으면 빈 기본 노트를 사용한다.
+자료는 실행 manifest와 설정 스냅샷에 보존된다.
+
+`validate --config <설정.yaml>`은 설정 형식과 토큰 경로 유무를 검사한다.
+`measure-context --config <설정.yaml>`은 공용 Swift 선택·합성과 최종 입력 계측을
+추론 없이 수행한다. `prompt_trace.worldInfo`에서 선택/제외 이유와 실제 삽입 여부를
+확인한다. 세부 자료 검증(중복 ID, 미지원 키 구문 등)은 Swift 준비 단계에서도 수행한다.
+지원 범위와 예산 경계는 `ios/EdgeLLM/README.md`의 World Info 절을 따른다.
+
+### World Info 고급 선택과 원본 파일 조작
+
+`worldInfo.rules`에서 재귀·최소 활성화·최대 반복·그룹 점수·비율 예산을 설정하고,
+각 항목의 `rules`에서 그룹/확률/기간/필터/깊이/아웃렛을 설정한다.
+예: `rules: {recursive: true, maximumSteps: 10}`,
+항목에는 `rules: {sticky: 4, cooldown: 2, probability: 80}`.
+설정 필드는 스키마가 정본이며 지원 범위와 원본 차이는 `ios/EdgeLLM/README.md`에 있다.
+
+원본 로어북 조작은 추론 없이 공용 Swift 코어를 호출한다.
+
+```sh
+beolmuri-eval build
+beolmuri-eval world-info inspect --book lorebook.json --name village
+beolmuri-eval world-info upsert --book lorebook.json --name village --entry entry.json --output edited.json
+beolmuri-eval world-info remove --book lorebook.json --name village --entry-id village.3 --output removed.json
+beolmuri-eval world-info export --book lorebook.json --name village --output exported.json
+```
+
+`entry.json`은 정규화된 WorldInfoEntry 객체다. 기존 파일은 덮어쓰지 않는다.
+원본 주석·메타데이터는 보존하며 지원하지 않는 실행 필드는 오류로 알린다.
+평가 worker의 `prepare`는 선택적인 worldInfoContext/worldInfoState/worldInfoText/exampleDialogue를
+받고 다음 상태인 world_info_transaction을 반환한다. 벡터 검색 평가는 명시적인 검색 결과
+fixture를 요구한다. 앱의 로컬 임베딩 실행과 fixture 기반 선택 검증을 혼동하지 않는다.

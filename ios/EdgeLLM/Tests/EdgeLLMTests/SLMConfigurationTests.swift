@@ -8,7 +8,7 @@ func productionSLMConfigurationKeepsProductTuningInOnePlace() {
 
     #expect(configuration.id == "petai-slm-v1")
     #expect(configuration.memory.recallLimit == 10)
-    #expect(configuration.memory.promptTokenBudget == 10_000)
+    #expect(configuration.memory.promptByteBudget == 10_000)
     #expect(configuration.memory.minimumSimilarity == 0.3)
     #expect(configuration.generation.responseSampling.temperature == 0.7)
     #expect(configuration.generation.responseSampling.samplerTopK == 40)
@@ -18,7 +18,7 @@ func productionSLMConfigurationKeepsProductTuningInOnePlace() {
     #expect(!configuration.generation.responseThinkingDefault)
     #expect(!configuration.generation.routerThinkingEnabled)
     #expect(!configuration.generation.toolReasoningEnabled)
-    #expect(configuration.persona.recentMessageLimit == 6)
+    #expect(configuration.persona.recentMessageLimit == 20)
     #expect(configuration.diagnostics.telemetryCandidateCount == 8)
     #expect(configuration.runtimeSafety.cancellationTimeoutSeconds == 10)
 }

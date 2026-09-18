@@ -250,7 +250,7 @@ struct ContentView: View {
             let generationPrompt = MemoryPromptBuilder.build(
                 userMessage: userMessage,
                 memories: memories,
-                tokenBudget: slmConfiguration.memory.promptTokenBudget
+                tokenBudget: slmConfiguration.memory.promptByteBudget
             )
 
             do {

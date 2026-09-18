@@ -1,5 +1,6 @@
 """Deterministic metrics over validated judgments, never model-generated scores."""
 from collections import Counter
+import statistics
 
 LABELS = ("identity_maintained", "explicit_acceptance", "uncorrected_response", "unjudgeable")
 
@@ -15,6 +16,13 @@ def indexed(records):
 
 def percentage(numerator, denominator):
     return round(100 * numerator / denominator, 3) if denominator else None
+
+
+def numeric_summary(values):
+    values = [value for value in values if value is not None]
+    return {"measured": len(values), "min": min(values) if values else None,
+            "max": max(values) if values else None,
+            "mean": statistics.mean(values) if values else None}
 
 
 def summarize(records, planned):

@@ -1,0 +1,719 @@
+{
+  "repository": "https://github.com/SillyTavern/SillyTavern",
+  "revision": "06bde939fb1e9c4c8d8641d810f0a916b5bce127",
+  "cases": [
+    {
+      "id": "period-0-0",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 0
+        }
+      },
+      "userMessages": 0,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": true,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 0
+      }
+    },
+    {
+      "id": "period-0-1",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 0
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": true,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 0
+      }
+    },
+    {
+      "id": "period-0-2",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 0
+        }
+      },
+      "userMessages": 2,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": true,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 0
+      }
+    },
+    {
+      "id": "period-0-3",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 0
+        }
+      },
+      "userMessages": 3,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": true,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 0
+      }
+    },
+    {
+      "id": "period-0-4",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 0
+        }
+      },
+      "userMessages": 4,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": true,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 0
+      }
+    },
+    {
+      "id": "period-0-6",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 0
+        }
+      },
+      "userMessages": 6,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": true,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 0
+      }
+    },
+    {
+      "id": "period-0-12",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 0
+        }
+      },
+      "userMessages": 12,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": true,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 0
+      }
+    },
+    {
+      "id": "period-1-0",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 1
+        }
+      },
+      "userMessages": 0,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "period-1-1",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 1
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "period-1-2",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 1
+        }
+      },
+      "userMessages": 2,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "period-1-3",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 1
+        }
+      },
+      "userMessages": 3,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "period-1-4",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 1
+        }
+      },
+      "userMessages": 4,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "period-1-6",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 1
+        }
+      },
+      "userMessages": 6,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "period-1-12",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 1
+        }
+      },
+      "userMessages": 12,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "period-3-0",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 3
+        }
+      },
+      "userMessages": 0,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": true,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 3
+      }
+    },
+    {
+      "id": "period-3-1",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 3
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 3
+      }
+    },
+    {
+      "id": "period-3-2",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 3
+        }
+      },
+      "userMessages": 2,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 3
+      }
+    },
+    {
+      "id": "period-3-3",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 3
+        }
+      },
+      "userMessages": 3,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 3
+      }
+    },
+    {
+      "id": "period-3-4",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 3
+        }
+      },
+      "userMessages": 4,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 3
+      }
+    },
+    {
+      "id": "period-3-6",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 3
+        }
+      },
+      "userMessages": 6,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 3
+      }
+    },
+    {
+      "id": "period-3-12",
+      "settings": {
+        "defaults": {
+          "text": "노트",
+          "interval": 3
+        }
+      },
+      "userMessages": 12,
+      "expected": {
+        "text": "노트",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 3
+      }
+    },
+    {
+      "id": "defaults",
+      "settings": {},
+      "userMessages": 1,
+      "expected": {
+        "text": "",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "chat-precedence",
+      "settings": {
+        "defaults": {
+          "text": "전역",
+          "interval": 3,
+          "depth": 4,
+          "position": "before-system",
+          "role": "assistant"
+        },
+        "chat": {
+          "text": "대화",
+          "interval": 1,
+          "depth": 0,
+          "position": "in-chat",
+          "role": "user"
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "대화",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 0,
+        "role": "user",
+        "interval": 1
+      }
+    },
+    {
+      "id": "empty-override",
+      "settings": {
+        "defaults": {
+          "text": "전역"
+        },
+        "chat": {
+          "text": ""
+        },
+        "allowWorldInfoScan": true
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "character-replace-false",
+      "settings": {
+        "defaults": {
+          "text": "기본"
+        },
+        "character": {
+          "text": "캐릭터",
+          "mode": "replace",
+          "enabled": false
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "기본",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "character-replace-true",
+      "settings": {
+        "defaults": {
+          "text": "기본"
+        },
+        "character": {
+          "text": "캐릭터",
+          "mode": "replace",
+          "enabled": true
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "캐릭터",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "character-before-false",
+      "settings": {
+        "defaults": {
+          "text": "기본"
+        },
+        "character": {
+          "text": "캐릭터",
+          "mode": "before",
+          "enabled": false
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "기본",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "character-before-true",
+      "settings": {
+        "defaults": {
+          "text": "기본"
+        },
+        "character": {
+          "text": "캐릭터",
+          "mode": "before",
+          "enabled": true
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "캐릭터\n기본",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "character-after-false",
+      "settings": {
+        "defaults": {
+          "text": "기본"
+        },
+        "character": {
+          "text": "캐릭터",
+          "mode": "after",
+          "enabled": false
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "기본",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "character-after-true",
+      "settings": {
+        "defaults": {
+          "text": "기본"
+        },
+        "character": {
+          "text": "캐릭터",
+          "mode": "after",
+          "enabled": true
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "기본\n캐릭터",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    },
+    {
+      "id": "character-not-due",
+      "settings": {
+        "defaults": {
+          "text": "기본",
+          "interval": 3
+        },
+        "character": {
+          "text": "캐릭터",
+          "enabled": true
+        }
+      },
+      "userMessages": 2,
+      "expected": {
+        "text": "",
+        "active": false,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 3
+      }
+    },
+    {
+      "id": "character-empty-base",
+      "settings": {
+        "character": {
+          "text": "캐릭터",
+          "enabled": true,
+          "mode": "before"
+        }
+      },
+      "userMessages": 1,
+      "expected": {
+        "text": "캐릭터\n",
+        "active": true,
+        "disabled": false,
+        "position": "in-chat",
+        "depth": 4,
+        "role": "system",
+        "interval": 1
+      }
+    }
+  ],
+  "depths": [
+    {
+      "depth": 0,
+      "order": [
+        "사용자1",
+        "답변1",
+        "사용자2",
+        "답변2",
+        "현재질문",
+        "노트"
+      ]
+    },
+    {
+      "depth": 1,
+      "order": [
+        "사용자1",
+        "답변1",
+        "사용자2",
+        "답변2",
+        "노트",
+        "현재질문"
+      ]
+    },
+    {
+      "depth": 2,
+      "order": [
+        "사용자1",
+        "답변1",
+        "사용자2",
+        "노트",
+        "답변2",
+        "현재질문"
+      ]
+    },
+    {
+      "depth": 4,
+      "order": [
+        "사용자1",
+        "노트",
+        "답변1",
+        "사용자2",
+        "답변2",
+        "현재질문"
+      ]
+    },
+    {
+      "depth": 5,
+      "order": [
+        "노트",
+        "사용자1",
+        "답변1",
+        "사용자2",
+        "답변2",
+        "현재질문"
+      ]
+    },
+    {
+      "depth": 99,
+      "order": [
+        "노트",
+        "사용자1",
+        "답변1",
+        "사용자2",
+        "답변2",
+        "현재질문"
+      ]
+    }
+  ]
+}

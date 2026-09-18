@@ -99,8 +99,8 @@ func routedPersonaSessionContextKeepsOnlyVisibleConversation() {
     context.appendExchange(userMessage: "둘째 질문", assistantMessage: "둘째 답변")
     context.appendExchange(userMessage: "셋째 질문", assistantMessage: "셋째 답변")
 
-    let input = context.responseInput(
-        memoryAugmentedUserMessage: "마지막 질문"
+    let input = DialoguePromptRenderer.historyInput(history: context.turns,
+        currentText: "마지막 질문"
     )
     #expect(!input.contains("첫 질문"))
     #expect(!input.contains("첫 답변"))
@@ -109,4 +109,18 @@ func routedPersonaSessionContextKeepsOnlyVisibleConversation() {
     #expect(input.contains("캐릭터: 셋째 답변"))
     #expect(input.contains("현재 사용자 입력과 회수 기억\n마지막 질문"))
     #expect(!input.contains("BOUNDARY"))
+}
+
+@Test
+func productionSessionRetainsTenCompleteExchanges() {
+    var context = RoutedPersonaSessionContext()
+    for index in 1...12 {
+        context.appendExchange(userMessage: "질문 \(index)", assistantMessage: "답변 \(index)")
+    }
+    #expect(context.turns.count == 20)
+    #expect(context.turns.first == .init(role: .user, text: "질문 3"))
+    #expect(context.turns.last == .init(role: .assistant, text: "답변 12"))
+    let input = DialoguePromptRenderer.historyInput(history: context.turns, currentText: "현재 질문")
+    #expect(input.contains("사용자: 질문 3\n캐릭터: 답변 3"))
+    #expect(!input.contains("사용자: 질문 2\n"))
 }

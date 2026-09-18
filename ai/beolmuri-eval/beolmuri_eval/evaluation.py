@@ -92,6 +92,13 @@ class EvaluationPlan:
     timeout_seconds: int
     judge: dict
     files: dict
+    history: list
+    memories: list
+    max_num_tokens: int
+
+    @property
+    def prompt_budget(self):
+        return self.document.get("prompt_budget")
 
     def snapshot(self, directory):
         inputs = Path(directory) / "inputs"
@@ -113,6 +120,9 @@ def load_plan(path=None, *, variant=None, repeats=None, limit_pairs=None, timeou
     except (yaml.YAMLError, ValueError) as error:
         raise ValueError(f"{path}: {error}") from error
     validate(document, json.loads(schema_path("evaluation.schema.json").read_text()), path)
+    if "prompt_budget" in document:
+        if "runtime" not in document or document["prompt_budget"]["output_tokens"] >= document["runtime"]["max_num_tokens"]:
+            raise ValueError("prompt_budget requires explicit runtime capacity greater than output reservation")
     selected = variant if variant is not None else document["run"]["variant"]
     if selected not in document["variants"]:
         raise ValueError(f"{path}: unknown variant {selected!r}; choose {', '.join(document['variants'])}")
@@ -147,16 +157,45 @@ def load_plan(path=None, *, variant=None, repeats=None, limit_pairs=None, timeou
         raise ValueError("judge rubric must not be empty")
     judge = {k: document["judge"][k] for k in ("provider", "model", "reasoning_effort")}
     judge.update(rubric=rubric.decode("utf-8"), output_schema=output_schema)
-    return EvaluationPlan(path, document, cases, selected, document["variants"][selected], repeat_count,
-                          seconds, judge, {"config.yaml": (path, raw), "dataset.jsonl": (data_path, data),
-                                           "judge.md": (rubric_path, rubric), "judge.schema.json": (judge_schema_path, schema_bytes)})
+    configuration = dict(document["variants"][selected])
+    if "worldInfo" in configuration and "prompt_budget" not in document:
+        raise ValueError("worldInfo requires prompt_budget and the native tokenizer path")
+    history_file = configuration.pop("history_file", None)
+    history = []
+    files = {"config.yaml": (path, raw), "dataset.jsonl": (data_path, data),
+             "judge.md": (rubric_path, rubric), "judge.schema.json": (judge_schema_path, schema_bytes)}
+    if history_file is not None:
+        history_path = resolve(history_file)
+        history_bytes = history_path.read_bytes()
+        history = json.loads(history_bytes, object_pairs_hook=unique_fields)
+        if not isinstance(history, list) or not history:
+            raise ValueError(f"{history_path}: history must be a nonempty list of exchanges")
+        for exchange in history:
+            if (not isinstance(exchange, dict) or set(exchange) != {"user", "assistant"}
+                    or any(not isinstance(text, str) or not text.strip() for text in exchange.values())):
+                raise ValueError(f"{history_path}: each exchange requires nonempty user and assistant text")
+        files["history.json"] = (history_path, history_bytes)
+    memories_file = configuration.pop("memories_file", None)
+    memories = []
+    if memories_file is not None:
+        memory_path = resolve(memories_file)
+        memory_bytes = memory_path.read_bytes()
+        memories = json.loads(memory_bytes, object_pairs_hook=unique_fields)
+        if (not isinstance(memories, list) or not 1 <= len(memories) <= 10
+                or any(not isinstance(text, str) or not text.strip() for text in memories)):
+            raise ValueError(f"{memory_path}: memories must contain 1–10 nonempty strings in retrieval rank order")
+        files["memories.json"] = (memory_path, memory_bytes)
+    return EvaluationPlan(path, document, cases, selected, configuration, repeat_count,
+                          seconds, judge, files, history, memories,
+                          document.get("runtime", {}).get("max_num_tokens", 4096))
 
 
 def verify_snapshot(directory, metadata):
-    if set(metadata) != {"config.yaml", "dataset.jsonl", "judge.md", "judge.schema.json"}:
+    required = {"config.yaml", "dataset.jsonl", "judge.md", "judge.schema.json"}
+    if not required.issubset(metadata):
         raise ValueError("run input snapshot is incomplete")
     for name, expected in metadata.items():
-        if name not in {"config.yaml", "dataset.jsonl", "judge.md", "judge.schema.json"}:
+        if name not in required | {"history.json", "memories.json"}:
             raise ValueError("unknown snapshot entry")
         actual = hashlib.sha256((Path(directory) / "inputs" / name).read_bytes()).hexdigest()
         if actual != expected["sha256"]:

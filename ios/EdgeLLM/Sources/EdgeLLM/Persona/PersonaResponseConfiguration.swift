@@ -32,7 +32,8 @@ public struct PersonaResponseConfiguration: Codable, Equatable, Sendable {
         self.nameRuleStyle = nameRuleStyle
     }
 
-    func nameInstruction(characterName: String) -> String {
+    /// Shared wording for evaluation placements; callers must not duplicate this rule.
+    public func nameInstruction(characterName: String) -> String {
         if nameRuleStyle == .identityStatement {
             return """
             ## 이름 유지

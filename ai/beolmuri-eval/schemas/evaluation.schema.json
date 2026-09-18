@@ -80,6 +80,54 @@
               "identity-statement",
               "response-action"
             ]
+          },
+          "history_file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "memories_file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authorsNote": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "defaults": {
+                "$ref": "#/$defs/authorsNoteOptions"
+              },
+              "chat": {
+                "$ref": "#/$defs/authorsNoteOptions"
+              },
+              "allowWorldInfoScan": {
+                "type": "boolean"
+              },
+              "character": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "mode": {
+                    "enum": [
+                      "replace",
+                      "before",
+                      "after"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "worldInfo": {
+            "$ref": "#/$defs/worldInfo"
           }
         },
         "required": [
@@ -119,6 +167,40 @@
         "rubric",
         "schema"
       ]
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_num_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "max_num_tokens"
+      ]
+    },
+    "prompt_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "memory_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "memory_tokens",
+        "output_tokens"
+      ]
     }
   },
   "required": [
@@ -128,5 +210,393 @@
     "run",
     "variants",
     "judge"
-  ]
+  ],
+  "$defs": {
+    "authorsNoteOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "position": {
+          "enum": [
+            "before-system",
+            "after-system",
+            "in-chat"
+          ]
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "role": {
+          "enum": [
+            "system",
+            "user",
+            "assistant"
+          ]
+        }
+      }
+    },
+    "worldInfoEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content": {
+          "type": "string"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "secondaryKeys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "secondaryLogic": {
+          "enum": [
+            "AND_ANY",
+            "AND_ALL",
+            "NOT_ANY",
+            "NOT_ALL"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "constant": {
+          "type": "boolean"
+        },
+        "ignoreBudget": {
+          "type": "boolean"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "position": {
+          "enum": [
+            "before-character",
+            "after-character",
+            "before-note",
+            "after-note",
+            "in-chat",
+            "before-examples",
+            "after-examples",
+            "outlet"
+          ]
+        },
+        "scanDepth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "caseSensitive": {
+          "type": "boolean"
+        },
+        "matchWholeWords": {
+          "type": "boolean"
+        },
+        "rules": {
+          "$ref": "#/$defs/worldInfoEntryRules"
+        }
+      }
+    },
+    "worldInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tokenBudget",
+        "entries"
+      ],
+      "properties": {
+        "tokenBudget": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/worldInfoEntry"
+          }
+        },
+        "scanDepth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "includeNames": {
+          "type": "boolean"
+        },
+        "caseSensitive": {
+          "type": "boolean"
+        },
+        "matchWholeWords": {
+          "type": "boolean"
+        },
+        "rules": {
+          "$ref": "#/$defs/worldInfoScanRules"
+        },
+        "library": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "books",
+            "global",
+            "characters",
+            "strategy"
+          ],
+          "properties": {
+            "books": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "global": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "chat": {
+              "type": "string"
+            },
+            "persona": {
+              "type": "string"
+            },
+            "strategy": {
+              "enum": [
+                "even",
+                "characterFirst",
+                "globalFirst"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "worldInfoScanRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recursive": {
+          "type": "boolean"
+        },
+        "groupScoring": {
+          "type": "boolean"
+        },
+        "maximumSteps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "minimumActivations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "maximumDepth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "budgetCap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "budgetPercent": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        },
+        "vector": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "queryMessages": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "maximumEntries": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "threshold": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "queryMessages",
+            "maximumEntries",
+            "threshold"
+          ]
+        }
+      }
+    },
+    "worldInfoEntryRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "excludeRecursion": {
+          "type": "boolean"
+        },
+        "preventRecursion": {
+          "type": "boolean"
+        },
+        "groupOverride": {
+          "type": "boolean"
+        },
+        "groupScoring": {
+          "type": "boolean"
+        },
+        "excludeCharacters": {
+          "type": "boolean"
+        },
+        "vectorized": {
+          "type": "boolean"
+        },
+        "delayUntilRecursion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "sticky": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "cooldown": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "delay": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "characterNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "characterTags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scanFields": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "personaDescription",
+              "characterDescription",
+              "characterPersonality",
+              "characterDepthPrompt",
+              "scenario",
+              "creatorNotes"
+            ]
+          }
+        },
+        "probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "groupWeight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "role": {
+          "enum": [
+            "system",
+            "user",
+            "assistant"
+          ]
+        },
+        "outlet": {
+          "type": "string"
+        },
+        "automationID": {
+          "type": "string"
+        },
+        "replacements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "pattern": {
+                "type": "string"
+              },
+              "replacement": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pattern",
+              "replacement"
+            ]
+          }
+        }
+      }
+    }
+  }
 }

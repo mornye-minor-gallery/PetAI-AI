@@ -23,7 +23,7 @@ extension RuntimeError: LocalizedError {
         case .conversationNotStarted:
             "A conversation has not been started."
         case .runtimeBusy:
-            "The runtime is already generating a response."
+            "The runtime is busy preparing input or generating a response."
         case .emptyPrompt:
             "The prompt must not be empty."
         case .generationCancelled:
