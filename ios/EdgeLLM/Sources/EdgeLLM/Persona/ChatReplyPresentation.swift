@@ -7,6 +7,7 @@ public struct ChatReplyPresentation: Codable, Equatable, Sendable {
     public let source: String
     public let kind: String
     public let face: String
+    public var memory: ChatMemoryCandidate? = nil
 
     private init(kind: String, face: String) {
         schemaVersion = 1

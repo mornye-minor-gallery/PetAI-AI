@@ -258,7 +258,8 @@ actor LiteRTLMRuntime: LLMRuntime {
         systemPrompt: String,
         userMessage: String,
         sampling: SLMConfiguration.Sampling? = nil,
-        thinkingEnabled: Bool? = nil
+        thinkingEnabled: Bool? = nil,
+        maxOutputTokens: Int? = nil
     ) async throws -> String {
         let normalizedSystemPrompt = systemPrompt.trimmingCharacters(
             in: .whitespacesAndNewlines
@@ -297,12 +298,12 @@ actor LiteRTLMRuntime: LLMRuntime {
                 ),
                 samplerConfig: sampler,
                 filterChannelContentFromKVCache: true,
-                maxOutputTokens: slmConfiguration.generation
-                    .maxOutputTokens
+                maxOutputTokens: maxOutputTokens ?? slmConfiguration.generation.maxOutputTokens
             )
             let routeConversation = try await engine.createConversation(
                 with: configuration
             )
+            try Task.checkCancellation()
             isolatedConversation = routeConversation
             let response = try await routeConversation.sendMessage(
                 Message(normalizedUserMessage),
