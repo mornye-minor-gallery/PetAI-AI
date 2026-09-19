@@ -65,6 +65,11 @@
 			path = EdgeLLMLabUITests;
 			sourceTree = "<group>";
 		};
+		BEE1000030135A00006F4D84 /* ResourceBench */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ../ResourceBench/Sources/ResourceBench;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +103,7 @@
 		0C25E88D301359C8006F4D84 = {
 			isa = PBXGroup;
 			children = (
+				BEE1000030135A00006F4D84 /* ResourceBench */,
 				0C25E898301359C8006F4D84 /* EdgeLLMLab */,
 				0C25E8A6301359C9006F4D84 /* EdgeLLMLabTests */,
 				0C25E8B0301359C9006F4D84 /* EdgeLLMLabUITests */,
@@ -140,6 +146,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				BEE1000030135A00006F4D84 /* ResourceBench */,
 				0C25E898301359C8006F4D84 /* EdgeLLMLab */,
 			);
 			name = EdgeLLMLab;

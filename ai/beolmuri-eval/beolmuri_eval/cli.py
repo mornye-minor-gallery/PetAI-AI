@@ -60,13 +60,18 @@ def parser():
     comparison = commands.add_parser("compare")
     comparison.add_argument("baseline")
     comparison.add_argument("candidate")
+    from .resource.cli import add_parser
+    add_parser(commands)
     return result
 
 
 def main():
     args = parser().parse_args()
     try:
-        if args.command == "world-info":
+        if args.command == "resource":
+            from .resource.cli import dispatch
+            return dispatch(args)
+        elif args.command == "world-info":
             from .world_info import control
             emit(control(args))
         elif args.command == "build":
@@ -121,7 +126,9 @@ def main():
                 emit({"manifest": manifest, "records": rows})
         return 0
     except KeyboardInterrupt:
-        print("평가를 중단했습니다. 저장된 체크포인트에서 resume할 수 있습니다.", file=sys.stderr)
+        message = ("자원 실험을 중단했습니다. 기록을 보존하며 자동 재개하지 않습니다." if args.command == "resource"
+                   else "평가를 중단했습니다. 저장된 체크포인트에서 resume할 수 있습니다.")
+        print(message, file=sys.stderr)
         return 130
     except Exception as error:
         print(f"오류: {error}", file=sys.stderr)
