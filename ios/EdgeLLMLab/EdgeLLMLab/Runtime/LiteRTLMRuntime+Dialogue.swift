@@ -25,7 +25,7 @@ private struct LiteRTLMDialogueMeasurer: DialogueTokenMeasuring {
 
 extension LiteRTLMRuntime {
     func requireNativeIdle() throws {
-        guard !isPreparingInput, currentState != .generating, currentState != .preparingModel else {
+        guard activeGenerationID == nil, !isPreparingInput, currentState != .generating, currentState != .preparingModel else {
             throw RuntimeError.runtimeBusy
         }
     }

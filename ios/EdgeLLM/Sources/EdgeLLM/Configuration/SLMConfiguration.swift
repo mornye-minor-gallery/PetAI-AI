@@ -154,6 +154,7 @@ public extension SLMConfiguration {
         // Each user/assistant message counts separately: 20 messages retain 10 exchanges.
         persona: Persona(recentMessageLimit: 20),
         diagnostics: Diagnostics(telemetryCandidateCount: 8),
-        runtimeSafety: RuntimeSafety(cancellationTimeoutSeconds: 10)
+        // Provisional UX deadline; tune after device cancellation-latency measurements.
+        runtimeSafety: RuntimeSafety(cancellationTimeoutSeconds: 15)
     )
 }

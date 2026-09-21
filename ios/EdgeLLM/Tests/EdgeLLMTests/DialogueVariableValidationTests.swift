@@ -43,3 +43,38 @@ import Testing
     try session.commit(snapshot, userMessage: "안녕", assistantMessage: "반가워", worldInfo: good.worldInfoTransaction)
     #expect(session.worldInfoText.localVariables["visits"] == "1")
 }
+
+@Test func failedPromptRetryRetainsHistoryClockAndWorldInfo() throws {
+    let state = WorldInfoState(
+        sticky: ["scene": .init(hash: "v1", start: 19, end: 25, protected: false)],
+        cooldown: ["other": .init(hash: "v1", start: 19, end: 27, protected: false)])
+    var session = RoutedPersonaSessionContext(worldInfoState: state,
+        worldInfoText: .init(localVariables: ["visits": "3"]))
+    for i in 0..<12 { session.appendExchange(userMessage: "질문 \(i)", assistantMessage: "답변 \(i)") }
+    let before = session.checkpoint()
+    let prompts = RoutedPersonaPromptSet(core: "테스트 캐릭터", sceneCards: [:])
+    let failed = try session.snapshot(requestID: "failed")
+    #expect(throws: WorldInfoTextError.self) {
+        try DialoguePromptComposer.prepare(input: .init(persona: prompts,
+            history: failed.history, currentMessage: "다음 질문", session: failed,
+            authorsNote: .init(defaults: .init(text: "{{incvar::visits}}{{variable}}", depth: 0))))
+    }
+    #expect(session.checkpoint() == before)
+    let retry = try session.snapshot(requestID: "retry")
+    #expect(retry.history.count == 20)
+    #expect(retry.currentUserMessageNumber == 13)
+    #expect(retry.currentMessageNumber == 25)
+    #expect(retry.worldInfoState == state)
+    let prepared = try DialoguePromptComposer.prepare(input: .init(persona: prompts,
+        history: retry.history, currentMessage: "다음 질문", session: retry,
+        authorsNote: .init(defaults: .init(text: "{{incvar::visits}}", depth: 0))))
+    #expect(prepared.userPrompt.contains("질문 11"))
+    #expect(prepared.userPrompt.contains("답변 11"))
+    #expect(try session.commit(retry, userMessage: "다음 질문", assistantMessage: "다음 답변",
+        worldInfo: prepared.worldInfoTransaction) == .committed)
+    #expect(try session.commit(retry, userMessage: "다음 질문", assistantMessage: "다음 답변",
+        worldInfo: prepared.worldInfoTransaction) == .alreadyCommitted)
+    #expect(session.completedUserMessages == 13)
+    #expect(session.worldInfoText.localVariables["visits"] == "4")
+    #expect(session.worldInfoState == state)
+}

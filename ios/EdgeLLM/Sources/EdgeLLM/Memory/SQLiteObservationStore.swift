@@ -830,7 +830,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func execute(_ sql: String) throws {
+    func execute(_ sql: String) throws {
         let database = try databaseHandle()
         var errorPointer: UnsafeMutablePointer<CChar>?
         let result = sqlite3_exec(
@@ -849,7 +849,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func transaction(_ body: () throws -> Void) throws {
+    func transaction(_ body: () throws -> Void) throws {
         try execute("BEGIN IMMEDIATE TRANSACTION;")
         do {
             try body()
@@ -860,7 +860,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func withStatement<Result>(
+    func withStatement<Result>(
         _ sql: String,
         body: (OpaquePointer) throws -> Result
     ) throws -> Result {

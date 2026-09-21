@@ -26,14 +26,16 @@ actor LiteRTLMRuntime: LLMRuntime {
     var currentState: RuntimeState = .modelRequired
     var engine: Engine?
     var conversation: Conversation?
-    private var isolatedConversation: Conversation?
+    var isolatedConversation: Conversation?
     var conversationConfiguration: ConversationConfiguration?
     private var scopedModelURL: URL?
     private var isAccessingSecurityScopedModel = false
     var cancelRequested = false
     var isPreparingInput = false
     var conversationDialogueBudget: DialogueTokenBudget?
-    private var activeGenerationID: UUID?
+    var activeNativeConversation: Conversation?
+    var nativeCancellationTask: Task<Void, Never>?
+    var activeGenerationID: UUID?
     private var activeGenerationTask: Task<Void, Never>?
     private var activeContinuation:
         AsyncThrowingStream<String, Error>.Continuation?
@@ -188,6 +190,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         logger.notice(
             "Submitting native stream id=\(generationID.uuidString, privacy: .public)"
         )
+        activeNativeConversation = conversation
         let source = conversation.sendMessageStream(
             Message(normalizedPrompt),
             extraContext: ["enable_thinking": thinkingEnabled]
@@ -233,12 +236,14 @@ actor LiteRTLMRuntime: LLMRuntime {
                     continuation.yield(text)
                 }
 
+                await waitForNativeCompletion(conversation)
                 finishGeneration(id: generationID)
                 logger.notice(
                     "Generation completed id=\(generationID.uuidString, privacy: .public) elapsedSeconds=\(Date().timeIntervalSince(startedAt), format: .fixed(precision: 3)) chunks=\(chunkCount) characters=\(characterCount)"
                 )
                 continuation.finish()
             } catch {
+                await waitForNativeCompletion(conversation)
                 let mappedError = finishGeneration(
                     id: generationID,
                     with: error
@@ -304,8 +309,10 @@ actor LiteRTLMRuntime: LLMRuntime {
                 with: configuration
             )
             try Task.checkCancellation()
+            guard !cancelRequested else { throw RuntimeError.generationCancelled }
             isolatedConversation = routeConversation
-            let response = try await routeConversation.sendMessage(
+            activeNativeConversation = routeConversation
+            let source = routeConversation.sendMessageStream(
                 Message(normalizedUserMessage),
                 extraContext: [
                     "enable_thinking": thinkingEnabled
@@ -313,12 +320,16 @@ actor LiteRTLMRuntime: LLMRuntime {
                             .routerThinkingEnabled,
                 ]
             )
-            guard activeGenerationID == generationID else {
+            var response = ""
+            for try await message in source { response += message.toString }
+            await waitForNativeCompletion(routeConversation)
+            guard activeGenerationID == generationID, !cancelRequested else {
                 throw RuntimeError.generationCancelled
             }
             finishIsolatedGeneration(id: generationID)
-            return response.toString
+            return response
         } catch {
+            if let activeNativeConversation { await waitForNativeCompletion(activeNativeConversation) }
             let wasCancelled = cancelRequested
                 || error is CancellationError
                 || (error as? RuntimeError) == .generationCancelled
@@ -337,12 +348,13 @@ actor LiteRTLMRuntime: LLMRuntime {
         guard
             currentState == .generating,
             let generationID = activeGenerationID,
-            let activeConversation = isolatedConversation ?? conversation
+            !cancelRequested
         else {
             return
         }
 
         cancelRequested = true
+        guard let activeConversation = activeNativeConversation else { return }
         logger.notice(
             "Cancellation requested id=\(generationID.uuidString, privacy: .public)"
         )
@@ -366,7 +378,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         }
 
         let sendableConversation = SendableConversation(activeConversation)
-        Task.detached(priority: .userInitiated) {
+        nativeCancellationTask = Task.detached(priority: .userInitiated) {
             do {
                 try sendableConversation.value.cancel()
                 await self.nativeCancellationReturned(id: generationID)
@@ -412,6 +424,8 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeContinuation?.finish(throwing: RuntimeError.generationCancelled)
         activeContinuation = nil
         activeGenerationID = nil
+        activeNativeConversation = nil
+        nativeCancellationTask = nil
         cancelRequested = false
         isolatedConversation = nil
         conversation = nil
@@ -434,16 +448,20 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeGenerationTask = nil
         activeContinuation = nil
         activeGenerationID = nil
+        activeNativeConversation = nil
+        nativeCancellationTask = nil
         cancelRequested = false
         currentState = .ready
     }
 
-    private func finishIsolatedGeneration(id: UUID) {
+    func finishIsolatedGeneration(id: UUID) {
         guard activeGenerationID == id else { return }
         cancellationTimeoutTask?.cancel()
         cancellationTimeoutTask = nil
         isolatedConversation = nil
         activeGenerationID = nil
+        activeNativeConversation = nil
+        nativeCancellationTask = nil
         cancelRequested = false
         currentState = .ready
     }
@@ -464,6 +482,8 @@ actor LiteRTLMRuntime: LLMRuntime {
         activeGenerationTask = nil
         activeContinuation = nil
         activeGenerationID = nil
+        activeNativeConversation = nil
+        nativeCancellationTask = nil
         cancelRequested = false
         isolatedConversation = nil
 
@@ -490,50 +510,26 @@ actor LiteRTLMRuntime: LLMRuntime {
     }
 
     private func nativeCancellationFailed(id: UUID, error: Error) {
-        guard activeGenerationID == id else {
-            return
-        }
-
-        cancellationTimeoutTask?.cancel()
-        cancellationTimeoutTask = nil
-        activeGenerationTask?.cancel()
-        activeGenerationTask = nil
-        activeGenerationID = nil
-        cancelRequested = false
-        isolatedConversation = nil
-
-        let mappedError = RuntimeError.generationFailed(
-            message: "Cancellation failed: \(error.localizedDescription)"
-        )
-        currentState = .failed(message: mappedError.localizedDescription)
-        activeContinuation?.finish(throwing: mappedError)
-        activeContinuation = nil
-        logger.error(
-            "Native cancellation failed id=\(id.uuidString, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
-        )
+        guard activeGenerationID == id else { return }
+        // Failure of the stop request does not establish that inference stopped.
+        logger.error("Native cancellation failed; retaining operation until terminal callback: \(error.localizedDescription)")
     }
 
     private func handleCancellationTimeout(id: UUID) {
-        guard activeGenerationID == id, cancelRequested else {
-            return
-        }
-
-        let timeoutError = RuntimeError.cancellationTimedOut(
-            seconds: cancellationTimeoutSeconds
-        )
-        activeGenerationTask?.cancel()
-        activeGenerationTask = nil
-        activeGenerationID = nil
-        cancelRequested = false
-        isolatedConversation = nil
-        currentState = .failed(message: timeoutError.localizedDescription)
-        activeContinuation?.finish(throwing: timeoutError)
-        activeContinuation = nil
+        guard activeGenerationID == id, cancelRequested else { return }
+        // This is a diagnostic deadline, not permission to release native resources.
+        // Unity independently ends its waiting indicator and presents restart guidance.
+        logger.error("Cancellation deadline reached; native termination unconfirmed, restart required")
         cancellationTimeoutTask = nil
+    }
 
-        logger.error(
-            "Cancellation timed out id=\(id.uuidString, privacy: .public) seconds=\(self.cancellationTimeoutSeconds); app restart required"
-        )
+    func waitForNativeCompletion(_ active: Conversation) async {
+        await active.waitUntilIdle()
+        // A final callback can arrive while the C cancellation call is still unwinding.
+        if let nativeCancellationTask { await nativeCancellationTask.value }
+        // Seal native cancellation admission before returning across an actor await boundary.
+        // The generation ID remains owned while callers finish their non-native bookkeeping.
+        activeNativeConversation = nil
     }
 
     private func runtimeCacheURL() throws -> URL {

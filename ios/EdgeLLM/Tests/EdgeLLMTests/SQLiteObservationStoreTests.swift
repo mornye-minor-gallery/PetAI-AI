@@ -520,3 +520,27 @@ private func tableExists(
     }
     return sqlite3_step(statement) == SQLITE_ROW
 }
+
+@Test func eraseAllMemoriesRemovesEveryCharacterAndCanRepeat() async throws {
+    let directory = temporaryMemoryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appendingPathComponent("erase.sqlite3")
+    let store = SQLiteObservationStore(databaseURL: url)
+    let engine = MemoryEngine(store: store, classifier: SQLiteTestClassifier(label: .preference),
+        securityRequirement: .allowsUnencryptedAppPrivatePrototype)
+    try await engine.prepare()
+    for character in ["first", "second"] {
+        _ = try await engine.remember(MemoryWriteRequest(sourceMessageID: character,
+            sessionID: "test", scope: MemoryScope(userID: "test", characterID: character), rawText: "나는 포도를 좋아해"))
+    }
+    try await store.eraseAllMemories()
+    try await store.eraseAllMemories()
+    for character in ["first", "second"] {
+        #expect(try await engine.activeObservations(in: MemoryScope(userID: "test", characterID: character)).isEmpty)
+    }
+    await engine.close()
+    let reopened = SQLiteObservationStore(databaseURL: url)
+    try await reopened.initialize()
+    try await reopened.eraseAllMemories()
+    await reopened.close()
+}

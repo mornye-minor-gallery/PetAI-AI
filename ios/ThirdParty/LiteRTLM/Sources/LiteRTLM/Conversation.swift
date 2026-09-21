@@ -49,6 +49,10 @@ public class Conversation {
     category: "Conversation"
   )
 
+  private let lifetime = NativeStreamLifetime()
+
+  public func waitUntilIdle() async { await lifetime.waitUntilFinished() }
+
   private var handle: CConversationHandle?
   private let toolManager: ToolManager
   private let telemetryContext: TopKTelemetryCallbackContext?
@@ -98,12 +102,16 @@ public class Conversation {
   {
     let handle = try checkIsAlive()
 
+    lifetime.begin()
+    defer { lifetime.finish() }
     var currentMessageJson: [String: Any] = message.toJson
 
     for _ in 0..<recurringToolCallLimit {
+      if lifetime.isCancellationRequested { throw CancellationError() }
       let (responseJson, responseString) = try attemptSendMessage(
         handle: handle, messageJson: currentMessageJson, extraContext: extraContext)
 
+      if lifetime.isCancellationRequested { throw CancellationError() }
       guard let toolCalls = responseJson["tool_calls"] as? [[String: Any]] else {
         if responseJson["content"] != nil || responseJson["channels"] != nil {
           return try Conversation.jsonToMessage(responseString)
@@ -121,6 +129,7 @@ public class Conversation {
   ) throws
     -> (responseJson: [String: Any], responseString: String)
   {
+    if lifetime.isCancellationRequested { throw CancellationError() }
     let messageData = try JSONSerialization.data(withJSONObject: messageJson)
     guard let messageString = String(data: messageData, encoding: .utf8) else {
       throw LiteRTLMError.conversation(.failedToSerializeMessage)
@@ -209,6 +218,7 @@ public class Conversation {
   public func sendMessageStream(
     _ message: Message, extraContext: [String: Any]? = nil
   ) -> AsyncThrowingStream<Message, Error> {
+    lifetime.begin()
     return AsyncThrowingStream { continuation in
       do {
         let handle = try self.checkIsAlive()
@@ -219,6 +229,7 @@ public class Conversation {
         try self.sendToStream(
           handle: handle, messageJson: messageJson, extraContext: extraContext, context: context)
       } catch {
+        lifetime.finish()
         continuation.finish(throwing: error)
       }
     }
@@ -243,6 +254,7 @@ public class Conversation {
     extraContext: [String: Any]? = nil,
     context: StreamContext
   ) throws {
+    if lifetime.isCancellationRequested { throw CancellationError() }
     let messageData = try JSONSerialization.data(withJSONObject: messageJson)
     guard let messageString = String(data: messageData, encoding: .utf8) else {
       throw LiteRTLMError.conversation(.failedToSerializeMessage)
@@ -282,6 +294,7 @@ public class Conversation {
   /// Cancels the ongoing asynchronous inference process.
   public func cancel() throws {
     let handle = try checkIsAlive()
+    lifetime.requestCancellation()
     litert_lm_conversation_cancel_process(handle)
   }
 
@@ -421,7 +434,11 @@ public class Conversation {
   class StreamContext {
     let continuation: AsyncThrowingStream<Message, Error>.Continuation
     let conversation: Conversation
+    var streamFailed = false
     var toolCallCount: Int = 0
+
+    func finishNative() { conversation.lifetime.finish() }
+    var cancellationRequested: Bool { conversation.lifetime.isCancellationRequested }
     var pendingToolCalls: [[String: Any]] = []
 
     init(
@@ -449,12 +466,13 @@ private func streamCallback(
     let errorString = String(cString: errorMessage)
     let error = LiteRTLMError.conversation(.invalidResponse(errorString))
     context.continuation.finish(throwing: error)
+    context.finishNative()
 
     Unmanaged<Conversation.StreamContext>.fromOpaque(userData).release()
     return
   }
 
-  if let responseJson = responseJson {
+  if !context.streamFailed, let responseJson = responseJson {
     let responseString = String(cString: responseJson)
     do {
       guard let responseData = responseString.data(using: .utf8),
@@ -473,18 +491,25 @@ private func streamCallback(
       }
     } catch {
       logger.error("Failed to parse response JSON: \(error.localizedDescription)")
+      context.streamFailed = true
       context.continuation.finish(throwing: error)
-      Unmanaged<Conversation.StreamContext>.fromOpaque(userData).release()
-      return
+      // A bad chunk is not a native terminal event. Keep the callback context alive.
     }
   }
 
   if isFinal {
+    if context.streamFailed || context.cancellationRequested {
+      context.continuation.finish(throwing: CancellationError())
+      context.finishNative()
+      Unmanaged<Conversation.StreamContext>.fromOpaque(userData).release()
+      return
+    }
     if !context.pendingToolCalls.isEmpty {
       if context.toolCallCount >= recurringToolCallLimit {
         context.continuation.finish(
           throwing: LiteRTLMError.conversation(
             .recurringToolCallLimitExceeded(limit: recurringToolCallLimit)))
+        context.finishNative()
         Unmanaged<Conversation.StreamContext>.fromOpaque(userData).release()
         return
       }
@@ -503,6 +528,7 @@ private func streamCallback(
           )
         } catch {
           context.continuation.finish(throwing: error)
+          context.finishNative()
         }
         // Release the reference for the current (finished) call.
         // The new call from sendToStream created its own retained reference.
@@ -510,6 +536,7 @@ private func streamCallback(
       }
     } else {
       context.continuation.finish()
+      context.finishNative()
       Unmanaged<Conversation.StreamContext>.fromOpaque(userData).release()
     }
   }

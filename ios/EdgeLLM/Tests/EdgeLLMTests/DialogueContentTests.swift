@@ -16,3 +16,14 @@ import Testing
         _ = try DialogueContent.load(data: Data(#"{"id":"sample","name":" ","persona":"검사"}"#.utf8))
     }
 }
+
+@Test func dialogueSelectionUsesIDIndependentlyOfDisplayName() throws {
+    let content = try DialogueContent.load(data: Data(#"{"id":"test-character","name":"다른 표시 이름","persona":"검사"}"#.utf8))
+    try content.validateSelection(characterID: "test-character")
+    #expect(content.name == "다른 표시 이름")
+    for wrongID in [nil, "", "다른 표시 이름", "other-character"] as [String?] {
+        #expect(throws: DialogueContent.SelectionError.characterNotConfigured) {
+            try content.validateSelection(characterID: wrongID)
+        }
+    }
+}

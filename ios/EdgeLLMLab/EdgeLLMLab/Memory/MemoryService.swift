@@ -31,6 +31,7 @@ actor MemoryService: ClassificationEmbeddingProviding {
   private let embedder = EmbeddingGemmaEmbedder()
   private var worldInfoEmbeddingIdentity: String?
   private var worldInfoIndex: WorldInfoVectorIndex?
+  private var observationStore: SQLiteObservationStore?
   private var engine: MemoryEngine?
   private var preparationTask: Task<Void, Error>?
 
@@ -121,6 +122,7 @@ actor MemoryService: ClassificationEmbeddingProviding {
         throw error
       }
       worldInfoEmbeddingIdentity = identity
+      observationStore = store
       engine = candidate
     } catch {
       await embedder.unload()
@@ -231,7 +233,26 @@ actor MemoryService: ClassificationEmbeddingProviding {
     let activeEngine = engine
     engine = nil
     await activeEngine?.close()
+    observationStore = nil
     await embedder.unload()
+  }
+
+  /// Bridge admission is closed and all conversations/captions have drained before this call.
+  /// Opening SQLite alone works even when the model has never been downloaded.
+  func eraseAllMemories() async throws {
+    if let observationStore {
+      try await observationStore.eraseAllMemories()
+    } else {
+      let store = try makeStore()
+      do {
+        try await store.initialize()
+        try await store.eraseAllMemories()
+        await store.close()
+      } catch {
+        await store.close()
+        throw error
+      }
+    }
   }
 
   private func requirePrepared() throws -> MemoryEngine {

@@ -39,6 +39,13 @@ public struct DialogueContent: Codable, Equatable, Sendable {
         }
     }
 
+    public enum SelectionError: Error { case characterNotConfigured }
+
+    /// The app selects an authored ID. Display names and saved nicknames cannot select content.
+    public func validateSelection(characterID: String?) throws {
+        guard characterID == id else { throw SelectionError.characterNotConfigured }
+    }
+
     public static func load(data: Data) throws -> Self {
         try JSONDecoder().decode(Self.self, from: data)
     }

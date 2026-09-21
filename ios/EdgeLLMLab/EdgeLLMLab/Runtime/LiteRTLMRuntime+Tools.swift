@@ -19,7 +19,12 @@ extension LiteRTLMRuntime: NativeToolProposalGenerating {
             throw RuntimeError.modelNotPrepared
         }
 
+        let generationID = UUID()
+        activeGenerationID = generationID
+        cancelRequested = false
         currentState = .generating
+        var captured: NativeToolFunctionCall?
+        var failure: Error?
         do {
             try await LiteRTLMNativeToolCallCapture.shared.begin(
                 expectedTool: request.selectedTool
@@ -49,26 +54,33 @@ extension LiteRTLMRuntime: NativeToolProposalGenerating {
             let toolConversation = try await engine.createConversation(
                 with: configuration
             )
-            _ = try await toolConversation.sendMessage(
+            guard !cancelRequested else { throw RuntimeError.generationCancelled }
+            activeNativeConversation = toolConversation
+            isolatedConversation = toolConversation
+            let source = toolConversation.sendMessageStream(
                 Message(request.userMessage),
                 extraContext: [
                     "enable_thinking": request.reasoningEnabled,
                 ]
             )
-            let call = try await LiteRTLMNativeToolCallCapture.shared.finish()
-            currentState = .ready
-            return call
+            for try await _ in source { }
+            await waitForNativeCompletion(toolConversation)
+            guard !cancelRequested else { throw RuntimeError.generationCancelled }
+            captured = try await LiteRTLMNativeToolCallCapture.shared.finish()
         } catch {
-            if let call = try? await
-                LiteRTLMNativeToolCallCapture.shared.finish()
-            {
-                currentState = .ready
-                return call
-            }
+            failure = error
+            // Some models emit a valid captured proposal before their stream reports an error.
+            captured = try? await LiteRTLMNativeToolCallCapture.shared.finish()
             await LiteRTLMNativeToolCallCapture.shared.cancel()
-            currentState = .ready
-            throw error
         }
+        // Capture actor awaits can admit a new cancel call, so drain after the last one.
+        if let activeNativeConversation { await waitForNativeCompletion(activeNativeConversation) }
+        let wasCancelled = cancelRequested || failure is CancellationError
+            || (failure as? RuntimeError) == .generationCancelled
+        finishIsolatedGeneration(id: generationID)
+        if wasCancelled { throw RuntimeError.generationCancelled }
+        if let captured { return captured }
+        throw failure ?? LiteRTLMNativeToolProposalError.missingToolCall
     }
 }
 #endif

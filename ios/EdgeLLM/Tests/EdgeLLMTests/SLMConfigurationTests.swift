@@ -20,5 +20,5 @@ func productionSLMConfigurationKeepsProductTuningInOnePlace() {
     #expect(!configuration.generation.toolReasoningEnabled)
     #expect(configuration.persona.recentMessageLimit == 20)
     #expect(configuration.diagnostics.telemetryCandidateCount == 8)
-    #expect(configuration.runtimeSafety.cancellationTimeoutSeconds == 10)
+    #expect(configuration.runtimeSafety.cancellationTimeoutSeconds == 15)
 }
