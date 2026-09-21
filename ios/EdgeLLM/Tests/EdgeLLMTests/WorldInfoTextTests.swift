@@ -55,14 +55,14 @@ import Testing
     #expect(try WorldInfoText.replace("cat", pattern: "/[/", replacement: "dog") == "cat")
 }
 
-@Test func worldInfoTextMacrosUseExplicitContextAndLegacyPassOrder() throws {
+@Test func worldInfoTextMacrosUseExplicitContextAndLexicalOrder() throws {
     var context = WorldInfoTextContext(user: "Mina", char: "Momo", description: "{{char}} is kind",
         personality: "kind", scenario: "home", persona: "friend",
         localVariables: ["n": "2"], globalVariables: ["n": "8"], outlets: ["room": "warm"])
     let text = try WorldInfoText.expand("{{description}}/{{user}}/{{persona}}/{{outlet::room}}", context: &context)
-    #expect(text == "Momo is kind/Mina/friend/warm")
-    // The legacy engine executes setter passes before getter passes, regardless of text order.
-    #expect(try WorldInfoText.expand("{{getvar::x}}{{setvar::x::4}}{{incvar::n}}{{getglobalvar::n}}", context: &context) == "438")
+    #expect(text == "{{char}} is kind/Mina/friend/warm")
+    // The pinned default engine evaluates in lexical order; returned field values are not recursively expanded.
+    #expect(try WorldInfoText.expand("{{getvar::x}}{{setvar::x::4}}{{incvar::n}}{{getglobalvar::n}}", context: &context) == "38")
     #expect(context.localVariables["x"] == "4")
     #expect(context.localVariables["n"] == "3")
     #expect(try WorldInfoText.expand("{{addvar::x::2}}{{decvar::x}}{{getvar::x}}", context: &context) == "55")
@@ -79,10 +79,11 @@ import Testing
     var context = WorldInfoTextContext(randomRolls: [0.75, 0.1, 0.9])
     #expect(try WorldInfoText.expand("{{random::a::b}}", context: &context) == "b")
     let pick = "{{pick::a::b}}"
-    #expect(try WorldInfoText.expand(pick, context: &context) == "a")
-    #expect(try WorldInfoText.expand(pick, context: &context) == "a")
-    #expect(context.randomIndex == 2)
+    #expect(try WorldInfoText.expand(pick, context: &context) == "b")
+    #expect(try WorldInfoText.expand(pick, context: &context) == "b")
+    #expect(context.randomIndex == 1)
     #expect(try JSONDecoder().decode(WorldInfoTextContext.self, from: JSONEncoder().encode(context)) == context)
+    #expect(try WorldInfoText.expand("{{random::a::b}}", context: &context) == "a")
     #expect(try WorldInfoText.expand("{{random::a::b}}", context: &context) == "b")
     #expect(throws: WorldInfoTextError.randomSourceExhausted) {
         try WorldInfoText.expand("{{random::a::b}}", context: &context)
@@ -91,7 +92,7 @@ import Testing
 
 @Test func worldInfoTextRejectsUnsupportedMacrosAndDoesNotPartiallyCommitState() throws {
     var context = WorldInfoTextContext()
-    for text in ["{{unknown}}", "{{if::true}}yes{{/if}}", "{{getvar::{{user}}}}", "{{date}}", "{{banned::x}}"] {
+    for text in ["{{unknown}}", "{{date}}", "{{space::-1}}", "{{if}}", "{{/if}}"] {
         #expect(throws: WorldInfoTextError.self) { try WorldInfoText.expand(text, context: &context) }
     }
     #expect(throws: WorldInfoTextError.self) {

@@ -5,7 +5,7 @@ from beolmuri_eval.judge import validate_judgment, judge_prompt, command
 class JudgeTests(unittest.TestCase):
     def test_pinned_provider_and_isolated_execution(self):
         args = command("codex", "/tmp/schema", "/tmp/result", "/tmp/work")
-        self.assertIn("gpt-5.6-luna", args)
+        self.assertIn("gpt-5.6-sol", args)
         self.assertIn('model_reasoning_effort="medium"', args)
         self.assertIn("--ephemeral", args)
         self.assertIn("--ignore-user-config", args)

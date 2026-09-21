@@ -30,6 +30,7 @@ def source_sha(root):
     package = root / "ai/beolmuri-eval"
     files = list((package / "beolmuri_eval").glob("*.py"))
     files += list((package / "swift/Sources").rglob("*.swift"))
+    files += list((package / "schemas").glob("*.json"))
     files += [p for p in (root / "ios/EdgeLLM/Sources").rglob("*") if p.is_file()]
     files += [package / "pyproject.toml", package / "uv.lock", package / "swift/Package.swift",
               package / "schemas/evaluation.schema.json", package / "schemas/name-case.schema.json",

@@ -4,7 +4,7 @@ import unittest
 from beolmuri_eval.config import repository
 from beolmuri_eval.evaluation import load_plan
 from beolmuri_eval.doctor import swift_binary
-from beolmuri_eval.process import Worker
+from persona_worker import Worker
 
 
 class SwiftWorkerTests(unittest.TestCase):
@@ -68,14 +68,30 @@ class SwiftWorkerTests(unittest.TestCase):
         self.assertFalse(response["retry_attempted"])
         self.assertFalse(response["has_visible_response"])
 
-    def test_name_structures_match_frozen_swift_prompts(self):
+    def test_sampling_override_preserves_prompt_and_thinking(self):
         config = load_plan(variant="name-rule").configuration
-        fixtures = repository() / "ai/beolmuri-eval/experiments/name-structure/prompts"
+        payload = dict(characterName="엘레나", userMessage="오늘 뭐 하고 싶어?")
+        original = self.worker.call("prepare", configuration=config, **payload)
+        sampling = {"temperature": 1.0, "top_k": 64, "top_p": 0.95}
+        changed = self.worker.call("prepare", configuration={**config, "sampling": sampling}, **payload)
+        self.assertEqual(changed["configuration"]["sampling"], sampling)
+        for key, value in sampling.items():
+            self.assertAlmostEqual(changed["sampling"][key], value, places=6)
+        self.assertAlmostEqual(original["sampling"]["temperature"], 0.7, places=6)
+        self.assertEqual(original["sampling"]["top_k"], 40)
+        self.assertEqual(original["sampling"]["top_p"], 1)
+        for key in ("system_prompt", "user_prompt"):
+            self.assertEqual(original[key], changed[key])
+        for key in ("thinking", "max_output_tokens", "filter_channel_content_from_kv_cache"):
+            self.assertEqual(original["sampling"][key], changed["sampling"][key])
+
+    def test_name_structures_use_explicit_persona(self):
+        config = load_plan(variant="name-rule").configuration
         prepared = []
         for style in ("identity-statement", "response-action"):
             row = self.worker.call("prepare", configuration={**config, "nameRuleStyle": style},
                                    characterName="엘레나", userMessage="아영아, 안녕?")
-            self.assertEqual(row["system_prompt"], (fixtures / (style + ".txt")).read_text())
+            self.assertIn("검사 전용 캐릭터", row["system_prompt"])
             self.assertEqual(row["configuration"]["nameRuleStyle"], style)
             prepared.append(row)
         self.assertEqual(prepared[0]["sampling"], prepared[1]["sampling"])

@@ -11,7 +11,7 @@ LABELS = {
     "swift_worker": "Swift 평가 실행부",
     "litert_native_library": "LiteRT-LM",
     "gemma_generation": "Gemma 실제 생성",
-    "luna_judge": "Luna 실제 채점",
+    "codex_judge": "Codex 실제 채점",
 }
 
 
@@ -42,8 +42,8 @@ def detail(check):
     if name == "gemma_generation":
         elapsed = value.get("elapsed_ms")
         return f"응답 수신 · {elapsed / 1000:.2f}초" if elapsed is not None else "응답 수신"
-    if name == "luna_judge":
-        return "gpt-5.6-luna · medium · 판정 검증 완료"
+    if name == "codex_judge":
+        return f"{clean(value['model'])} · {clean(value['reasoning_effort'])} · 판정 검증 완료"
     return clean(value)
 
 
@@ -54,6 +54,9 @@ def render_doctor(report, *, color=False):
     # ANSI magenta inherits Ghostty's Dusty Mauve accent; green/yellow/red retain
     # their semantic meanings. Pipes and NO_COLOR receive plain readable text.
     lines = ["", paint("  BEOLMURI EVAL", "1;35") + "  " + paint("환경 점검", "2"), ""]
+    if report.get("installation"):
+        lines += ["  소스: " + clean(report["installation"]["repository"]),
+                  "  결과: " + clean(report["installation"]["results"]), ""]
     for check in report["checks"]:
         passed = check["status"] == "pass"
         symbol = paint("✓" if passed else "✗", "32" if passed else "31")

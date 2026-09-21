@@ -46,7 +46,7 @@ private struct FixtureTokenMeasurer: DialogueTokenMeasuring {
 }
 
 @Test func worldInfoNeedsActualTokenizerAndRejectsMalformedEntries() async throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let settings = WorldInfoSettings(tokenBudget: 20, entries: [.init(id: "one", keys: ["/test/i"], content: "text")])
     #expect(throws: WorldInfoError.tokenMeasurerRequired) {
         try DialoguePromptComposer.prepare(input: .init(persona: prompts, currentMessage: "test", worldInfo: settings))
@@ -60,7 +60,7 @@ private struct FixtureTokenMeasurer: DialogueTokenMeasuring {
 }
 
 @Test func worldInfoComposerKeepsMemorySeparateAndPlacesCharacterAndNoteContent() async throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let context = RoutedPersonaSessionContext(turns: [.init(role: .user, text: "서울"), .init(role: .assistant, text: "대화")])
     let settings = WorldInfoSettings(tokenBudget: 100, entries: [
         .init(id: "before", keys: ["서울"], content: "캐릭터앞", position: .beforeCharacter),
@@ -92,7 +92,7 @@ private struct FixtureTokenMeasurer: DialogueTokenMeasuring {
 }
 
 @Test func worldInfoFillsAbsentNoteAndDoesNotRecursivelyScanSelectedContent() async throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let snapshot = try RoutedPersonaSessionContext().snapshot(requestID: "empty-note")
     let settings = WorldInfoSettings(tokenBudget: 100, entries: [
         .init(id: "first", keys: ["서울"], content: "연쇄키", position: .beforeNote),
@@ -106,7 +106,7 @@ private struct FixtureTokenMeasurer: DialogueTokenMeasuring {
 }
 
 @Test func worldInfoSpeakerNamesAreAnExplicitSearchOption() async throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let context = RoutedPersonaSessionContext(turns: [.init(role: .assistant, text: "안녕")])
     let entry = WorldInfoEntry(id: "name", keys: ["엘레나"], content: "이름검색결과")
     for names in [false, true] {

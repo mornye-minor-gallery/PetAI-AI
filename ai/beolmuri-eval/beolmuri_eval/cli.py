@@ -26,6 +26,15 @@ def resolve_run(value):
 def parser():
     result = argparse.ArgumentParser(description="Swift 공유 코어 기반 캐릭터 이름 평가")
     commands = result.add_subparsers(dest="command", required=True)
+    from .reaction_build import add_arguments
+    add_arguments(commands.add_parser('build-reactions', help='반응풀 검색 인덱스 생성·재개'))
+    replay = commands.add_parser("replay", help="보존한 모델 입력·시드 그대로 재실행; Swift 조립 없음")
+    replay.add_argument("--requests", required=True, help="기록된 요청 JSONL")
+    replay.add_argument("--output", required=True)
+    replay.add_argument("--model")
+    replay.add_argument("--litert-python")
+    replay.add_argument("--timeout", type=int, default=180)
+    replay.add_argument("--resume", action="store_true")
     world = commands.add_parser("world-info", help="공유 Swift 코어로 원본 로어북 조회·편집; 추론 없음")
     world.add_argument("action", choices=("inspect", "export", "upsert", "remove"))
     world.add_argument("--book", required=True)
@@ -44,6 +53,7 @@ def parser():
     start.add_argument("--repeats", type=int)
     start.add_argument("--limit-pairs", type=int)
     start.add_argument("--timeout", type=int)
+    start.add_argument("--output-root", help="실행 결과를 저장할 외부 폴더")
     validation = commands.add_parser("validate", help="YAML·JSONL·채점 기준을 모델 호출 없이 검증")
     validation.add_argument("--config", default=str(default_config_path()))
     measurement = commands.add_parser("measure-context", help="Swift 입력 조립과 토큰 계측만 수행; 추론·채점 없음")
@@ -68,7 +78,16 @@ def parser():
 def main():
     args = parser().parse_args()
     try:
-        if args.command == "resource":
+        if args.command == "build-reactions":
+            from .reaction_build import build as build_reactions
+            build_reactions(args)
+        elif args.command == "replay":
+            from .replay import run_replay
+            summary = run_replay(args.requests, args.output, args.model, args.litert_python,
+                                 timeout=args.timeout, resume=args.resume)
+            emit(summary)
+            return 0 if summary["complete"] else 2
+        elif args.command == "resource":
             from .resource.cli import dispatch
             return dispatch(args)
         elif args.command == "world-info":
@@ -89,10 +108,16 @@ def main():
             emit(measure_context(args.config, args.model, args.litert_python, args.codex))
         elif args.command == "validate":
             plan = load_plan(args.config)
+            from .plan_validation import validate_swift
+            build(repository())
+            for variant in plan.document['variants']:
+                validate_swift(load_plan(args.config, variant=variant))
             emit({"valid": True, "config": str(plan.config_path), "cases": len(plan.cases),
                   "pairs": len({case["pair_id"] for case in plan.cases}),
                   "variants": list(plan.document["variants"]), "dataset_sha256": digest(plan.cases),
-                  "planned_responses": len(plan.cases) * plan.repeats})
+                  "planned_responses": len(plan.cases) * plan.repeats,
+                  "planned_judgments": sum(c['kind'] != 'dialogue' for c in plan.cases) * plan.repeats,
+                  "world_info_books": list(plan.configuration.get('worldInfo', {}).get('library', {}).get('books', {}))})
         elif args.command == "run":
             directory = create_run(args)
             print(f"평가 기록: {directory.name}", file=sys.stderr, flush=True)
@@ -105,7 +130,12 @@ def main():
             directory = resolve_run(args.run_id)
             manifest = read_json(directory / "manifest.json")
             if args.command == "resume":
-                summary = run(directory, resume=True)
+                if manifest.get("kind") == "prompt-replay":
+                    from .replay import run_replay
+                    summary = run_replay(manifest['requests_file'], directory, manifest['model']['path'],
+                                         manifest['litert_python'], timeout=manifest['timeout_seconds'], resume=True)
+                else:
+                    summary = run(directory, resume=True)
                 emit({"run_id": directory.name, "summary": summary})
                 return 0 if summary["complete"] else 2
             elif args.command == "cancel":
@@ -115,14 +145,19 @@ def main():
                 emit({"state": "cancellation_requested", "run_id": directory.name})
             elif args.command == "status":
                 state = read_json(directory / "state.json") if (directory / "state.json").exists() else {"state": "created"}
+                if manifest.get("kind") == "prompt-replay":
+                    from .replay import replay_summary
+                    emit({"active_owner": active(directory), "last_recorded_state": state,
+                          "summary": replay_summary(directory)})
+                    return 0
                 emit({"run_id": directory.name, "active_owner": active(directory), "last_recorded_state": state,
-                      "summary": summarize(records(directory), len(manifest["cases"]) * manifest["repeats"])})
+                      "summary": summarize(records(directory), len(manifest["cases"]) * manifest["repeats"], planned_judgments=sum(c["kind"] != "dialogue" for c in manifest["cases"]) * manifest["repeats"])})
             elif args.command == "inspect":
                 rows = records(directory)
                 if args.failures:
-                    rows = [row for row in rows if row["status"] != "graded" or
+                    rows = [row for row in rows if row["status"] != "completed" and (row["status"] != "graded" or
                             row["judgment"]["label"] != "identity_maintained" or
-                            row["judgment"]["incorrect_name_correction"] is True]
+                            row["judgment"]["incorrect_name_correction"] is True)]
                 emit({"manifest": manifest, "records": rows})
         return 0
     except KeyboardInterrupt:

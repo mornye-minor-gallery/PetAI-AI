@@ -87,9 +87,13 @@ def inspect_environment(model=None, litert_python=None, codex="codex", probe=Fal
                 judgment, _ = grade(case, "나는 엘레나야. 안녕!", codex=codex, settings=judge_settings)
                 if judgment["label"] != "identity_maintained":
                     raise ValueError("judge failed the identity-correction calibration example")
-                return judgment
-            check("luna_judge", judge_probe)
+                return {"model": judge_settings["model"],
+                        "reasoning_effort": judge_settings["reasoning_effort"],
+                        "judgment": judgment}
+            check("codex_judge", judge_probe)
     return {"ready": all(item["status"] == "pass" for item in checks), "checks": checks,
+            "installation": {"repository": str(root), "results": str((root / "ai/beolmuri-eval/.artifacts/runs").resolve()),
+                             "swift_worker": str(swift_binary(root))},
             "scope": SCOPE, "full_product_pipeline": "UNVERIFIED: scene and memory are fixed fixtures",
             "runtime_parity": "Mac LiteRT-LM 0.13.1; mobile fork 0.14.0 is not the same runtime",
             "judge": {"provider": "codex-cli", "model": judge_settings["model"], "reasoning_effort": judge_settings["reasoning_effort"],

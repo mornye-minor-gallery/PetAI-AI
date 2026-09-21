@@ -20,7 +20,7 @@ private struct SectionCounter: DialogueTokenMeasuring {
 }
 
 @Test func dialogueSectionCountsAreSeparateFromTemplateMeasurement() async throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let input = DialoguePromptInput(persona: prompts,
         history: [.init(role: .user, text: "이전 질문"), .init(role: .assistant, text: "이전 답변")],
         currentMessage: "현재 질문",

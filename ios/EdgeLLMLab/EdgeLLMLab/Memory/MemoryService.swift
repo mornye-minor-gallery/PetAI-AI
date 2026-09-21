@@ -29,6 +29,8 @@ actor MemoryService: ClassificationEmbeddingProviding {
   nonisolated let dimension = 768
 
   private let embedder = EmbeddingGemmaEmbedder()
+  private var worldInfoEmbeddingIdentity: String?
+  private var worldInfoIndex: WorldInfoVectorIndex?
   private var engine: MemoryEngine?
   private var preparationTask: Task<Void, Error>?
 
@@ -72,6 +74,11 @@ actor MemoryService: ClassificationEmbeddingProviding {
     }
   }
 
+  func searchEmbeddingIdentity() throws -> String {
+    guard let identity = worldInfoEmbeddingIdentity else { throw MemoryServiceError.notPrepared }
+    return identity
+  }
+
   func isPrepared() -> Bool {
     engine != nil
   }
@@ -87,6 +94,8 @@ actor MemoryService: ClassificationEmbeddingProviding {
       )
       try Task.checkCancellation()
 
+      let identity = try WorldInfoEmbeddingIdentity.make(modelURL: modelURL, tokenizerURL: tokenizerURL,
+        preprocessing: "embeddinggemma-seq256-query-document-v1:768")
       let store = try makeStore()
       let retriever = DenseMemoryRetriever(
         candidateLoader: store,
@@ -111,6 +120,7 @@ actor MemoryService: ClassificationEmbeddingProviding {
         await candidate.close()
         throw error
       }
+      worldInfoEmbeddingIdentity = identity
       engine = candidate
     } catch {
       await embedder.unload()
@@ -171,6 +181,21 @@ actor MemoryService: ClassificationEmbeddingProviding {
     return await engine.recall(request)
   }
 
+  func searchWorldInfo(entries: [WorldInfoEntry], newestMessages: [String], settings: WorldInfoVectorSettings) async throws -> [WorldInfoVectorMatch] {
+    _ = try requirePrepared()
+    guard let identity = worldInfoEmbeddingIdentity else { throw MemoryServiceError.notPrepared }
+    if worldInfoIndex == nil {
+      let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                               appropriateFor: nil, create: true)
+      worldInfoIndex = try WorldInfoVectorIndex(url: support.appendingPathComponent("PetAI/world-info/\(identity).json"),
+                                               embeddingIdentity: identity)
+    }
+    guard let index = worldInfoIndex else { throw MemoryServiceError.notPrepared }
+    return try await index.search(entries: entries, newestMessages: newestMessages, settings: settings,
+      embedQuery: { try await self.embedWorldInfoQuery($0) },
+      embedDocument: { try await self.embedWorldInfoDocument($0) })
+  }
+
   func embedWorldInfoQuery(_ text: String) async throws -> [Float] {
     _ = try requirePrepared()
     try Task.checkCancellation()
@@ -199,6 +224,8 @@ actor MemoryService: ClassificationEmbeddingProviding {
   }
 
   func close() async {
+    worldInfoIndex = nil
+    worldInfoEmbeddingIdentity = nil
     preparationTask?.cancel()
     preparationTask = nil
     let activeEngine = engine

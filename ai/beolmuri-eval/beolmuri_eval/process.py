@@ -70,7 +70,7 @@ class Worker:
         self.reader = threading.Thread(target=read, daemon=True)
         self.reader.start()
 
-    def call(self, operation, timeout=180, measurement_handler=None, **payload):
+    def call(self, operation, timeout=180, measurement_handler=None, embedding_handler=None, **payload):
         check_cancel()
         request_id = uuid.uuid4().hex
         request = {"id": request_id, "operation": operation, **payload}
@@ -93,6 +93,18 @@ class Worker:
             response = json.loads(line)
             if response.get("id") != request_id or response.get("protocol_version") != 1:
                 raise ValueError("worker protocol/id mismatch")
+            if response.get("status") == "embedding_required":
+                answer = {"id": request_id, "protocol_version": 1, "status": "embedding_result"}
+                try:
+                    if embedding_handler is None:
+                        raise RuntimeError("no search embedder connected")
+                    check_cancel()
+                    answer.update(embedding_handler(response))
+                except Exception as error:
+                    answer["error"] = str(error)
+                self.process.stdin.write(json.dumps(answer, ensure_ascii=False, allow_nan=False) + "\n")
+                self.process.stdin.flush()
+                continue
             if response.get("status") == "measurement_required":
                 measurement_sequence += 1
                 if response.get("measurement_id") != measurement_sequence:

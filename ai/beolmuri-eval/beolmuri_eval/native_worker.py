@@ -117,13 +117,18 @@ class NativeRuntime:
         started = time.monotonic()
         first = None
         chunks = []
+        stream_events = []
         for event in self.conversation.send_message_async(message):
+            elapsed = (time.monotonic() - started) * 1000
+            # Preserve native channels and arrival times so thinking-mode studies
+            # can distinguish hidden generation from user-visible text.
+            stream_events.append({"elapsed_ms": elapsed, "event": event})
             for item in event.get("content", []):
                 if item.get("type") == "text" and item.get("text"):
                     if first is None:
-                        first = (time.monotonic() - started) * 1000
+                        first = elapsed
                     chunks.append(item["text"])
-        return {"status": "generated", "chunks": chunks,
+        return {"status": "generated", "chunks": chunks, "stream_events": stream_events,
                 "first_output_ms": first, "elapsed_ms": (time.monotonic() - started) * 1000,
                 **measurement, "output_tokens": None,
                 "token_accounting": {**measurement["token_accounting"],
@@ -141,6 +146,8 @@ def main():
     output = os.fdopen(os.dup(1), "w", buffering=1)
     os.dup2(2, 1)
     runtime = None
+    search_embedder = None
+    embedding_assets = None
     try:
         for line in sys.stdin:
             request = {}
@@ -153,6 +160,16 @@ def main():
                     result = {"status": "available", "version": importlib.metadata.version("litert-lm"),
                               "backend": "gpu", "execution_verified": False,
                               "max_output_tokens_supported": True}
+                elif operation == "embed_query":
+                    from reaction_embedding import SearchEmbedder
+                    assets = (request['embedding_model'], request['embedding_tokenizer'])
+                    if search_embedder is None:
+                        search_embedder = SearchEmbedder(*assets)
+                        embedding_assets = assets
+                    elif assets != embedding_assets:
+                        raise ValueError('embedding assets changed within worker')
+                    result = {'status': 'embedded', 'vector': search_embedder.embed(request['text']),
+                              'identity': search_embedder.identity}
                 elif operation == "load":
                     if runtime:
                         raise RuntimeError("engine already loaded")
@@ -178,6 +195,8 @@ def main():
             result.update({"id": request.get("id"), "protocol_version": 1})
             output.write(json.dumps(result, ensure_ascii=False, allow_nan=False) + "\n")
     finally:
+        if search_embedder:
+            search_embedder.close()
         if runtime:
             runtime.close()
 

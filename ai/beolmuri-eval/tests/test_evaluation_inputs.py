@@ -11,7 +11,21 @@ class EvaluationInputTests(unittest.TestCase):
         self.assertEqual(len(plan.cases), 40)
         self.assertEqual(plan.repeats, 3)
         self.assertEqual(plan.variant, 'baseline')
-        self.assertEqual(plan.judge['model'], 'gpt-5.6-luna')
+        self.assertEqual(plan.judge['model'], 'gpt-5.6-sol')
+
+    def test_judge_model_is_selected_by_config(self):
+        original = default_config_path()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'judge.yaml'
+            import yaml
+            document = yaml.safe_load(original.read_text())
+            document['dataset']['path'] = str(original.parent/document['dataset']['path'])
+            for key in ('rubric', 'schema'):
+                document['judge'][key] = str(original.parent/document['judge'][key])
+            for model in ('gpt-5.6-sol', 'gpt-5.6-luna', 'configured-judge'):
+                document['judge']['model'] = model
+                path.write_text(yaml.safe_dump(document))
+                self.assertEqual(load_plan(path).judge['model'], model)
 
     def test_relative_dataset_path_resolves_against_config_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -57,6 +71,25 @@ class EvaluationInputTests(unittest.TestCase):
         self.assertEqual(len(plan.cases), 2)
         with self.assertRaisesRegex(ValueError, 'variant'):
             load_plan(default_config_path(), variant='unknown')
+
+    def test_sampling_override_is_preserved_and_invalid_values_rejected(self):
+        import yaml
+        original = default_config_path()
+        document = yaml.safe_load(original.read_text())
+        document['dataset']['path'] = str(original.parent/document['dataset']['path'])
+        for key in ('rubric', 'schema'):
+            document['judge'][key] = str(original.parent/document['judge'][key])
+        sampling = {'temperature': 1.0, 'top_k': 64, 'top_p': 0.95}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'sampling.yaml'
+            document['variants']['baseline']['sampling'] = sampling
+            path.write_text(yaml.safe_dump(document))
+            self.assertEqual(load_plan(path).configuration['sampling'], sampling)
+            for key, value in (('temperature', -1), ('top_k', 0), ('top_p', 1.1)):
+                document['variants']['baseline']['sampling'] = {**sampling, key: value}
+                path.write_text(yaml.safe_dump(document))
+                with self.subTest(key=key), self.assertRaises(ValueError):
+                    load_plan(path)
 
     def test_snapshot_preserves_bytes_and_detects_tampering(self):
         plan = load_plan()

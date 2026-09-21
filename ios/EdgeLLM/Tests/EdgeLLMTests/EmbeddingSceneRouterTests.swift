@@ -4,15 +4,6 @@ import Testing
 @testable import EdgeLLM
 
 @Test
-func embeddingSceneRouterRegistryLoadsFrozenV2Artifact() throws {
-    let router = try EmbeddingSceneRouterArtifactRegistry().load()
-
-    #expect(router.artifactID == "facetroutebench-v2-retrospective")
-    #expect(router.dimension == 768)
-    #expect(router.prototypeCount == 228)
-}
-
-@Test
 func embeddingSceneRouterUsesPerRouteThresholds() throws {
     let router = try makeRouter(
         thresholds: [0.8, 0.6],
@@ -82,17 +73,6 @@ func embeddingSceneRouterRejectsInvalidQueryVectors() throws {
     }
     #expect(throws: EmbeddingSceneRouterError.zeroMagnitudeQuery) {
         _ = try router.route([0, 0])
-    }
-}
-
-@Test
-func embeddingSceneRouterRegistryRejectsMalformedManifest() {
-    let registry = EmbeddingSceneRouterArtifactRegistry { fileName in
-        fileName == "scene_router_v2.json" ? Data("{}".utf8) : nil
-    }
-
-    #expect(throws: EmbeddingSceneRouterError.self) {
-        _ = try registry.load()
     }
 }
 

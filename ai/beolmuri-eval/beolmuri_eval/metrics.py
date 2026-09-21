@@ -25,7 +25,9 @@ def numeric_summary(values):
             "mean": statistics.mean(values) if values else None}
 
 
-def summarize(records, planned):
+def summarize(records, planned, planned_judgments=None):
+    if planned_judgments is None:
+        planned_judgments = planned - sum(r["case"].get("kind") == "dialogue" for r in records)
     indexed(records)
     statuses = Counter(row["status"] for row in records)
     graded = [row for row in records if row["status"] == "graded"]
@@ -37,11 +39,20 @@ def summarize(records, planned):
     corrections = sum(row["judgment"]["incorrect_name_correction"] is True for row in correct)
     unknown = sum(row["judgment"]["incorrect_name_correction"] is None for row in correct)
     return {
-        "planned": planned, "graded": len(graded),
+        "planned": planned, "planned_judgments": planned_judgments, "graded": len(graded),
+        "unscored_completed": statuses["completed"],
+        "context": {
+            "primary_input_tokens": numeric_summary([r.get("generation", {}).get("primary", {}).get("input_tokens") for r in records]),
+            "retained_messages": numeric_summary([r.get("input", {}).get("history_stats", {}).get("retained_messages") for r in records]),
+            "inserted_memory_count": numeric_summary([r.get("input", {}).get("memory_stats", {}).get("inserted_count") for r in records]),
+            "inserted_memory_bytes": numeric_summary([r.get("input", {}).get("memory_stats", {}).get("inserted_bytes") for r in records]),
+            "available_output_tokens": numeric_summary([r.get("generation", {}).get("primary", {}).get("available_output_tokens") for r in records]),
+            "dropped_messages": numeric_summary([r.get("input", {}).get("history_stats", {}).get("dropped_messages") for r in records]),
+        },
         "generation_completed": sum("generation" in row for row in records),
         "generation_errors": statuses["generation_error"], "judge_errors": statuses["judge_error"],
-        "grading_coverage_pct": percentage(len(graded), planned),
-        "complete": len(graded) == planned and planned > 0,
+        "grading_coverage_pct": percentage(len(graded), planned_judgments),
+        "complete": len(graded) == planned_judgments and len(graded) + statuses["completed"] == planned and planned > 0,
         "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
         "wrong_name": {"denominator": len(wrong), "counts": {x: labels[x] for x in LABELS},
                        **{x + "_pct": percentage(labels[x], len(wrong)) for x in LABELS}},

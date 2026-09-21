@@ -140,6 +140,7 @@
 				0C25E892301359C8006F4D84 /* Sources */,
 				0C25E893301359C8006F4D84 /* Frameworks */,
 				0C25E894301359C8006F4D84 /* Resources */,
+				AA19C0010000000000000001 /* Copy dialogue content */,
 			);
 			buildRules = (
 			);
@@ -277,6 +278,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+        AA19C0010000000000000001 /* Copy dialogue content */ = {
+            isa = PBXShellScriptBuildPhase;
+            buildActionMask = 2147483647;
+            files = ();
+            inputPaths = ("$(PETAI_DIALOGUE_CONTENT)", "$(PETAI_DIALOGUE_CONTENT:dir)",);
+            outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/dialogue-content.json", "$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/reaction-frames.json", "$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/reaction-vectors.f32", "$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/dialogue-lore.json",);
+            name = "Copy dialogue content";
+            runOnlyForDeploymentPostprocessing = 0;
+            shellPath = /bin/sh;
+            shellScript = "set -eu\nif [ -z \"${PETAI_DIALOGUE_CONTENT:-}\" ] || [ ! -f \"$PETAI_DIALOGUE_CONTENT\" ]; then\n  echo \"error: Set PETAI_DIALOGUE_CONTENT to the compiled dialogue-content.json file.\"\n  exit 1\nfi\ncp \"$PETAI_DIALOGUE_CONTENT\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/dialogue-content.json\"\nfor name in reaction-frames.json reaction-vectors.f32 dialogue-lore.json; do\n  source=\"$(dirname \"$PETAI_DIALOGUE_CONTENT\")/$name\"\n  target=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/$name\"\n  if [ -f \"$source\" ]; then cp \"$source\" \"$target\"; else rm -f \"$target\"; fi\ndone\n";
+        };
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0C25E892301359C8006F4D84 /* Sources */ = {

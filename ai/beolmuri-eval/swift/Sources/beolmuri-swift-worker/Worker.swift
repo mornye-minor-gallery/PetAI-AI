@@ -4,30 +4,43 @@ import Foundation
 // Runtime overrides belong to the evaluation executable, not product persona policy.
 private struct EvaluationConfiguration: Decodable {
     let persona: PersonaResponseConfiguration
+    let dialogueContent: DialogueContent?
+    let personaCore: String?
     let thinking: Bool?
+    let sampling: EvaluationSampling?
     let nameRulePlacement: NameRulePlacement?
     let authorsNote: AuthorsNoteSettings?
+    let authoredText: DialogueTextSettings?
     let worldInfo: WorldInfoSettings?
 
-    private enum CodingKeys: String, CodingKey { case thinking, nameRulePlacement, authorsNote, worldInfo }
+    private enum CodingKeys: String, CodingKey { case dialogueContent, personaCore, thinking, sampling, nameRulePlacement, authorsNote, worldInfo, authoredText }
 
     init(from decoder: Decoder) throws {
+        dialogueContent = try decoder.container(keyedBy: CodingKeys.self).decodeIfPresent(DialogueContent.self, forKey: .dialogueContent)
+        personaCore = try decoder.container(keyedBy: CodingKeys.self).decodeIfPresent(String.self, forKey: .personaCore)
         nameRulePlacement = try decoder.container(keyedBy: CodingKeys.self).decodeIfPresent(NameRulePlacement.self, forKey: .nameRulePlacement)
         authorsNote = try decoder.container(keyedBy: CodingKeys.self).decodeIfPresent(AuthorsNoteSettings.self, forKey: .authorsNote)
         worldInfo = try decoder.container(keyedBy: CodingKeys.self).decodeIfPresent(WorldInfoSettings.self, forKey: .worldInfo)
+        authoredText = try decoder.container(keyedBy: CodingKeys.self).decodeIfPresent(DialogueTextSettings.self, forKey: .authoredText)
         persona = try PersonaResponseConfiguration(from: decoder)
         thinking = try decoder.container(keyedBy: CodingKeys.self)
             .decodeIfPresent(Bool.self, forKey: .thinking)
+        sampling = try decoder.container(keyedBy: CodingKeys.self)
+            .decodeIfPresent(EvaluationSampling.self, forKey: .sampling)
     }
 
     func snapshot() throws -> [String: Any] {
         var value = try JSONSerialization.jsonObject(
             with: JSONEncoder().encode(persona)
         ) as! [String: Any]
+        if let dialogueContent { value["dialogueContent"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(dialogueContent)) }
+        if let personaCore { value["personaCore"] = personaCore }
         if let thinking { value["thinking"] = thinking }
+        if let sampling { value["sampling"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(sampling)) }
         if let nameRulePlacement { value["nameRulePlacement"] = nameRulePlacement.rawValue }
         if let authorsNote { value["authorsNote"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(authorsNote)) }
         if let worldInfo { value["worldInfo"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(worldInfo)) }
+        if let authoredText { value["authoredText"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(authoredText)) }
         return value
     }
 }
@@ -43,6 +56,7 @@ private struct Request: Decodable {
     let id: String
     let operation: String
     let configuration: EvaluationConfiguration
+    let retrievalDirectory: String?
     let characterName: String?
     let userMessage: String?
     let history: [HistoryExchange]?
@@ -54,6 +68,9 @@ private struct Request: Decodable {
     let worldInfoState: WorldInfoState?
     let worldInfoText: WorldInfoTextContext?
     let exampleDialogue: String?
+    let sessionCheckpoint: DialogueSessionCheckpoint?
+    let assistantMessage: String?
+    let worldInfoTransaction: WorldInfoTransaction?
     let primaryChunks: [String]?
     let retryChunks: [String]?
 }
@@ -69,7 +86,24 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
     }
 
     private static func handle(_ request: Request) async throws -> [String: Any] {
+        if request.configuration.dialogueContent != nil && request.configuration.personaCore != nil {
+            throw WorkerError.invalidRequest
+        }
+        if let content = request.configuration.dialogueContent, let name = request.characterName,
+           content.name != name { throw WorkerError.invalidRequest }
         switch request.operation {
+        case "validate":
+            if request.configuration.persona.includePersona,
+               (request.configuration.dialogueContent?.persona ?? request.configuration.personaCore)?
+                   .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                throw RoutedPersonaPromptRegistryError.notConfigured
+            }
+            if let settings = request.configuration.worldInfo {
+                let entries = settings.entries + (try settings.library?.entries(character: request.configuration.dialogueContent?.name ?? request.characterName ?? "엘레나") ?? [])
+                try WorldInfoEngine.validate(.init(tokenBudget: settings.tokenBudget, entries: entries,
+                    scanDepth: settings.scanDepth, rules: settings.rules))
+            }
+            return ["status": "valid"]
         case "prepare":
             guard let message = request.userMessage, !message.isEmpty else {
                 throw WorkerError.invalidRequest
@@ -79,11 +113,20 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
             if request.configuration.worldInfo?.rules.vector != nil && request.worldInfoContext == nil {
                 throw WorkerError.invalidRequest
             }
-            let prompts = try RoutedPersonaPromptRegistry().load()
-            let profile = UserProfileContext(characterName: request.characterName ?? "엘레나")
+            let core = request.configuration.dialogueContent?.promptSet.core ?? request.configuration.personaCore
+            if request.configuration.persona.includePersona,
+               core?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                throw RoutedPersonaPromptRegistryError.notConfigured
+            }
+            let prompts = RoutedPersonaPromptSet(core: core ?? "")
+            let profile = UserProfileContext(characterName: request.configuration.dialogueContent?.name ?? request.characterName ?? "엘레나")
             let generation = SLMConfiguration.production.generation
             let history = request.history ?? []
             var context = RoutedPersonaSessionContext(worldInfoState: request.worldInfoState ?? .init(), worldInfoText: request.worldInfoText ?? .init())
+            if let checkpoint = request.sessionCheckpoint {
+                guard history.isEmpty, request.worldInfoState == nil, request.worldInfoText == nil else { throw WorkerError.invalidRequest }
+                context = try RoutedPersonaSessionContext(checkpoint: checkpoint)
+            }
             for exchange in history {
                 guard !exchange.user.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                       !exchange.assistant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -108,10 +151,17 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
                     score: 1, rank: index)
             }
             let snapshot = try context.snapshot(requestID: request.id)
+            var worldInfo = request.configuration.worldInfo
+            var retrievalTrace = Data("{}".utf8)
+            if let content = request.configuration.dialogueContent, content.retrieval != nil {
+                guard let directory = request.retrievalDirectory else { throw WorkerError.invalidRequest }
+                (worldInfo, retrievalTrace) = try await ReactionRetrieval.shared.prepare(directory: directory, content: content,
+                    requestID: request.id, history: context.turns.map(\.text), message: message, base: worldInfo)
+            }
             let input = DialoguePromptInput(persona: prompts, activeCard: prompts.card(scene: .general),
                 profile: profile, history: context.turns, memories: memories, currentMessage: message,
-                insertions: request.insertions ?? [], session: snapshot, authorsNote: request.configuration.authorsNote, worldInfo: request.configuration.worldInfo,
-                worldInfoContext: request.worldInfoContext ?? .init(), exampleDialogue: request.exampleDialogue ?? "")
+                insertions: request.insertions ?? [], session: snapshot, authorsNote: request.configuration.authorsNote, worldInfo: worldInfo,
+                worldInfoContext: request.worldInfoContext ?? .init(), exampleDialogue: request.configuration.dialogueContent?.exampleDialogue ?? request.exampleDialogue ?? "", authoredText: request.configuration.authoredText ?? .init())
             let policy = DialoguePromptPolicy(persona: request.configuration.persona,
                 nameRulePlacement: request.configuration.nameRulePlacement ?? .system)
             let prepared: PreparedDialogue
@@ -127,6 +177,9 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
             }
             return [
                 "status": "prepared",
+                "retrieval_trace": try JSONSerialization.jsonObject(with: retrievalTrace),
+                "session_checkpoint": try JSONSerialization.jsonObject(with: JSONEncoder().encode(context.checkpoint())),
+                "world_info_seed": DialogueSeedPolicy.worldInfo(base: request.worldInfoContext?.randomSeed ?? 1, completedMessages: context.completedMessages),
                 "configuration": try request.configuration.snapshot(),
                 "system_prompt": prepared.systemPrompt,
                 "user_prompt": prepared.userPrompt,
@@ -147,9 +200,9 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
                 ],
                 "history": context.turns.map { ["role": $0.role.rawValue, "text": $0.text] },
                 "history_stats": [
-                    "injected_messages": history.count * 2,
+                    "injected_messages": context.completedMessages,
                     "retained_messages": context.turns.count,
-                    "dropped_messages": history.count * 2 - context.turns.count,
+                    "dropped_messages": context.completedMessages - context.turns.count,
                     "retained_exchanges": context.turns.count / 2,
                     "message_limit": context.maximumTurnCount
                 ],
@@ -161,14 +214,21 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
                 ],
                 "memory_store": memoryTexts.isEmpty ? "disabled-fixture" : "fixed-retrieval-fixture",
                 "sampling": [
-                    "temperature": generation.responseSampling.temperature,
-                    "top_k": generation.responseSampling.samplerTopK,
-                    "top_p": generation.responseSampling.topP,
+                    "temperature": request.configuration.sampling?.temperature ?? Double(generation.responseSampling.temperature),
+                    "top_k": request.configuration.sampling?.topK ?? generation.responseSampling.samplerTopK,
+                    "top_p": request.configuration.sampling?.topP ?? Double(generation.responseSampling.topP),
                     "max_output_tokens": outputTokens,
                     "thinking": request.configuration.thinking ?? generation.responseThinkingDefault,
                     "filter_channel_content_from_kv_cache": true
                 ]
             ]
+        case "commit":
+            guard let checkpoint = request.sessionCheckpoint, let user = request.userMessage,
+                  let assistant = request.assistantMessage else { throw WorkerError.invalidRequest }
+            var context = try RoutedPersonaSessionContext(checkpoint: checkpoint)
+            let pending = try context.snapshot(requestID: request.id)
+            try context.commit(pending, userMessage: user, assistantMessage: assistant, worldInfo: request.worldInfoTransaction)
+            return ["status": "committed", "session_checkpoint": try JSONSerialization.jsonObject(with: JSONEncoder().encode(context.checkpoint()))]
         case "process":
             guard let chunks = request.primaryChunks else { throw WorkerError.invalidRequest }
             do {

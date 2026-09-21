@@ -76,7 +76,7 @@ public enum WorldInfoEngine {
                     let decorated = decorators(entry.content)
                     entry.content = decorated.text
                     if decorated.force == false { reason = .filtered }
-                    else if decorated.force != true && !entry.constant && !sticky && !context.externallyActivated.contains(entry.id) && !(entry.rules.vectorized == true && context.vectorMatches.contains(entry.id)) {
+                    else if decorated.force != true && !entry.constant && !sticky && !context.externallyActivated.contains(entry.id) && !((entry.rules.vectorized == true || settings.rules.vector?.enabledForAll == true) && context.vectorMatches.contains(entry.id)) {
                         let buffer = scanBuffer(entry, messages: messages, depth: actualDepth, recursion: scanState == 3 ? [] : recursion, note: note, context: context)
                         maxScanned = max(maxScanned, min(actualDepth, messages.count))
                         if actualDepth > 0 && note?.active == true && note?.allowWorldInfoScan == true && note?.text.isEmpty == false { didScanNote = true }
@@ -149,6 +149,12 @@ public enum WorldInfoEngine {
         }
         let nextState = try WorldInfoTemporalRules.finish(temporal, selected: temporalEntries.filter { e in selected.contains { $0.id == e.id } }, messageNumber: context.messageNumber)
         for index in selected.indices {
+            while true {
+                do {
+                    selected[index].content = try DialogueRegex.apply(selected[index].content, request: .init(placement: 5), context: &macros)
+                    break
+                } catch WorldInfoTextError.randomSourceExhausted { macros.randomRolls.append(random.next()) }
+            }
             for replacement in selected[index].rules.replacements ?? [] {
                 while true {
                     do {

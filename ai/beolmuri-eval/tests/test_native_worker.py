@@ -6,6 +6,26 @@ from beolmuri_eval.native_worker import NativeRuntime
 
 
 class NativeWorkerTests(unittest.TestCase):
+    def test_stream_events_preserve_thoughts_and_timing_without_changing_text(self):
+        runtime = NativeRuntime.__new__(NativeRuntime)
+        runtime.measure = Mock(return_value={'input_tokens': 10, 'token_accounting': {}})
+        runtime.conversation = Mock()
+        runtime.conversation.token_count = 20
+        events = [
+            {'role': 'assistant', 'channels': {'thought': 'reasoning'}},
+            {'content': [{'type': 'text', 'text': '답변'}]},
+        ]
+        runtime.conversation.send_message_async.return_value = iter(events)
+        with patch('beolmuri_eval.native_worker.time.monotonic', side_effect=[0, 1, 3, 4]):
+            result = runtime.generate('question')
+        self.assertEqual(result['chunks'], ['답변'])
+        self.assertEqual(result['first_output_ms'], 3000)
+        self.assertEqual(result['elapsed_ms'], 4000)
+        self.assertEqual(result['stream_events'], [
+            {'elapsed_ms': 1000, 'event': events[0]},
+            {'elapsed_ms': 3000, 'event': events[1]},
+        ])
+
     def test_gpu_engine_receives_existing_cache_directory(self):
         library = Mock()
         with tempfile.TemporaryDirectory() as tmp:

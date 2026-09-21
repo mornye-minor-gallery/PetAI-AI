@@ -16,7 +16,7 @@ public struct WorldInfoLibraryConfiguration: Codable, Equatable, Sendable {
     }
     public func entries(character: String) throws -> [WorldInfoEntry] {
         let library = try WorldInfoLibrary(lorebooks: books.keys.sorted().map {
-            try WorldInfoLorebook(data: Data(books[$0]!.utf8), name: $0)
+            try WorldInfoImport.read(encoded: books[$0]!, name: $0).lorebook
         })
         return try library.select(global: global, character: characters[character] ?? [], chat: chat, persona: persona, strategy: strategy)
     }

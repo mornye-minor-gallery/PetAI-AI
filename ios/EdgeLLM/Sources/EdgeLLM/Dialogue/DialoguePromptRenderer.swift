@@ -55,13 +55,7 @@ enum DialoguePromptRenderer {
         _ source: String,
         with context: UserProfileContext
     ) -> String {
-        source.replacingOccurrences(
-            of: "엘레나",
-            with: context.characterName
-        ).replacingOccurrences(
-            of: "Elena",
-            with: context.characterName
-        )
+        source.replacingOccurrences(of: "{{char}}", with: context.characterName)
     }
 
     static func userSections(memorySection: String?, currentMessage: String, beforeCurrent: [DialoguePromptSection] = [],

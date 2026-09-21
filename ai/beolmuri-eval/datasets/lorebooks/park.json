@@ -1,0 +1,17 @@
+{
+  "entries": {
+    "0": {
+      "uid": 0,
+      "key": ["별빛 공원"],
+      "keysecondary": [],
+      "comment": "합성 평가용 장소 설정",
+      "content": "별빛 공원에는 파란 분수와 그 옆의 나무 벤치가 있다.",
+      "constant": false,
+      "selective": false,
+      "order": 100,
+      "position": 0,
+      "disable": false,
+      "sticky": 8
+    }
+  }
+}

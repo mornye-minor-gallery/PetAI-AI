@@ -1,11 +1,13 @@
 import Foundation
 
 public struct WorldInfoVectorSettings: Codable, Equatable, Sendable {
+    public var enabledForAll: Bool?
     public var queryMessages: Int
     public var maximumEntries: Int
     public var threshold: Double
     /// Initial values follow the reference extension, not measured product optima.
-    public init(queryMessages: Int = 2, maximumEntries: Int = 5, threshold: Double = 0.25) {
+    public init(queryMessages: Int = 2, maximumEntries: Int = 5, threshold: Double = 0.25, enabledForAll: Bool = false) {
+        self.enabledForAll = enabledForAll
         self.queryMessages = queryMessages; self.maximumEntries = maximumEntries; self.threshold = threshold
     }
 }
@@ -22,7 +24,7 @@ public enum WorldInfoVectorSearch {
                               embedDocument: (String) async throws -> [Float]) async throws -> [WorldInfoVectorMatch] {
         guard settings.queryMessages > 0, settings.queryMessages <= 1000, settings.maximumEntries > 0,
               settings.threshold.isFinite, (-1...1).contains(settings.threshold) else { throw WorldInfoVectorError.invalidSettings }
-        let candidates = entries.filter { $0.enabled && $0.rules.vectorized == true && !$0.content.isEmpty }
+        let candidates = entries.filter { $0.enabled && ($0.rules.vectorized == true || settings.enabledForAll == true) && !$0.content.isEmpty }
         let query = newestMessages.prefix(settings.queryMessages).joined(separator: "\n")
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !candidates.isEmpty else { return [] }
         let vector = try await embedQuery(query)

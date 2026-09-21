@@ -14,7 +14,7 @@ enum WorldInfoControl {
     enum Failure: Error { case invalidAction, missingEntry }
     static func handle(_ data: Data) throws -> [String: Any] {
         let request = try JSONDecoder().decode(Request.self, from: data)
-        var book = try WorldInfoLorebook(data: Data(request.book.utf8), name: request.name)
+        var book = try WorldInfoImport.read(encoded: request.book, name: request.name).lorebook
         switch request.action {
         case "inspect", "export": break
         case "upsert":

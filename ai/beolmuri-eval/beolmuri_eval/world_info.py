@@ -1,9 +1,16 @@
 """Lorebook transport only: parsing, validation and edits execute in shared Swift."""
+import base64
 import json
 from pathlib import Path
 from .config import repository
 from .doctor import swift_binary
 from .process import execute
+
+
+def lorebook_payload(data: bytes) -> str:
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "data:image/png;base64," + base64.b64encode(data).decode("ascii")
+    return data.decode("utf-8")
 
 
 def control(args):
@@ -14,7 +21,7 @@ def control(args):
     if args.action in ("upsert", "remove", "export") and not args.output:
         raise ValueError("this action requires --output")
     request = {"id": "lorebook", "operation": "world-info", "action": args.action,
-               "name": args.name, "book": Path(args.book).read_text(encoding="utf-8")}
+               "name": args.name, "book": lorebook_payload(Path(args.book).read_bytes())}
     if args.entry:
         request["entry"] = json.loads(Path(args.entry).read_text(encoding="utf-8"))
     if args.entry_id:

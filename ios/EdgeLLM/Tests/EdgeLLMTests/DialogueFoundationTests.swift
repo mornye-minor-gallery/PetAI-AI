@@ -4,7 +4,7 @@ import Testing
 
 private func foundationInput(insertions: [DialoguePromptInsertion] = [],
                              memories: [RetrievedMemoryObservation] = []) throws -> DialoguePromptInput {
-    DialoguePromptInput(persona: try RoutedPersonaPromptRegistry().load(),
+    DialoguePromptInput(persona: try testPersona(),
         history: [.init(role: .user, text: "이전 질문"), .init(role: .assistant, text: "이전 답변")],
         memories: memories, currentMessage: "[응답 참고]라는 표현은 무슨 뜻이야?", insertions: insertions)
 }
@@ -92,7 +92,7 @@ private func foundationInput(insertions: [DialoguePromptInsertion] = [],
 
 @Test func dialogueSnapshotMustMatchTheSuppliedHistory() throws {
     let session = RoutedPersonaSessionContext()
-    let input = DialoguePromptInput(persona: try RoutedPersonaPromptRegistry().load(),
+    let input = DialoguePromptInput(persona: try testPersona(),
         history: [.init(role: .user, text: "다른 이력")], currentMessage: "질문",
         session: try session.snapshot(requestID: "test"))
     #expect(throws: DialoguePromptError.sessionHistoryMismatch) {

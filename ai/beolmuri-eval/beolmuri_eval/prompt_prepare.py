@@ -2,9 +2,32 @@
 
 
 def prepare_prompt(swift, native, *, configuration, case, history, memories,
-                   max_num_tokens, prompt_budget=None, timeout=180):
+                   max_num_tokens, prompt_budget=None, timeout=180, session_checkpoint=None, world_info_seed=None):
     payload = dict(configuration=configuration, characterName=case['character_name'],
                    userMessage=case['user_message'], history=history, memories=memories)
+    retrieval = configuration.get('retrieval')
+    def embed(request):
+        result = native.call('embed_query', text=request['text'], timeout=timeout,
+                             embedding_model=retrieval['model'], embedding_tokenizer=retrieval['tokenizer'])
+        return {'vector': result['vector'], 'identity': result['identity']}
+    if retrieval:
+        # Assets stay external because model weights do not belong in run snapshots.
+        # Their content identity is also checked against the index by shared Swift.
+        payload['retrievalDirectory'] = retrieval['directory']
+        payload['embedding_handler'] = embed
+    if session_checkpoint is not None:
+        payload['history'] = []
+        payload['sessionCheckpoint'] = session_checkpoint
+    context = dict(configuration.get('world_info_context', {}))
+    context.update(case.get('world_info_context', {}))
+    if world_info_seed is not None:
+        context['randomSeed'] = world_info_seed
+    if context:
+        payload['worldInfoContext'] = context
+    if configuration.get('worldInfo', {}).get('rules', {}).get('vector') is not None and 'vectorMatches' not in context:
+        raise ValueError('vector retrieval requires explicit recorded vectorMatches for this turn')
+    payload['exampleDialogue'] = case.get('example_dialogue', configuration.get('example_dialogue', ''))
+    payload['memories'] = case.get('memories', memories)
     if prompt_budget is None:
         # Saved byte-budget experiments are an explicit reproducibility consumer.
         return swift.call('prepare', **payload)

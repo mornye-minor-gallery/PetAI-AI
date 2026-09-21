@@ -28,7 +28,7 @@ private struct NoteFixtures: Decodable {
 }
 
 @Test func authorsNoteDepthMatchesOriginalMessageOrder() throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let turns: [RoutedPersonaSessionContext.Turn] = [.init(role: .user, text: "사용자1"), .init(role: .assistant, text: "답변1"), .init(role: .user, text: "사용자2"), .init(role: .assistant, text: "답변2")]
     let session = RoutedPersonaSessionContext(turns: turns)
     for fixture in try NoteFixtures.load().depths {
@@ -48,7 +48,7 @@ private struct NoteFixtures: Decodable {
     for _ in 0..<11 { session.appendExchange(userMessage: "과거", assistantMessage: "답변") }
     let settings = AuthorsNoteSettings(defaults: .init(text: "상기", interval: 3))
     let snapshot = try session.snapshot(requestID: "pending")
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let input = DialoguePromptInput(persona: prompts, history: snapshot.history, currentMessage: "질문", session: snapshot, authorsNote: settings)
     let first = try DialoguePromptComposer.prepare(input: input)
     #expect(first.trace.authorsNote?.active == true)
@@ -68,7 +68,7 @@ private struct NoteFixtures: Decodable {
 }
 
 @Test func authorsNoteRequiresSnapshotAndRejectsInvalidSettings() throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     #expect(throws: DialoguePromptError.missingSessionSnapshot) {
         try DialoguePromptComposer.prepare(input: .init(persona: prompts, currentMessage: "질문", authorsNote: .init()))
     }
@@ -81,7 +81,7 @@ private struct NoteFixtures: Decodable {
 }
 
 @Test func authorsNoteSystemPlacementsAndAbsentNotePreserveContract() throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let snapshot = try RoutedPersonaSessionContext().snapshot(requestID: "system")
     let baseline = try DialoguePromptComposer.prepare(input: .init(persona: prompts, currentMessage: "질문"))
     for position in [AuthorsNotePosition.beforeSystem, .afterSystem] {
@@ -95,7 +95,7 @@ private struct NoteFixtures: Decodable {
 }
 
 @Test func authorsNoteRejectsAmbiguousInsertionIdentifiers() throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let snapshot = try RoutedPersonaSessionContext().snapshot(requestID: "collision")
     for id in ["authorsNote", "history.1"] {
         #expect(throws: DialoguePromptError.invalidInsertionID(id)) {

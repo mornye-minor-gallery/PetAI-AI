@@ -6,7 +6,7 @@ from unittest.mock import patch
 from beolmuri_eval.config import repository
 from beolmuri_eval.doctor import swift_binary
 from beolmuri_eval.evaluation import load_plan
-from beolmuri_eval.process import Worker
+from persona_worker import Worker
 from beolmuri_eval.runner import run
 from beolmuri_eval.storage import atomic_json, records
 

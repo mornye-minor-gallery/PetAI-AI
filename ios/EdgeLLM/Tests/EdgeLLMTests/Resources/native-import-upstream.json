@@ -1,0 +1,310 @@
+{
+  "cases": [
+    {
+      "id": "character",
+      "input": {
+        "spec": "chara_card_v2",
+        "data": {
+          "name": "Elena",
+          "character_book": {
+            "entries": [
+              {
+                "keys": [
+                  "a"
+                ],
+                "content": "alpha",
+                "enabled": true,
+                "extensions": {
+                  "sticky": 2,
+                  "role": 1,
+                  "position": 4,
+                  "depth": 2
+                }
+              }
+            ]
+          }
+        }
+      },
+      "format": "character",
+      "expected": {
+        "entries": {
+          "0": {
+            "key": [
+              "a"
+            ],
+            "keysecondary": [],
+            "comment": "",
+            "content": "alpha",
+            "constant": false,
+            "vectorized": false,
+            "selective": false,
+            "selectiveLogic": 0,
+            "addMemo": false,
+            "position": 4,
+            "disable": false,
+            "ignoreBudget": false,
+            "excludeRecursion": false,
+            "preventRecursion": false,
+            "matchPersonaDescription": false,
+            "matchCharacterDescription": false,
+            "matchCharacterPersonality": false,
+            "matchCharacterDepthPrompt": false,
+            "matchScenario": false,
+            "matchCreatorNotes": false,
+            "delayUntilRecursion": false,
+            "probability": 100,
+            "useProbability": true,
+            "depth": 2,
+            "outletName": "",
+            "group": "",
+            "groupOverride": false,
+            "groupWeight": 100,
+            "scanDepth": null,
+            "caseSensitive": null,
+            "matchWholeWords": null,
+            "useGroupScoring": null,
+            "automationId": "",
+            "role": 1,
+            "sticky": 2,
+            "cooldown": null,
+            "delay": null,
+            "triggers": [],
+            "uid": 0,
+            "displayIndex": 0,
+            "extensions": {
+              "sticky": 2,
+              "role": 1,
+              "position": 4,
+              "depth": 2
+            }
+          }
+        },
+        "originalData": {
+          "entries": [
+            {
+              "keys": [
+                "a"
+              ],
+              "content": "alpha",
+              "enabled": true,
+              "extensions": {
+                "sticky": 2,
+                "role": 1,
+                "position": 4,
+                "depth": 2
+              },
+              "id": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "agnai",
+      "input": {
+        "kind": "memory",
+        "entries": [
+          {
+            "keywords": [
+              "a"
+            ],
+            "name": "A",
+            "entry": "alpha",
+            "weight": 45,
+            "enabled": true
+          }
+        ]
+      },
+      "format": "agnai",
+      "expected": {
+        "entries": {
+          "0": {
+            "key": [
+              "a"
+            ],
+            "keysecondary": [],
+            "comment": "A",
+            "content": "alpha",
+            "constant": false,
+            "vectorized": false,
+            "selective": false,
+            "selectiveLogic": 0,
+            "addMemo": true,
+            "order": 45,
+            "position": 0,
+            "disable": false,
+            "ignoreBudget": false,
+            "excludeRecursion": false,
+            "preventRecursion": false,
+            "matchPersonaDescription": false,
+            "matchCharacterDescription": false,
+            "matchCharacterPersonality": false,
+            "matchCharacterDepthPrompt": false,
+            "matchScenario": false,
+            "matchCreatorNotes": false,
+            "delayUntilRecursion": false,
+            "probability": 100,
+            "useProbability": true,
+            "depth": 4,
+            "outletName": "",
+            "group": "",
+            "groupOverride": false,
+            "groupWeight": 100,
+            "scanDepth": null,
+            "caseSensitive": null,
+            "matchWholeWords": null,
+            "useGroupScoring": null,
+            "automationId": "",
+            "role": 0,
+            "sticky": null,
+            "cooldown": null,
+            "delay": null,
+            "triggers": [],
+            "uid": 0,
+            "displayIndex": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "novel",
+      "input": {
+        "lorebookVersion": 5,
+        "entries": [
+          {
+            "keys": [
+              "a"
+            ],
+            "text": "alpha",
+            "displayName": "A",
+            "enabled": false,
+            "contextConfig": {
+              "budgetPriority": 30
+            }
+          }
+        ]
+      },
+      "format": "novel",
+      "expected": {
+        "entries": {
+          "0": {
+            "key": [
+              "a"
+            ],
+            "keysecondary": [],
+            "comment": "A",
+            "content": "alpha",
+            "constant": false,
+            "vectorized": false,
+            "selective": false,
+            "selectiveLogic": 0,
+            "addMemo": true,
+            "order": 30,
+            "position": 0,
+            "disable": true,
+            "ignoreBudget": false,
+            "excludeRecursion": false,
+            "preventRecursion": false,
+            "matchPersonaDescription": false,
+            "matchCharacterDescription": false,
+            "matchCharacterPersonality": false,
+            "matchCharacterDepthPrompt": false,
+            "matchScenario": false,
+            "matchCreatorNotes": false,
+            "delayUntilRecursion": false,
+            "probability": 100,
+            "useProbability": true,
+            "depth": 4,
+            "outletName": "",
+            "group": "",
+            "groupOverride": false,
+            "groupWeight": 100,
+            "scanDepth": null,
+            "caseSensitive": null,
+            "matchWholeWords": null,
+            "useGroupScoring": null,
+            "automationId": "",
+            "role": 0,
+            "sticky": null,
+            "cooldown": null,
+            "delay": null,
+            "triggers": [],
+            "uid": 0,
+            "displayIndex": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "risu",
+      "input": {
+        "type": "risu",
+        "data": [
+          {
+            "key": "a,b",
+            "secondkey": "c",
+            "content": "alpha",
+            "comment": "A",
+            "insertorder": 55,
+            "selective": true,
+            "alwaysActive": false,
+            "activationPercent": 0
+          }
+        ]
+      },
+      "format": "risu",
+      "expected": {
+        "entries": {
+          "0": {
+            "key": [
+              "a",
+              "b"
+            ],
+            "keysecondary": [
+              "c"
+            ],
+            "comment": "A",
+            "content": "alpha",
+            "constant": false,
+            "vectorized": false,
+            "selective": true,
+            "selectiveLogic": 0,
+            "addMemo": true,
+            "order": 55,
+            "position": 0,
+            "disable": false,
+            "ignoreBudget": false,
+            "excludeRecursion": false,
+            "preventRecursion": false,
+            "matchPersonaDescription": false,
+            "matchCharacterDescription": false,
+            "matchCharacterPersonality": false,
+            "matchCharacterDepthPrompt": false,
+            "matchScenario": false,
+            "matchCreatorNotes": false,
+            "delayUntilRecursion": false,
+            "probability": 0,
+            "useProbability": false,
+            "depth": 4,
+            "outletName": "",
+            "group": "",
+            "groupOverride": false,
+            "groupWeight": 100,
+            "scanDepth": null,
+            "caseSensitive": null,
+            "matchWholeWords": null,
+            "useGroupScoring": null,
+            "automationId": "",
+            "role": 0,
+            "sticky": null,
+            "cooldown": null,
+            "delay": null,
+            "triggers": [],
+            "uid": 0,
+            "displayIndex": 0
+          }
+        }
+      }
+    }
+  ]
+}

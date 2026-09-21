@@ -36,12 +36,12 @@ public enum DialoguePromptComposer {
 
     static func assemble(input: DialoguePromptInput, policy: DialoguePromptPolicy,
                          memory: DialogueMemoryContext, memoryByteBudget: Int?, note: AuthorsNoteResolution?,
-                         worldInfo: WorldInfoPromptProjection? = nil) throws -> PreparedDialogue {
-        var macroContext = worldInfo?.selection.textContext ?? .init()
+                         worldInfo: WorldInfoPromptProjection? = nil, authoredContext: WorldInfoTextContext? = nil) throws -> PreparedDialogue {
+        var macroContext = worldInfo?.selection.textContext ?? authoredContext ?? authoredTextContext(input)
         macroContext.outlets = worldInfo?.outlets ?? [:]
-        var random = WorldInfoRandom(state: input.worldInfoContext.randomSeed)
+        var random = WorldInfoRandom(state: DialogueSeedPolicy.worldInfo(base: input.worldInfoContext.randomSeed, completedMessages: input.session?.completedMessages ?? 0))
         func authored(_ text: String) throws -> String {
-            guard worldInfo != nil, text.contains("{{") else { return text }
+            guard text.contains("{{") || text.contains("<") else { return text }
             return try WorldInfoEngine.expand(text, macros: &macroContext, random: &random)
         }
         let expandedBaseNote = try note.map { $0.replacingText(try authored($0.text)) }
@@ -91,8 +91,8 @@ public enum DialoguePromptComposer {
                          nameRuleIncluded: policy.persona.enforceCharacterName,
                          historyMessages: input.history.count, memoryByteBudget: memoryByteBudget,
                          memories: memory.trace, insertions: layout.trace, authorsNote: expandedNote, worldInfo: worldInfo?.trace, tokenBudget: nil),
-            worldInfoTransaction: worldInfo.map { .init(state: $0.selection.nextState, text: macroContext,
-                automationIDs: $0.selection.automationIDs, outlets: $0.outlets) },
+            worldInfoTransaction: .init(state: worldInfo?.selection.nextState ?? input.session?.worldInfoState ?? .init(),
+                text: macroContext, automationIDs: worldInfo?.selection.automationIDs ?? [], outlets: worldInfo?.outlets ?? [:]),
             tokenSections: systemParts.map { .init(id: $0.id, text: $0.text, role: .system) }
                 + historyParts + positionedParts)
     }

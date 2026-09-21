@@ -20,10 +20,26 @@ status:: active
 `prompt_budget`이 없는 기존 연구 YAML은 UTF-8 바이트 예산으로 재현한다.
 실제 이력 유지·기억 검색·도구 실행·응답 저장은 조립기가 수행하지 않는다.
 
-기존 입력과의 일치는 `ios/EdgeLLM/Tests/EdgeLLMTests/Resources/dialogue-prompt-baseline.json`의
-24개 고정 입력과 조립 전 워커 출력의 SHA-256으로 검증한다. Swift 계약 테스트와
-`tests/test_prompt_composer.py`가 공용 조립기와 워커 양쪽을 확인한다.
-이 검증은 프롬프트 일치를 확인하며 대화 품질이나 iPhone 실행을 증명하지 않는다.
+캐릭터 원문은 엔진에 내장하지 않는다. 평가 YAML의 조건에 외부 콘텐츠를 지정한다.
+
+```yaml
+variants:
+  daily:
+    includePersona: true
+    content:
+      character: /private-content/characters/sample.yaml
+      situation: /private-content/situations/daily.yaml
+```
+
+하네스는 앱용 변환기와 같은 함수를 사용하고, 조립은 Swift `DialogueContent`와
+Composer에 맡긴다. 원본 YAML 두 개를 실행 입력에 복사하고 실제 콘텐츠를 manifest에
+기록한다. 데이터셋의 `character_name`은 콘텐츠의 `name`과 같아야 한다.
+`examples: []`이면 예시를 넣지 않는다. 직접 작성한 `personaCore`도 사용할 수 있지만
+`content`와 동시에 지정하지 않는다. 캐릭터 없이 이름 규칙만 검사할 때는
+`includePersona: false`를 명시한다. 기존 연구 YAML이 과거 콘텐츠를 자동 복원하지 않는다.
+
+단위·통합 테스트는 제품 스토리와 무관한 명시적 검사 자료를 주입한다. 과거
+프롬프트와 결과의 재현은 별도 보관된 당시 코드·자료에서 수행한다.
 
 ## 실제 토큰 기반 입력 준비
 
@@ -53,13 +69,14 @@ Swift의 공용 Composer가 기억을 선택한다. Python `prompt_prepare`는 S
 `measure-context` 결과에도 같은 trace를 포함한다. 본문은 기존 prepared 결과로 확인한다.
 
 기존 실험 YAML의 예산과 출력 상한은 유지한다. `prompt_budget`을 추가하면 새 토큰
-선택 경로가 되므로 새 run으로 시작해야 한다. 서로 다른 예산을 같은 프롬프트 조건의
-결과로 비교하지 않도록 manifest에 예산을 기록하고 비교 시 일치를 검사한다.
+선택 경로가 되므로 새 run으로 시작해야 한다. 서로 다른 예산은 manifest와 비교 결과의
+`differences`에 표시한다. 비교가 가능하다는 사실은 동일 조건의 실험이라는 뜻이 아니다.
 
 
 ## 실행 범위
 
-초안은 **단일 턴, GENERAL 장면 고정, 빈 기억, 빈 대화 이력**을 사용한다.
+기본 이름 데이터는 독립 단일 턴이며, 시나리오 데이터는 여러 턴을 이어서 실행한다.
+GENERAL 장면은 고정하고 대화 이력·기억 검색 결과는 설정 또는 턴별 고정 자료로 공급한다.
 장면 라우터, EdgeMem 검색·저장, OS 도구 실행과 Unity UI의 통합 평가는 아니다.
 실험 설정은 평가 실행부에서 선택하며 제품 설정을 덮어쓰지 않는다.
 제품은 개선된 이름 정정 규칙을 기본으로 사용하고, 평가의 각 조건은 YAML에 명시한다. 평가 실행 파일은 앱의 release target에 포함하지 않는다.
@@ -70,8 +87,10 @@ macOS에서는 WebGPU를 통해 Metal을 사용하며, GPU 초기화 실패는 �
 Mac 어댑터는 `litert-lm==0.13.1`을 고정하며 모바일의 0.14.0 fork와 버전이
 다르다. Mac의 결과를 iPhone 런타임·메모리·발열 검증으로 해석하지 않는다.
 생성 설정은 Swift의 `SLMConfiguration.production`에서 받는다. 반복 실행의
-seed는 반복 인덱스이고, 제품과 같은 고정 seed의 반복이나 비트 단위 재현성을
-주장하지 않는다. 추측 디코딩은 끄고 KV 용량은 모델 기본값을 사용한다.
+시드는 `run.seed`(기본 0), 표본의 `pair_id`, 반복 번호, 턴 ID로 결정한다.
+World Info와 생성 시드는 분리하며, World Info는 앱과 같은 Swift 규칙으로 누적
+메시지 수만큼 진행한다. 표본 순서를 바꿔도 같은 표본의 시드는 유지된다.
+GPU의 비트 단위 재현성은 주장하지 않는다. 추측 디코딩은 끄고 KV 용량은 모델 기본값을 사용한다.
 
 ## 설치와 환경 점검
 
@@ -212,6 +231,11 @@ beolmuri-eval run --variant persona-name-memory --limit-pairs 1 --repeats 3
 따른다. `name-rule-thinking`은 `name-rule`과 프롬프트가 같고 추론 모드만 켠
 비교 조건이다. 실제 적용값은 `input.sampling.thinking`에 기록한다.
 
+샘플링 비교는 variant에 `sampling: {temperature: 1.0, top_k: 64, top_p: 0.95}`를
+추가한다. 지정할 때는 세 값을 모두 제공하며, 생략하면 제품 기본값을 사용한다.
+프롬프트와 제품 설정은 바뀌지 않고 평가 생성 요청에만 적용된다.
+선택값은 `configuration.sampling`, 실제 전달값은 `input.sampling`에 기록한다.
+
 이름 유지 지시는 시스템 프롬프트의 마지막에 배치한다. 캐릭터 이름을
 따옴표로 구분하고, 잘못된 호명에는 대화 답변의 첫 문장에서 이름을 바로잡은
 뒤 질문에 반응하도록 지시한다. 메모리 분류가 켜져 있으면 이 첫 문장은
@@ -229,7 +253,9 @@ conversation에서 기존 답변 전용 재시도를 실행한다.
 
 ## 채점과 수치
 
-Codex CLI provider의 `gpt-5.6-luna`, reasoning `medium`을 사용한다.
+기본 채점은 Codex CLI provider의 `gpt-5.6-sol`, reasoning `medium`을 사용한다.
+채점 모델은 YAML의 `judge.model`에서 선택하며, 과거 실험은 저장된 설정으로 재현한다.
+채점 모델을 바꿔 비교할 때는 같은 생성 응답을 재채점하고 모델별 판정을 따로 보관한다.
 채점기에는 실험 이름, 변경한 시스템 프롬프트나 개선 의도를 전달하지 않는다.
 올바른 이름, 부른 이름, 사용자 발화, 최종 표시 응답과 고정 rubric만 전달한다.
 
@@ -245,10 +271,14 @@ Codex CLI provider의 `gpt-5.6-luna`, reasoning `medium`을 사용한다.
 빠진 결과의 비율은 잠정치이며 `grading_coverage_pct`와 `complete`를 함께 본다.
 정상 호명 오정정률도 별도로 계산하고 판정 불가 비율을 함께 표시한다.
 
-합격 임계값이나 임의 종합점수는 없다. compare는 같은 데이터·반복·모델·런타임·
-채점 조건에서 모든 입력의 채점이 완료됐을 때만 실행한다. 각 비율의
-퍼센트포인트 차이와 동일 입력의 성공/실패 전환 수를 출력한다. 적은 수의
-연결 점검 결과만으로 성능 개선을 확정하지 않는다.
+합격 임계값이나 임의 종합점수는 없다. `compare`는 프롬프트·모델·기억·예산이 달라도
+두 조건의 집계와 manifest 차이를 출력한다. 손상되거나 중복된 응답 기록은 오류다.
+짝 비교는 같은 case/repeat 키, 현재 발화, 캐릭터, 호명, 평가 종류를 가진 채점 완료
+응답에 한정한다. 누락·미채점·대상 변경은 제외 사유와 함께 기록하며, 유효한 짝이
+없으면 `paired.available=false`다. 채점기나 채점 기준이 바뀌면 짝 비교와 비율 차이는
+제공하지 않고 각 조건의 집계만 제공한다. 제어군이 없으면 제어군 차이는 `null`이다.
+전체 집계의 차이와 일부 일치 표본의 전환 수는 분모가 다를 수 있다. 설정 차이와
+채점 완료율을 확인하고, 작은 연결 점검만으로 성능 개선을 확정하지 않는다.
 
 ## 산출물과 실패 처리
 
@@ -394,3 +424,110 @@ beolmuri-eval world-info export --book lorebook.json --name village --output exp
 평가 worker의 `prepare`는 선택적인 worldInfoContext/worldInfoState/worldInfoText/exampleDialogue를
 받고 다음 상태인 world_info_transaction을 반환한다. 벡터 검색 평가는 명시적인 검색 결과
 fixture를 요구한다. 앱의 로컬 임베딩 실행과 fixture 기반 선택 검증을 혼동하지 않는다.
+
+
+## 로어북과 여러 턴 시나리오
+
+`configs/dialogue-world-info.yaml`은 원본 로어북 JSON과 합성 대화를 연결하는 실행 예시다.
+예시는 연결 확인용이며 자연스러움 평가셋이나 튜닝된 최적 설정이 아니다.
+
+```zsh
+beolmuri-eval validate --config ai/beolmuri-eval/configs/dialogue-world-info.yaml
+# 실제 추론과 원격 이름 채점을 시작할 때만 실행한다.
+beolmuri-eval run --config ai/beolmuri-eval/configs/dialogue-world-info.yaml
+```
+
+`validate`는 모든 variant의 파일·스키마와 Swift World Info 설정을 검사한다.
+Swift 실행부를 빌드하지만 모델을 로드하거나 원격 채점기를 호출하지 않는다.
+
+YAML은 실험 설정이고 `lorebooks`는 이름과 원본 JSON 파일 경로의 대응표다.
+`worldInfo.library`에서 전역·캐릭터·채팅·페르소나별 연결과 우선순위를 지정한다.
+본문은 JSON에만 작성한다. 이름이 같은 inline book과 파일을 동시에 지정하면 오류다.
+로어북 원본도 실행의 `inputs/`에 해시와 함께 고정한다. Character Card 전체를
+가져오는 기능은 포함하지 않는다.
+
+`dataset.format: scenarios`의 JSONL 한 줄은 한 대화다.
+
+```json
+{"id":"park","character_name":"엘레나","turns":[{"id":"intro","user_message":"공원에 가자."},{"id":"probe","user_message":"아영아, 안녕?","kind":"wrong_name","called_name":"아영"}]}
+```
+
+- `kind`를 생략한 턴은 `dialogue`다. 응답을 생성해 이력에 넣고 이름 채점은 하지 않는다.
+- `wrong_name`·`correct_name` 턴은 기존 네 가지 판정으로 채점한다. 자연스러움 판정은 아직 없다.
+- `pair_id`는 조건 간 공통 난수 그룹이다. 없으면 시나리오 ID를 사용한다.
+- 턴별 `memories`, `world_info_context`, `example_dialogue`로 고정 입력을 지정할 수 있다.
+  `world_info_context`는 variant 기본값에 턴 값을 덮어쓴다. 벡터 검색을 켜면 매 턴의
+  `vectorMatches`를 명시해야 하며 빈 검색 결과는 `[]`로 쓴다. 실제 임베딩 검색 실행이 아니다.
+- 기존 이름 JSONL은 `format`을 생략한다. 각 행이 독립 세션이다. `dataset.kind`로
+  잘못된 이름만 고르는 기존 실험을 지원하지만 시나리오의 중간 턴은 필터로 제거하지 않는다.
+
+Swift의 체크포인트에 최근 이력, 누적 메시지 수, Sticky·Cooldown·매크로 상태를 보관한다.
+같은 시나리오의 다음 턴만 이 상태를 받는다. 시나리오·반복이 바뀌면 초기화한다.
+응답과 다음 체크포인트는 한 파일로 원자 저장한다. 채점 실패는 상태를 되돌리지 않으며,
+중단된 생성은 이전 상태에서 재시도한다. 연결이 끊기거나 해시가 바뀐 기록은 재개 전에 거부한다.
+`input.session_clock`, `session_after`, `seeds`, `input.prompt_trace`로 실제 적용 상태를 확인한다.
+
+각 턴의 LiteRT conversation은 공용 Swift가 구성한 입력에서 새로 시작한다. 여러 턴의
+KV를 중복 누적하지 않는다. 논리적 이력과 World Info 상태는 체크포인트로 이어진다.
+EdgeMem 검색·저장과 도구 실행은 이 시나리오 러너가 수행하지 않으며 기존 앱 기능을 변경하지 않는다.
+후속 발화의 토큰 수는 앞선 실제 응답에 따라 달라지므로 `measure-context`는 시나리오를
+거부한다. 실행 기록의 토큰 계측을 사용한다.
+
+CLI를 다른 checkout에 재설치하면 기본 결과 위치도 바뀐다. 과거 결과는 명시적인
+실행 디렉터리로 조회할 수 있으며, 결과 디렉터리를 연결했다면 `doctor`에 실제 경로가 표시된다.
+소스가 다른 기존 실행을 새 코드로 재개하지 않는다. 새 결과와 비교·조회는 가능하다.
+
+
+실험별 `export.py`는 공용 내보내기를 호출한다. 비교 응답은 `baseline.jsonl`과
+`candidate.jsonl`, 반복별 집계는 `evidence.json`에 저장한다. 기존 결과와 섞이지 않도록
+새 출력 디렉터리를 지정해야 한다. 로컬 경로에 해당하는 출처 필드와 채점 CLI 로그를 제외하며
+평가 발화·응답·인용 근거는 변경하지 않는다. 과거 결과 파일을 자동으로 덮어쓰지 않는다.
+
+`beolmuri-eval run --config path/to/evaluation.yaml --output-root /private-evaluation/runs`로
+입력 사본과 결과를 저장소 밖에 직접 저장할 수 있다. 출력 폴더 아래에는 실행별 디렉터리를
+만들며, `resume`, `inspect`, `status`에는 해당 실행 디렉터리의 경로를 전달한다.
+
+### 보존한 모델 요청 재실행
+
+`beolmuri-eval replay`는 이미 조립된 시스템·사용자 문자열과 직접 지정한 시드를
+그대로 native adapter에 전달한다. 과거 실험 재현을 위한 경로이며 Swift 앱 조립기,
+World Info, 메모리 분류·응답 재시도를 실행하지 않는다. 앱 경로 검증은 `run`을 쓴다.
+
+```sh
+beolmuri-eval replay --requests requests.jsonl --output replay-run
+beolmuri-eval status replay-run
+beolmuri-eval resume replay-run
+```
+
+JSONL의 각 요청에는 `id`, `system_prompt`, `user_prompt`, `seed`, `max_num_tokens`,
+`sampling`을 제공한다. `sampling`은 `temperature`, `top_k`, `top_p`,
+`max_output_tokens`, `thinking`, `filter_channel_content_from_kv_cache`를 모두 포함한다.
+출처 등의 추가 메타데이터는 기록에 보존하지만 모델에 전달하지 않는다.
+한 실행은 동일한 컨텍스트 용량을 사용한다. `--model`, `--litert-python`으로
+배포 모델과 런타임 환경을 지정할 수 있다.
+
+매 요청의 원문, 전달 설정, 원시 응답과 시간을 기록한다. `answer`는 과거 비교용으로
+양끝 공백만 제거하며 `raw_text`는 그대로 보존한다. 실패는 저장하고 중단한다.
+재개 시 입력·실행 코드·환경 변경을 거부하며 완료된 요청을 다시 생성하지 않는다.
+채점은 별도 단계다. 재현 성공을 앱의 대화 품질이나 자동 검색 성공으로 해석하지 않는다.
+
+### 반응풀 검색 연결
+
+`build-reactions --source authored-items.jsonl --character <id> --model <embedding.tflite> --tokenizer <sentencepiece.model> --output <private-directory>`는 `ready` 반응틀의 검색 예시를 미리 임베딩합니다. `retrieval` 선택 의존성이 설치된 환경에서 실행합니다. 문서 전처리는 EmbeddingGemma의 `title: none | text:`, 질의는 `task: search result | query:`이며 native 앱과 같은 256 토큰 입력입니다. 진행률·예상시간과 체크포인트를 저장하며, 같은 명령으로 재개합니다. 의미적 중복이나 품질을 재채점하지 않고 보류·형식 불량만 제외합니다.
+
+평가 variant에 다음 설정을 추가합니다. `content`와 `prompt_budget`도 필요합니다.
+
+```yaml
+retrieval:
+  directory: <private-directory>
+  model: <embedding.tflite>
+  tokenizer: <sentencepiece.model>
+  reactions: true
+  worldLore: true
+```
+
+반응 검색과 세계관 주입을 각각 끌 수 있습니다. 최근 3개 **메시지**(현재 발화 포함)를 시간순으로 연결하고, 예시별 코사인 점수의 최댓값으로 반응틀 하나를 선택합니다. 임계값은 없습니다. 선택과 프롬프트 조립은 앱과 동일한 Swift 코드가 수행합니다. Python은 임베딩·토큰 계측만 제공합니다. 긴 질의는 native 앱과 동일하게 256 토큰으로 잘리므로, K=3이 세 메시지의 전체 내용을 보장하지는 않습니다.
+
+`input.retrieval_trace`에는 선택 ID·유사도·예시 행·질의·임베딩 왕복시간·검색시간이 저장됩니다. 첫 임베딩 시간에는 모델 초기화가 포함됩니다. `prompt_trace.tokenBudget.sections`의 `worldInfo.depth.0.system`은 반응틀 구간 토큰 수이며, 다른 같은 위치의 항목이 있다면 합산 구간입니다. 정확한 총 입력은 `inputTokens`로 확인합니다. 반응틀은 로어북의 별도 예산에서는 제외하지만 전체 모델 입력·출력 상한은 그대로 검사합니다.
+
+실행 시작 시 인덱스와 로어북을 `inputs/`에 복사합니다. 재개 시에는 복사본을 사용하며, 외부 임베딩 모델·토크나이저는 인덱스에 기록한 해시 기반 식별자와 일치해야 합니다. 추론용 Python 환경에도 `numpy`, `sentencepiece==0.2.1`, `ai-edge-litert==2.1.3`이 필요합니다. 생성 원문과 런타임 자료는 Git 밖에 둡니다.

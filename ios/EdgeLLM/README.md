@@ -4,6 +4,37 @@
 EdgeMem 검색·저장, 도구 실행은 호출 측의 책임이다. Composer는 공급받은 자료를
 배치하고 입력을 만든다. Author’s Note와 World Info의 검색·재귀·기간 효과를 공용 경로에 연결했다.
 
+## 캐릭터 콘텐츠 공급
+
+캐릭터 YAML(`id`, `name`, `persona`, `examples`)과 상황 YAML(`situation`,
+`knowledge`)은 저장소 밖에서 작성한다. 긴 문장은 YAML의 `|`로 쓴다.
+`scripts/dialogue/compile-content.py`가 두 파일을 `dialogue-content.json`으로
+변환하고, 앱과 평가 워커는 공용 `DialogueContent`로 읽는다. Swift에는 YAML
+파서나 캐릭터 원문을 넣지 않는다.
+
+```sh
+python scripts/dialogue/compile-content.py \
+  --character /private-content/characters/sample.yaml \
+  --situation /private-content/situations/daily.yaml \
+  --output /private-content/generated/dialogue-content.json
+```
+
+평가 Python 환경에 설치된 PyYAML을 사용한다. 생성 JSON도 Git 밖에 둔다.
+Unity iOS export는 환경변수 `PETAI_DIALOGUE_CONTENT`로 JSON의 절대경로를 받고,
+EdgeLLMLab 빌드는 같은 이름의 Xcode 빌드 설정을 받는다. 원본 YAML 변경 후에는
+변환기를 다시 실행한다. JSON은 앱 번들에 포함되므로 배포된 앱에서는 읽을 수
+있는 콘텐츠이며, Git 비추적은 앱 내부 암호화를 뜻하지 않는다.
+
+`DialogueContent.promptSet`은 페르소나·현재 상황·지식을 구역별로 조립하고,
+`exampleDialogue`는 예시를 실제 대화 이력과 구분해 전달한다. 앱은 해당 파일의
+이름을 사용하며 다른 캐릭터를 선택하면 `character_not_configured`를 보고한다.
+기억은 콘텐츠 `id`로 범위를 나누고 기존 일반 대화의 기억을 자동 이관하지 않는다.
+콘텐츠가 없거나 읽을 수 없으면 `persona_content_unavailable`이다.
+
+임베딩 라우팅·도구·EdgeMem은 콘텐츠와 독립적으로 유지한다. `RoutedPersonaPromptSet`
+직접 주입과 명시적 체크섬 로더는 별도 호출 측에서 사용할 수 있으나, 기본
+레지스트리가 과거 연구 폴더를 탐색하는 일은 없다. 이름 삽입은 `{{char}}`를 쓴다.
+
 ## 배치와 모델 전달 형식
 
 `DialoguePromptInput.insertions`로 본문·출처·위치·역할·순서를 전달한다.
@@ -166,7 +197,7 @@ World Info의 검색·노트 합성을 연결했다. 노트는 논리 역할과 
 | WorldInfoLibrary / Lorebook | 원본 JSON 입출력, 수정, 범위별 자료집 선택 |
 | WorldInfoEngine / Matching / Groups | 재귀·최소 활성화, 그룹 점수·우선·가중 추첨, 확률 |
 | WorldInfoTemporalRules | Sticky/Cooldown/Delay 준비와 다음 상태 계산 |
-| WorldInfoText | JavaScriptCore 정규식과 명시된 매크로 집합 |
+| WorldInfoText | Swift 매크로 파서·평가기와 네이티브 정규식 어댑터 |
 | WorldInfoVectorSearch | 작성된 로어북의 로컬 의미 검색; EdgeMem 자료와 분리 |
 | WorldInfoPromptProjection | 캐릭터·노트·깊이·예시·아웃렛 목적지 |
 | WorldInfoTransaction | 성공 응답과 함께 확정할 기간/변수/자동화 결과 |
@@ -233,12 +264,21 @@ UTF-16 길이이며 모델 품질이나 실제 토큰 정확도의 증거가 아
 이식 범위는 World Info 엔진과 네이티브 연결이다. 브라우저 UI·플러그인 실행기를
 통째로 이식했다는 뜻은 아니다. 구체적 차이는 다음과 같다.
 
-- 매크로: 평면 legacy 이름/카드/변수/아웃렛/random/pick/공백 유틸리티 지원.
-  중첩·조건 블록·실험 매크로 엔진·임의 확장은 오류다. pick은 고정 난수·캐시 정책이며
-  원본 seedrandom과 다르다. global 변수도 현재는 세션 범위이고 브라우저 전역 저장소가 아니다.
-- 정규식: JavaScriptCore의 키/치환 의미를 사용한다. 브라우저 확장의 프리셋·UI·허용목록·
-  실행 위치 수집기는 이식하지 않았다. 패턴은 신뢰된 작성 콘텐츠용이며 동기 정규식을
-  실행 중간에 취소하는 기능은 없다.
+- 매크로: Swift 파서가 중첩·조건 분기·블록·변수 연산을 처리한다. 원본의 기본 엔진처럼
+  텍스트 순서대로 실행하며 선택되지 않은 조건 분기는 상태를 바꾸지 않는다. `pick`은
+  UTF-16 해시와 ARC4를 사용한다. 시간·난수·카드·대화 메타데이터는 호스트 입력이다.
+  알 수 없는 매크로와 잘못된 인자는 오류이며, 실패 시 변수는 커밋하지 않는다.
+  이는 원본 브라우저의 경고 후 원문 유지·부분 상태 반영과 의도적으로 다르다.
+- 정규식: Foundation 어댑터가 g/i/m/s/u/y, 캡처 치환, ASCII 문자 집합·단어 경계,
+  줄바꿈·끝 앵커를 처리한다. 글로벌→허용된 프리셋→허용된 캐릭터 순서로 설정을 적용한다.
+  위치·편집 여부·깊이·화면/프롬프트 조건, 캡처에서 제거할 문자열, 검색식 매크로 이스케이프를 지원한다.
+  비ASCII 대소문자 무시, u 없는 보충 평면 문자, 역참조·Unicode 속성·가변 길이 lookbehind는
+  명시적 오류다. 전체 ECMAScript 정규식 호환을 주장하지 않는다. 동기 정규식 중간 취소는 없다.
+- 가져오기: 네이티브 JSON, 캐릭터 책, Agnai·Risu·Novel 형식과 PNG의 ccv3/chara/naidata를 읽는다.
+  JSON·PNG 경로는 하네스와 world-info CLI에서 같은 Swift 변환기로 전달된다.
+  카드 자체 읽기는 `DialogueCharacterCard`, 책 편집·내보내기는 네이티브 JSON을 사용한다.
+- 벡터: 변경된 내용만 다시 임베딩하고 파일에 원자적으로 저장한다. 앱은 모델·토크나이저
+  내용 해시와 전처리 버전을 인덱스 식별자에 포함한다. 평가의 벡터 매칭 입력은 여전히 명시적 fixture다.
 - 이벤트: 외부 활성화 입력과 성공 후 automation ID를 제공한다. 임의 브라우저 callback,
   Quick Reply/slash 실행기, Unity 게임 진행 변경 핸들러는 제공하지 않는다.
 - 메모리 상태: 누적 시계와 성공 commit을 사용하는 앱 수명주기로 매핑했다.
@@ -247,3 +287,32 @@ UTF-16 길이이며 모델 품질이나 실제 토큰 정확도의 증거가 아
 
 출처와 원본 AGPLv3는 `third_party/sillytavern/`에 보존한다. 이 문서는 결합된 앱의
 배포 라이선스 검토를 대신하지 않는다. 단위 테스트·타입 검사는 기기 실행 증거가 아니다.
+
+### 네이티브 텍스트 설정과 비교 테스트
+
+앱에는 JS 리소스·JavaScriptCore 의존성이 없다. 원본 JS는 개발용 비교 생성기에만 있다.
+`DialoguePromptInput.authoredText`와 평가 YAML의 `authoredText`가 동일한 설정을 받는다.
+`runtime`은 `nowMilliseconds`, `utcOffsetMinutes`, `locale`, `chatID`, 카드 필드와
+모델 메타데이터를 제공하고, `regex`는 global/preset/character 설정을 제공한다.
+노트만 사용해도 변수를 `world_info_transaction`으로 반환해 성공한 응답과 함께 저장한다.
+
+평가는 시간 매크로를 사용할 때 고정 `nowMilliseconds`를 설정해야 한다. 앱은 요청 준비 시
+현재 시각을 한 번 제공한다. 날짜 포맷은 명시된 Moment 토큰을 Foundation으로 변환하며,
+지원하지 않는 토큰은 오류다. 상대 시간 문구는 현재 영어 기본 규칙만 제공한다.
+브라우저 자동화·앱 밖 전역 변수 저장·응답 스트리밍 후처리는 이 텍스트 모듈의 범위가 아니다.
+
+```sh
+npm ci --prefix scripts/sillytavern/text-runtime --ignore-scripts
+node scripts/sillytavern/text-runtime/build.mjs
+TZ=UTC node scripts/sillytavern/text-runtime/fixtures.mjs
+swift test --package-path ios/EdgeLLM
+```
+
+개발용 번들은 `_workspace`에만 생성한다. 원본 해시 목록은 생성기 `upstream/manifest.json`에
+기록한다. 비교 사례 통과는 해당 입력과 상태 전이의 증거이며 전체 문법 호환이나 모델 품질의 증거가 아니다.
+
+### 외부 반응풀 리소스
+
+`DialogueContent.retrieval`의 `reactions`와 `worldLore`로 독립적으로 활성화합니다. `dialogue-content.json`과 같은 디렉터리에 `reaction-frames.json`, `reaction-vectors.f32`, `dialogue-lore.json`을 둡니다. `scripts/dialogue/compile-content.py --retrieval`이 두 기능을 켜는 콘텐츠 파일을 만듭니다. Unity iOS 내보내기와 랩 빌드는 `PETAI_DIALOGUE_CONTENT` 파일의 동반 자료를 함께 복사합니다. 캐릭터 자료는 저장소에 포함하지 않습니다.
+
+`ReactionFrameIndex`는 예시 벡터를 한 번 로드하고 매 발화마다 최근 3개 메시지의 질의 벡터로 최상위 반응 하나를 선택합니다. `DialogueRetrievalResources`는 선택한 목표·응답 형태·대화 예시 한 쌍을 World Info의 깊이 0 배치로 전달합니다. 세계관은 키워드 검색과 별도 예산을 유지합니다. 앱의 도구 라우팅 이후 일반 대화 경로에서만 호출하며 EdgeMem 회수 경로와 독립적입니다. 인덱스 누락·벡터 손상·임베딩 식별자 불일치는 오류로 노출합니다.

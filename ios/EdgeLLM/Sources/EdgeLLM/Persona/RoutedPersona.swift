@@ -38,6 +38,11 @@ public struct RoutedPersonaPromptSet: Equatable, Sendable {
     public let core: String
     public let sceneCards: [PersonaSceneRoute: PersonaSceneCard]
 
+    public init(core: String, sceneCards: [PersonaSceneRoute: PersonaSceneCard] = [:]) {
+        self.core = core
+        self.sceneCards = sceneCards
+    }
+
     public func card(scene: PersonaSceneRoute) -> String? {
         return sceneCards[scene]?.card
     }
@@ -55,6 +60,7 @@ public struct RoutedPersonaPromptSet: Equatable, Sendable {
 }
 
 public enum RoutedPersonaPromptRegistryError: Error, Equatable, Sendable {
+    case notConfigured
     case resourceMissing(String)
     case invalidUTF8(String)
     case checksumMismatch(
@@ -68,24 +74,22 @@ public enum RoutedPersonaPromptRegistryError: Error, Equatable, Sendable {
 public struct RoutedPersonaPromptRegistry: Sendable {
     public typealias Loader = @Sendable (_ fileName: String) -> Data?
 
-    private static let resources: [String: String] = [
-        "persona_core.md":
-            "b649715757a44664b5b815c36e8db73237561018c0986479164a821da48abd53",
-        "scene_cards.json":
-            "3fb0f4afed22b29299824d784ce1b70fb530020c4b7ad4f45615c8e206a6cbc0",
-    ]
+    private let resources: [String: String]
+    private let loader: Loader?
 
-    private let loader: Loader
-
-    public init(loader: @escaping Loader) {
+    /// Explicit sources carry their own checksums; the engine has no bundled character.
+    public init(expectedChecksums: [String: String], loader: @escaping Loader) {
+        self.resources = expectedChecksums
         self.loader = loader
     }
 
     public init() {
-        loader = Self.bundleLoader
+        resources = [:]
+        loader = nil
     }
 
     public func load() throws -> RoutedPersonaPromptSet {
+        guard loader != nil else { throw RoutedPersonaPromptRegistryError.notConfigured }
         let core = try text("persona_core.md")
         let cardsData = try verifiedData("scene_cards.json")
         guard
@@ -120,14 +124,14 @@ public struct RoutedPersonaPromptRegistry: Sendable {
     }
 
     private func verifiedData(_ fileName: String) throws -> Data {
-        guard let data = loader(fileName) else {
+        guard let data = loader?(fileName) else {
             throw RoutedPersonaPromptRegistryError.resourceMissing(fileName)
         }
         let actual = Self.sha256(data)
-        guard let expected = Self.resources[fileName], actual == expected else {
+        guard let expected = resources[fileName], actual == expected else {
             throw RoutedPersonaPromptRegistryError.checksumMismatch(
                 resource: fileName,
-                expected: Self.resources[fileName] ?? "",
+                expected: resources[fileName] ?? "",
                 actual: actual
             )
         }
@@ -140,40 +144,4 @@ public struct RoutedPersonaPromptRegistry: Sendable {
             .joined()
     }
 
-    private static let bundleLoader: Loader = { fileName in
-        let parts = fileName.split(separator: ".", maxSplits: 1)
-        guard parts.count == 2 else { return nil }
-        let resource = String(parts[0])
-        let fileExtension = String(parts[1])
-
-        #if SWIFT_PACKAGE
-        let bundles = [Bundle.module]
-        #else
-        let bundles = [Bundle.main, Bundle(for: RoutedPersonaPromptBundleToken.self)]
-        #endif
-
-        for bundle in bundles {
-            let candidates = [
-                bundle.url(
-                    forResource: resource,
-                    withExtension: fileExtension,
-                    subdirectory: "Prompts/RoutedPersona"
-                ),
-                bundle.url(
-                    forResource: resource,
-                    withExtension: fileExtension,
-                    subdirectory: "EdgeLLMPrompts"
-                ),
-                bundle.url(forResource: resource, withExtension: fileExtension),
-            ]
-            if let url = candidates.compactMap({ $0 }).first,
-               let data = try? Data(contentsOf: url)
-            {
-                return data
-            }
-        }
-        return nil
-    }
 }
-
-private final class RoutedPersonaPromptBundleToken {}

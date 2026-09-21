@@ -64,14 +64,16 @@ enum AnswerOnlyChatProcessor {
     ) async throws -> MemoryTaggedChatOutcome {
         // This policy has no save contract: do not reinterpret text as a memory
         // decision or invoke the classification-specific retry prompt.
+        let filter = DialogueTextFilter()
         var text = ""
         for try await chunk in stream {
             text += chunk
-            await receiveVisibleText(chunk)
+            let visible = filter.apply(to: chunk)
+            if !visible.isEmpty { await receiveVisibleText(visible) }
         }
         return MemoryTaggedChatOutcome(primary: MemoryHeaderGateResult(
             decision: nil, syntax: .absent, rawText: text,
-            visibleText: text, controlText: ""
+            visibleText: filter.apply(to: text), controlText: ""
         ), retry: nil)
     }
 }

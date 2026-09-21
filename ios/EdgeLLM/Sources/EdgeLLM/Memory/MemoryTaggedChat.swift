@@ -157,13 +157,15 @@ public enum MemoryTaggedChatProcessor {
         stream: AsyncThrowingStream<String, Error>,
         receiveVisibleText: (String) async -> Void
     ) async throws -> MemoryHeaderGateResult {
+        let filter = DialogueTextFilter()
         var gate = MemoryHeaderGate()
         var deliveredText = ""
 
         for try await chunk in stream {
             for visibleChunk in gate.consume(chunk) {
                 deliveredText += visibleChunk
-                await receiveVisibleText(visibleChunk)
+                let visible = filter.apply(to: visibleChunk)
+                if !visible.isEmpty { await receiveVisibleText(visible) }
             }
         }
 
@@ -173,10 +175,11 @@ public enum MemoryTaggedChatProcessor {
                 result.visibleText.dropFirst(deliveredText.count)
             )
             if !suffix.isEmpty {
-                await receiveVisibleText(suffix)
+                let visible = filter.apply(to: suffix)
+                if !visible.isEmpty { await receiveVisibleText(visible) }
             }
         }
-        return result
+        return filter.apply(to: result)
     }
 }
 

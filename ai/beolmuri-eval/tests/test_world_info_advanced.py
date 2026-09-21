@@ -5,7 +5,7 @@ import unittest
 from types import SimpleNamespace
 from beolmuri_eval.config import repository
 from beolmuri_eval.doctor import swift_binary
-from beolmuri_eval.process import Worker
+from persona_worker import Worker
 from beolmuri_eval.world_info import control
 
 CONFIG = dict(includePersona=True, includeSessionContext=True, enforceCharacterName=True, memoryClassification=True)

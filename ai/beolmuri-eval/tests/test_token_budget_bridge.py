@@ -5,7 +5,7 @@ import unittest
 
 from beolmuri_eval.config import repository
 from beolmuri_eval.doctor import swift_binary
-from beolmuri_eval.process import Worker
+from persona_worker import Worker
 from beolmuri_eval.prompt_prepare import prepare_prompt
 
 

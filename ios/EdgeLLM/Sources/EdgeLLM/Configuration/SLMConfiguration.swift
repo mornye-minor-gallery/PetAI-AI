@@ -97,6 +97,7 @@ public struct SLMConfiguration: Equatable, Sendable {
     public let diagnostics: Diagnostics
     public let runtimeSafety: RuntimeSafety
     public let dialogueBudget: DialogueTokenBudget
+    public let authoredText: DialogueTextSettings?
     public let authorsNote: AuthorsNoteSettings?
     public let worldInfo: WorldInfoSettings?
 
@@ -109,7 +110,8 @@ public struct SLMConfiguration: Equatable, Sendable {
         runtimeSafety: RuntimeSafety,
         dialogueBudget: DialogueTokenBudget = .production,
         authorsNote: AuthorsNoteSettings? = nil,
-        worldInfo: WorldInfoSettings? = nil
+        worldInfo: WorldInfoSettings? = nil,
+        authoredText: DialogueTextSettings? = nil
     ) {
         precondition(!id.isEmpty)
         self.id = id
@@ -121,6 +123,7 @@ public struct SLMConfiguration: Equatable, Sendable {
         self.dialogueBudget = dialogueBudget
         self.authorsNote = authorsNote
         self.worldInfo = worldInfo
+        self.authoredText = authoredText
     }
 }
 

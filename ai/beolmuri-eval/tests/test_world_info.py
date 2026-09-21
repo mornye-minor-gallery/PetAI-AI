@@ -8,7 +8,7 @@ import yaml
 from beolmuri_eval.config import repository
 from beolmuri_eval.doctor import swift_binary
 from beolmuri_eval.evaluation import load_plan, schema_path, validate, default_config_path
-from beolmuri_eval.process import Worker
+from persona_worker import Worker
 
 CONFIG = dict(includePersona=True, includeSessionContext=True, enforceCharacterName=True, memoryClassification=True)
 WI = dict(tokenBudget=100, includeNames=False, entries=[

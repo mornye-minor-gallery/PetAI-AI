@@ -64,7 +64,7 @@ private struct AdvancedMeter: DialogueTokenMeasuring {
         .init(id: "outlet", content: "맑음", constant: true, position: .outlet, rules: outlet),
         .init(id: "random", content: "{{random::a::b}}", constant: true)])
     let session = try RoutedPersonaSessionContext().snapshot(requestID: "outlet")
-    let prepared = try await DialoguePromptComposer.prepare(input: .init(persona: RoutedPersonaPromptRegistry().load(),
+    let prepared = try await DialoguePromptComposer.prepare(input: .init(persona: testPersona(),
         currentMessage: "{{setvar::x::bad}}", session: session,
         authorsNote: .init(defaults: .init(text: "날씨: {{outlet::weather}}", depth: 0)), worldInfo: settings),
         tokenBudget: .init(memoryTokens: 0, contextTokens: 100_000, outputTokens: 1000), measurer: AdvancedMeter())
@@ -111,4 +111,12 @@ private struct AdvancedMeter: DialogueTokenMeasuring {
         .init(id: "a", content: "A", constant: true, rules: rule)]), messages: [], note: nil,
         measurer: AdvancedMeter(), textContext: .init(char: "엘레나"))
     #expect(selected.selected.first?.content == "엘레나")
+}
+
+@Test func vectorEnabledForAllActivatesUnmarkedEntries() async throws {
+    var rules = WorldInfoScanRules(); rules.vector = .init(enabledForAll:true)
+    var context = WorldInfoContext(); context.vectorMatches = ["unmarked"]
+    let result = try await WorldInfoEngine.select(settings:.init(tokenBudget:100,entries:[.init(id:"unmarked",keys:["absent"],content:"lore")],rules:rules),
+        messages:["question"],note:nil,measurer:AdvancedMeter(),context:context)
+    #expect(result.selected.map(\.id) == ["unmarked"])
 }

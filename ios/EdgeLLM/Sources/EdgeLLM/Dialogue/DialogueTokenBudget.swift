@@ -84,17 +84,14 @@ extension DialoguePromptComposer {
             }
             var context = input.worldInfoContext
             context.messageNumber = input.session?.currentMessageNumber ?? context.messageNumber
+            context.randomSeed = DialogueSeedPolicy.worldInfo(base: context.randomSeed,
+                completedMessages: input.session?.completedMessages ?? max(0, context.messageNumber - 1))
             context.contextTokens = tokenBudget.contextTokens
             context.characterName = input.profile.characterName
             if context.scanFields["characterDescription"] == nil { context.scanFields["characterDescription"] = input.persona.core }
             if context.scanFields["scenario"] == nil { context.scanFields["scenario"] = input.activeCard ?? "" }
             if context.scanFields["personaDescription"] == nil { context.scanFields["personaDescription"] = input.profile.promptSection() }
-            var text = input.session?.worldInfoText ?? .init()
-            text.user = input.profile.userName ?? "사용자"; text.char = input.profile.characterName
-            text.description = context.scanFields["characterDescription"] ?? ""
-            text.personality = context.scanFields["characterPersonality"] ?? ""
-            text.scenario = context.scanFields["scenario"] ?? ""
-            text.persona = context.scanFields["personaDescription"] ?? ""
+            let text = authoredTextContext(input, tokenBudget: tokenBudget)
             let selected = try await WorldInfoEngine.select(settings: settings, messages: messages, note: note, measurer: measurer,
                 context: context, state: input.session?.worldInfoState ?? .init(), textContext: text)
             worldInfo = WorldInfoPromptProjection(selection: selected, note: note)
@@ -103,7 +100,7 @@ extension DialoguePromptComposer {
             input.memories, tokenBudget: tokenBudget.memoryTokens, measurer: measurer)
         guard let memoryTokens = memory.tokens else { throw DialogueTokenBudgetError.invalidMeasurement }
         let prepared = try assemble(input: input, policy: policy, memory: memory, memoryByteBudget: nil,
-            note: note, worldInfo: worldInfo)
+            note: note, worldInfo: worldInfo, authoredContext: authoredTextContext(input, tokenBudget: tokenBudget))
         let count = try await measurer.measureInput(prepared.modelInput)
         guard count >= 0 else { throw DialogueTokenBudgetError.invalidMeasurement }
         // Subtract the reservation rather than adding it to an untrusted measurement.

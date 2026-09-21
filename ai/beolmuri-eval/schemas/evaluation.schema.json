@@ -18,6 +18,18 @@
         },
         "data_class": {
           "const": "synthetic"
+        },
+        "format": {
+          "enum": [
+            "name-cases",
+            "scenarios"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "wrong_name",
+            "correct_name"
+          ]
         }
       },
       "required": [
@@ -41,6 +53,11 @@
         "timeout_seconds": {
           "type": "integer",
           "minimum": 1
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
         }
       },
       "required": [
@@ -74,6 +91,30 @@
           },
           "thinking": {
             "type": "boolean"
+          },
+          "sampling": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "temperature",
+              "top_k",
+              "top_p"
+            ],
+            "properties": {
+              "temperature": {
+                "type": "number",
+                "minimum": 0
+              },
+              "top_k": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "top_p": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
           },
           "nameRuleStyle": {
             "enum": [
@@ -127,7 +168,123 @@
             }
           },
           "worldInfo": {
-            "$ref": "#/$defs/worldInfo"
+            "$ref": "https://beolmuri.invalid/schemas/world-info.schema.json#/$defs/worldInfo"
+          },
+          "nameRulePlacement": {
+            "enum": [
+              "system",
+              "before-current",
+              "after-current"
+            ]
+          },
+          "lorebooks": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "world_info_context": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "characterTags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "trigger": {
+                "type": "string"
+              },
+              "scanFields": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "externallyActivated": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "vectorMatches": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "example_dialogue": {
+            "type": "string"
+          },
+          "authoredText": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "runtime": {
+                "type": "object"
+              },
+              "regex": {
+                "type": "object"
+              }
+            }
+          },
+          "personaCore": {
+            "type": "string",
+            "minLength": 1
+          },
+          "content": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "character",
+              "situation"
+            ],
+            "properties": {
+              "character": {
+                "type": "string",
+                "minLength": 1
+              },
+              "situation": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "retrieval": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "directory",
+              "model",
+              "tokenizer",
+              "reactions",
+              "worldLore"
+            ],
+            "properties": {
+              "directory": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tokenizer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reactions": {
+                "type": "boolean"
+              },
+              "worldLore": {
+                "type": "boolean"
+              }
+            }
           }
         },
         "required": [
@@ -146,7 +303,8 @@
           "const": "codex-cli"
         },
         "model": {
-          "const": "gpt-5.6-luna"
+          "type": "string",
+          "minLength": 1
         },
         "reasoning_effort": {
           "const": "medium"
@@ -242,359 +400,6 @@
             "user",
             "assistant"
           ]
-        }
-      }
-    },
-    "worldInfoEntry": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "content"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "content": {
-          "type": "string"
-        },
-        "keys": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "secondaryKeys": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "secondaryLogic": {
-          "enum": [
-            "AND_ANY",
-            "AND_ALL",
-            "NOT_ANY",
-            "NOT_ALL"
-          ]
-        },
-        "enabled": {
-          "type": "boolean"
-        },
-        "constant": {
-          "type": "boolean"
-        },
-        "ignoreBudget": {
-          "type": "boolean"
-        },
-        "order": {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        "position": {
-          "enum": [
-            "before-character",
-            "after-character",
-            "before-note",
-            "after-note",
-            "in-chat",
-            "before-examples",
-            "after-examples",
-            "outlet"
-          ]
-        },
-        "scanDepth": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000
-        },
-        "caseSensitive": {
-          "type": "boolean"
-        },
-        "matchWholeWords": {
-          "type": "boolean"
-        },
-        "rules": {
-          "$ref": "#/$defs/worldInfoEntryRules"
-        }
-      }
-    },
-    "worldInfo": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "tokenBudget",
-        "entries"
-      ],
-      "properties": {
-        "tokenBudget": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 2147483647
-        },
-        "entries": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/worldInfoEntry"
-          }
-        },
-        "scanDepth": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000
-        },
-        "includeNames": {
-          "type": "boolean"
-        },
-        "caseSensitive": {
-          "type": "boolean"
-        },
-        "matchWholeWords": {
-          "type": "boolean"
-        },
-        "rules": {
-          "$ref": "#/$defs/worldInfoScanRules"
-        },
-        "library": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "books",
-            "global",
-            "characters",
-            "strategy"
-          ],
-          "properties": {
-            "books": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "global": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "characters": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            },
-            "chat": {
-              "type": "string"
-            },
-            "persona": {
-              "type": "string"
-            },
-            "strategy": {
-              "enum": [
-                "even",
-                "characterFirst",
-                "globalFirst"
-              ]
-            }
-          }
-        }
-      }
-    },
-    "worldInfoScanRules": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "recursive": {
-          "type": "boolean"
-        },
-        "groupScoring": {
-          "type": "boolean"
-        },
-        "maximumSteps": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "minimumActivations": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "maximumDepth": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "budgetCap": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "budgetPercent": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "maximum": 100
-        },
-        "vector": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "queryMessages": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1000
-            },
-            "maximumEntries": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "threshold": {
-              "type": "number",
-              "minimum": -1,
-              "maximum": 1
-            }
-          },
-          "required": [
-            "queryMessages",
-            "maximumEntries",
-            "threshold"
-          ]
-        }
-      }
-    },
-    "worldInfoEntryRules": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "excludeRecursion": {
-          "type": "boolean"
-        },
-        "preventRecursion": {
-          "type": "boolean"
-        },
-        "groupOverride": {
-          "type": "boolean"
-        },
-        "groupScoring": {
-          "type": "boolean"
-        },
-        "excludeCharacters": {
-          "type": "boolean"
-        },
-        "vectorized": {
-          "type": "boolean"
-        },
-        "delayUntilRecursion": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "sticky": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "cooldown": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "delay": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "depth": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "groups": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "characterNames": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "characterTags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "triggers": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "scanFields": {
-          "type": "array",
-          "items": {
-            "enum": [
-              "personaDescription",
-              "characterDescription",
-              "characterPersonality",
-              "characterDepthPrompt",
-              "scenario",
-              "creatorNotes"
-            ]
-          }
-        },
-        "probability": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "groupWeight": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1000000
-        },
-        "role": {
-          "enum": [
-            "system",
-            "user",
-            "assistant"
-          ]
-        },
-        "outlet": {
-          "type": "string"
-        },
-        "automationID": {
-          "type": "string"
-        },
-        "replacements": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "pattern": {
-                "type": "string"
-              },
-              "replacement": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "pattern",
-              "replacement"
-            ]
-          }
         }
       }
     }

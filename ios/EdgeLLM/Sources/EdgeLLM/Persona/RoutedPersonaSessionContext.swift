@@ -1,7 +1,7 @@
 import Foundation
 
 public enum DialogueSessionError: Error, Equatable {
-    case invalidRequestID, invalidExchange, staleSnapshot, conflictingCommit, counterOverflow
+    case invalidCheckpoint, invalidRequestID, invalidExchange, staleSnapshot, conflictingCommit, counterOverflow
 }
 
 /// A pending request's clock is independent of how much text is retained.
@@ -58,6 +58,29 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
         self.turns = Array(turns.suffix(max(0, maximumTurnCount)))
         completedUserMessages = turns.filter { $0.role == .user }.count
         completedMessages = turns.count
+    }
+
+    public init(checkpoint: DialogueSessionCheckpoint) throws {
+        guard checkpoint.version == 1, checkpoint.maximumTurnCount >= 0,
+              checkpoint.completedUserMessages >= 0,
+              checkpoint.completedMessages >= checkpoint.completedUserMessages,
+              checkpoint.turns.count <= checkpoint.maximumTurnCount,
+              checkpoint.turns.count <= checkpoint.completedMessages,
+              checkpoint.turns.filter({ $0.role == .user }).count <= checkpoint.completedUserMessages,
+              checkpoint.turns.filter({ $0.role == .assistant }).count <= checkpoint.completedMessages - checkpoint.completedUserMessages,
+              checkpoint.turns.allSatisfy({ !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
+            throw DialogueSessionError.invalidCheckpoint
+        }
+        self.init(maximumTurnCount: checkpoint.maximumTurnCount, turns: checkpoint.turns,
+                  worldInfoState: checkpoint.worldInfoState, worldInfoText: checkpoint.worldInfoText)
+        completedUserMessages = checkpoint.completedUserMessages
+        completedMessages = checkpoint.completedMessages
+    }
+
+    public func checkpoint() -> DialogueSessionCheckpoint {
+        .init(version: 1, maximumTurnCount: maximumTurnCount, turns: turns,
+              completedUserMessages: completedUserMessages, completedMessages: completedMessages,
+              worldInfoState: worldInfoState, worldInfoText: worldInfoText)
     }
 
     public func snapshot(requestID: String) throws -> DialogueSessionSnapshot {

@@ -19,6 +19,7 @@ public struct DialoguePromptInput: Sendable {
     public let authorsNote: AuthorsNoteSettings?
     public let worldInfo: WorldInfoSettings?
     public let worldInfoContext: WorldInfoContext
+    public let authoredText: DialogueTextSettings
     public let exampleDialogue: String
 
     public init(persona: RoutedPersonaPromptSet, activeCard: String? = nil,
@@ -27,7 +28,8 @@ public struct DialoguePromptInput: Sendable {
                 memories: [RetrievedMemoryObservation] = [], currentMessage: String,
                 insertions: [DialoguePromptInsertion] = [], session: DialogueSessionSnapshot? = nil,
                 authorsNote: AuthorsNoteSettings? = nil, worldInfo: WorldInfoSettings? = nil,
-                worldInfoContext: WorldInfoContext = .init(), exampleDialogue: String = "") {
+                worldInfoContext: WorldInfoContext = .init(), exampleDialogue: String = "", authoredText: DialogueTextSettings = .init()) {
+        self.authoredText = authoredText
         self.persona = persona
         self.activeCard = activeCard
         self.profile = profile

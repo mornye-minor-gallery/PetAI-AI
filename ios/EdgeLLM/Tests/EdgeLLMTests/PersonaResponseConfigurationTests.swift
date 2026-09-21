@@ -3,7 +3,7 @@ import Testing
 @testable import EdgeLLM
 
 @Test func promptComponentsCanBeAblatedIndependently() throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let profile = UserProfileContext(characterName: "루미")
     for persona in [false, true] {
         for session in [false, true] {
@@ -15,8 +15,7 @@ import Testing
                     )
                     var expected: [String] = []
                     if persona {
-                        expected.append(prompts.core.replacingOccurrences(of: "엘레나", with: "루미")
-                            .replacingOccurrences(of: "Elena", with: "루미"))
+                        expected.append(prompts.core.replacingOccurrences(of: "{{char}}", with: "루미"))
                         expected.append("## 이번 응답의 활성 장면 카드\n장면 규칙 다른 장면 규칙은 이번 응답에 사용하지 않는다.")
                     }
                     if session { expected.append(profile.promptSection()) }
@@ -36,9 +35,9 @@ import Testing
 }
 
 @Test func productionPersonaConfigurationEnablesResponseAction() throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let profile = UserProfileContext()
-    let expected = [prompts.core.replacingOccurrences(of: "Elena", with: "엘레나"), profile.promptSection(), MemoryTaggedChatPrompt.wrappedAxesV1, PersonaResponseConfiguration(enforceCharacterName: true).nameInstruction(characterName: "엘레나")]
+    let expected = [prompts.core.replacingOccurrences(of: "{{char}}", with: "엘레나"), profile.promptSection(), MemoryTaggedChatPrompt.wrappedAxesV1, PersonaResponseConfiguration(enforceCharacterName: true).nameInstruction(characterName: "엘레나")]
         .joined(separator: "\n\n")
     #expect(PersonaResponseConfiguration.production.enforceCharacterName)
     #expect(PersonaResponseConfiguration.production.nameRuleStyle == .responseAction)
@@ -47,7 +46,7 @@ import Testing
 }
 
 @Test func personaNamePolicyUsesConfiguredIdentity() throws {
-    let prompts = try RoutedPersonaPromptRegistry().load()
+    let prompts = try testPersona()
     let result = prompts.responseSystemPrompt(
         activeCard: nil, userProfileContext: UserProfileContext(characterName: "루미"),
         configuration: .init(enforceCharacterName: true, memoryClassification: true)
@@ -58,8 +57,8 @@ import Testing
 
 @Test func answerOnlyPolicyChangesBothPromptAndProcessing() async throws {
     let config = PersonaResponseConfiguration(enforceCharacterName: false, memoryClassification: false)
-    let prompts = try RoutedPersonaPromptRegistry().load()
-    let expected = [prompts.core.replacingOccurrences(of: "Elena", with: "엘레나"), UserProfileContext().promptSection()].joined(separator: "\n\n")
+    let prompts = try testPersona()
+    let expected = [prompts.core.replacingOccurrences(of: "{{char}}", with: "엘레나"), UserProfileContext().promptSection()].joined(separator: "\n\n")
     #expect(prompts.responseSystemPrompt(activeCard: nil, configuration: config) == expected)
     var retries = 0
     let outcome = try await MemoryTaggedChatProcessor.run(
