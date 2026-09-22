@@ -43,20 +43,18 @@ Composer에 맡긴다. 원본 YAML 두 개를 실행 입력에 복사하고 실�
 
 ## 실제 토큰 기반 입력 준비
 
-기본 `configs/name-identity.yaml`의 초기 설정:
+기본 `configs/name-identity.yaml`은 제품과 같은 공용 설정을 사용한다.
 
 ```yaml
 runtime:
-  max_num_tokens: 8096
-prompt_budget:
-  memory_tokens: 2048
-  output_tokens: 1024
+  profile: production
 ```
 
-기억 구역은 헤더까지 포함해 최대 2,048토큰이며, 전체 입력 최대 7,072 안에
+정본은 `ios/EdgeLLM/Sources/EdgeLLM/Resources/slm-runtime-defaults.json`이다.
+기억 구역은 헤더까지 포함해 최대 2,048토큰이며, 전체 입력 최대 3,072 안에
 포함된다. 현재 발화·이력·노트 등 모든 입력과 네이티브 템플릿을 합쳐 확인하고
 출력 1,024토큰을 확보하지 못하면 오류로 중단한다. 품질 튜닝 전 시작값이다.
-`runtime.max_num_tokens`를 명시해야 하며 출력 예약량은 실제 생성 상한에도 적용한다.
+제품 프로필의 전체 컨텍스트는 4,096토큰이며 출력 예약량은 실제 생성 상한에도 적용한다.
 
 Swift의 공용 Composer가 기억을 선택한다. Python `prompt_prepare`는 Swift 워커의
 측정 요청만 네이티브 토크나이저로 전달한다. 최종 입력 측정은 생성과 같은 thinking

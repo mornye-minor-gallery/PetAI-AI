@@ -72,11 +72,31 @@ private struct FixtureTokenMeasurer: DialogueTokenMeasuring {
         authorsNote: .init(defaults: .init(text: "상기문", depth: 1)), worldInfo: settings),
         tokenBudget: .init(memoryTokens: 0, contextTokens: 100_000, outputTokens: 1000), measurer: FixtureTokenMeasurer())
     #expect(prepared.trace.worldInfo?.entries.filter { $0.reason == .selected }.count == 3)
-    #expect(prepared.systemPrompt.hasPrefix("캐릭터앞\n\n"))
-    #expect(prepared.trace.systemSections.prefix(3) == ["worldInfo.beforeCharacter", "persona", "worldInfo.afterCharacter"])
+    #expect(prepared.trace.systemSections.prefix(3) == ["persona", "responseContract", "nameRule"])
+    #expect(prepared.trace.systemSections.dropFirst(3).prefix(3) == ["worldInfo.beforeCharacter", "worldInfo.afterCharacter", "profile"])
     #expect(prepared.userPrompt.hasSuffix("노트앞\n상기문\n\n현재질문"))
     #expect(prepared.trace.tokenBudget?.sections.contains { $0.id == "worldInfo.beforeCharacter" } == true)
     #expect(context.turns.count == 2)
+}
+
+@Test func cacheStableSystemSectionsPrecedeEveryRequestDynamicSection() async throws {
+    let prompts = try testPersona()
+    let session = RoutedPersonaSessionContext()
+    let settings = WorldInfoSettings(tokenBudget: 100, entries: [
+        .init(id: "before", content: "동적 세계관", constant: true, position: .beforeCharacter)
+    ])
+    let prepared = try await DialoguePromptComposer.prepare(input: .init(
+        persona: prompts, activeCard: "동적 장면", profile: .init(userName: "테스터", dailySteps: [
+            .init(date: "2026-09-23", steps: 1234)
+        ]), currentMessage: "질문", session: session.snapshot(requestID: "stable-prefix"),
+        worldInfo: settings, exampleDialogue: "세션 고정 대화 예시"),
+        tokenBudget: .init(memoryTokens: 0, contextTokens: 100_000, outputTokens: 100),
+        measurer: FixtureTokenMeasurer())
+
+    #expect(prepared.trace.systemSections == [
+        "persona", "responseContract", "nameRule", "dialogue.examples",
+        "worldInfo.beforeCharacter", "scene", "profile"
+    ])
 }
 
 @Test func worldInfoNoteInactiveIsSelectedButNotInserted() async throws {

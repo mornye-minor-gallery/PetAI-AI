@@ -25,3 +25,9 @@ expectError(.engine(.tokenizationFailed)) { try NativeTokenization.count("native
 expectError(.engine(.invalidTokenCount)) { try NativeTokenization.count("overflow", engine: engine) }
 precondition(test_live_results() == 0, "Native result leaked on error")
 print("Tokenization C boundary passed (stub ABI; no model inference)")
+
+let copied = try NativeTokenization.tokens("한글🌟", engine: engine)
+precondition(copied == [1,2,3,4,5,6,7])
+precondition(test_live_results() == 0)
+expectError(.engine(.invalidTokenCount)) { try NativeTokenization.tokens("overflow", engine: engine).count }
+expectError(.engine(.invalidTokenizationInput)) { try NativeTokenization.tokens("a\0b", engine: engine).count }

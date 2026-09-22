@@ -4,13 +4,13 @@ import Testing
 
 @Test func dialogueProductionBudgetSeparatesMemoryAndOutput() throws {
     let budget = SLMConfiguration.production.dialogueBudget
-    #expect(budget.contextTokens == 8_096)
+    #expect(budget.contextTokens == 4_096)
     #expect(budget.memoryTokens == 2_048)
     #expect(budget.outputTokens == 1_024)
     try budget.validate()
     // Existing byte fixtures and tool generations are separate consumers.
     #expect(SLMConfiguration.production.memory.promptByteBudget == 10_000)
-    #expect(SLMConfiguration.production.generation.maxOutputTokens == 4_096)
+    #expect(SLMConfiguration.production.generation.maxOutputTokens == budget.outputTokens)
 }
 
 private struct SectionCounter: DialogueTokenMeasuring {

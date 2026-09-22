@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from beolmuri_eval.resource.runner import run_one
+from beolmuri_eval.resource.runner import run_one,wait_phase
 from beolmuri_eval.resource.summary import summarize_run
 from beolmuri_eval.resource.protocol import sha256
 from test_resource_protocol import CONFIG
@@ -46,6 +46,8 @@ class RunnerTests(unittest.TestCase):
    one=summarize_run(root);two=summarize_run(root)
    self.assertEqual(one,two)
    self.assertEqual(one['turns']['turn']['extra']['value'],50)
+   self.assertEqual(one['native_inference']['turn']['kv_tokens_after']['value'],384)
+   self.assertEqual(one['native_inference']['turn']['prefill_tokens']['value'],64)
    self.assertGreater(one['power']['mean']['value'],0)
  def test_recorder_start_failure_cannot_start_inference(self):
   class BrokenRecorder(FakeRecorder):
@@ -82,3 +84,25 @@ class RunnerTests(unittest.TestCase):
    result=run_one(Path(temporary)/RUN,self.plan(),MissingDevice(),'build',progress=lambda **kw:None)
    self.assertFalse(result['complete'])
    self.assertIn('process inventory',result['reason'])
+
+ def test_wait_phase_reports_a_disappeared_app_process(self):
+  class MissingProcessDevice:
+   def state(self,run_id):
+    return dict(run_id=RUN,owner_id=OWNER,process_instance_id='one',phase='preparing',
+                pid=4242,revision=2,heartbeat_seq=2,build_id='build',bundle_id='com.example.resourcebench')
+   def processes(self):return {'runningProcesses':[]}
+  class StaleObservation:
+   def observe(self,state,now):return {'observation':'unknown','last_device_state':state}
+  with tempfile.TemporaryDirectory() as temporary:
+   with self.assertRaisesRegex(RuntimeError,'app process exited while awaiting ready'):
+    wait_phase(MissingProcessDevice(),Path(temporary),self.plan(),{'ready'},timeout=1,
+               observer=StaleObservation(),progress=lambda **kw:None)
+
+ def test_wait_phase_reports_launch_pid_exit_before_first_state(self):
+  class MissingStateDevice:
+   def state(self,run_id):raise RuntimeError('state file unavailable')
+   def processes(self):return {'runningProcesses':[]}
+  with tempfile.TemporaryDirectory() as temporary:
+   with self.assertRaisesRegex(RuntimeError,'app process exited while awaiting boot_ready'):
+    wait_phase(MissingStateDevice(),Path(temporary),self.plan(),{'boot_ready'},timeout=1,
+               observer=object(),progress=lambda **kw:None,expected_pid=4242)

@@ -20,6 +20,26 @@ def schema_path(name):
     return repository() / "ai/beolmuri-eval/schemas" / name
 
 
+def production_runtime_defaults_path():
+    return repository() / "ios/EdgeLLM/Sources/EdgeLLM/Resources/slm-runtime-defaults.json"
+
+
+def load_production_runtime_defaults():
+    path = production_runtime_defaults_path()
+    raw = path.read_bytes()
+    document = json.loads(raw, object_pairs_hook=unique_fields)
+    if set(document) != {"version", "runtime", "prompt_budget"} or document["version"] != 1:
+        raise ValueError(f"{path}: unsupported runtime defaults document")
+    runtime, budget = document["runtime"], document["prompt_budget"]
+    if set(runtime) != {"max_num_tokens"} or set(budget) != {"memory_tokens", "output_tokens"}:
+        raise ValueError(f"{path}: unexpected runtime defaults fields")
+    maximum, memory, output = runtime["max_num_tokens"], budget["memory_tokens"], budget["output_tokens"]
+    if (type(maximum) is not int or type(memory) is not int or type(output) is not int
+            or maximum <= 0 or memory < 0 or output <= 0 or output >= maximum):
+        raise ValueError(f"{path}: invalid runtime token budget")
+    return path, raw, maximum, budget
+
+
 def unique_fields(pairs):
     result = {}
     for key, value in pairs:
@@ -101,10 +121,7 @@ class EvaluationPlan:
     history: list
     memories: list
     max_num_tokens: int
-
-    @property
-    def prompt_budget(self):
-        return self.document.get("prompt_budget")
+    prompt_budget: dict | None
 
     def snapshot(self, directory):
         inputs = Path(directory) / "inputs"
@@ -126,8 +143,18 @@ def load_plan(path=None, *, variant=None, repeats=None, limit_pairs=None, timeou
     except (yaml.YAMLError, ValueError) as error:
         raise ValueError(f"{path}: {error}") from error
     validate(document, json.loads(schema_path("evaluation.schema.json").read_text()), path)
-    if "prompt_budget" in document:
-        if "runtime" not in document or document["prompt_budget"]["output_tokens"] >= document["runtime"]["max_num_tokens"]:
+    runtime = document.get("runtime", {})
+    runtime_defaults = None
+    if runtime.get("profile") == "production":
+        if "prompt_budget" in document:
+            raise ValueError("production runtime profile already supplies prompt_budget")
+        defaults_path, defaults_raw, max_num_tokens, prompt_budget = load_production_runtime_defaults()
+        runtime_defaults = (defaults_path, defaults_raw)
+    else:
+        max_num_tokens = runtime.get("max_num_tokens", 4096)
+        prompt_budget = document.get("prompt_budget")
+    if prompt_budget is not None:
+        if prompt_budget["output_tokens"] >= max_num_tokens:
             raise ValueError("prompt_budget requires explicit runtime capacity greater than output reservation")
     selected = variant if variant is not None else document["run"]["variant"]
     if selected not in document["variants"]:
@@ -172,12 +199,14 @@ def load_plan(path=None, *, variant=None, repeats=None, limit_pairs=None, timeou
     judge = {k: document["judge"][k] for k in ("provider", "model", "reasoning_effort")}
     judge.update(rubric=rubric.decode("utf-8"), output_schema=output_schema)
     configuration = dict(document["variants"][selected])
-    if ("worldInfo" in configuration or "retrieval" in configuration) and "prompt_budget" not in document:
+    if ("worldInfo" in configuration or "retrieval" in configuration) and prompt_budget is None:
         raise ValueError("worldInfo requires prompt_budget and the native tokenizer path")
     history_file = configuration.pop("history_file", None)
     history = []
     files = {"config.yaml": (path, raw), "dataset.jsonl": (data_path, data),
              "judge.md": (rubric_path, rubric), "judge.schema.json": (judge_schema_path, schema_bytes)}
+    if runtime_defaults is not None:
+        files["slm-runtime-defaults.json"] = runtime_defaults
     content_source = configuration.pop("content", None)
     if content_source is not None:
         from .content import compile_content
@@ -267,7 +296,7 @@ def load_plan(path=None, *, variant=None, repeats=None, limit_pairs=None, timeou
                 raise ValueError("vector retrieval requires explicit recorded vectorMatches for every turn")
     return EvaluationPlan(path, document, cases, selected, configuration, repeat_count,
                           seconds, judge, files, history, memories,
-                          document.get("runtime", {}).get("max_num_tokens", 4096))
+                          max_num_tokens, prompt_budget)
 
 
 def verify_snapshot(directory, metadata):
@@ -276,6 +305,7 @@ def verify_snapshot(directory, metadata):
         raise ValueError("run input snapshot is incomplete")
     for name, expected in metadata.items():
         if name not in required | {"history.json", "memories.json", "character.yaml", "situation.yaml",
+                                   "slm-runtime-defaults.json",
                                    "reaction-frames.json", "reaction-vectors.f32", "dialogue-lore.json"} and not re.fullmatch(r"lorebook-[0-9a-f]{64}\.(json|png)", name):
             raise ValueError("unknown snapshot entry")
         actual = hashlib.sha256((Path(directory) / "inputs" / name).read_bytes()).hexdigest()

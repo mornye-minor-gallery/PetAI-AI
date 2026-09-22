@@ -5,7 +5,6 @@ public struct ConversationConfiguration: Equatable, Sendable {
     public let topP: Float
     public let thinkingEnabled: Bool
     public let maxOutputTokens: Int
-    public let topKTelemetryCandidateCount: Int?
 
     public init(
         systemPrompt: String? = nil,
@@ -17,7 +16,6 @@ public struct ConversationConfiguration: Equatable, Sendable {
             .responseSampling.topP,
         maxOutputTokens: Int = SLMConfiguration.production.generation
             .maxOutputTokens,
-        topKTelemetryCandidateCount: Int? = nil,
         thinkingEnabled: Bool = SLMConfiguration.production.generation.responseThinkingDefault
     ) {
         self.systemPrompt = systemPrompt
@@ -26,6 +24,5 @@ public struct ConversationConfiguration: Equatable, Sendable {
         self.topK = topK
         self.topP = topP
         self.maxOutputTokens = maxOutputTokens
-        self.topKTelemetryCandidateCount = topKTelemetryCandidateCount
     }
 }

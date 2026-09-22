@@ -10,8 +10,13 @@ public protocol DialogueTokenMeasuring: Sendable {
 }
 
 public struct DialogueTokenBudget: Codable, Equatable, Sendable {
-    /// Initial product budget, not a quality-tuned optimum.
-    public static let production = Self(memoryTokens: 2_048, contextTokens: 8_096, outputTokens: 1_024)
+    /// The checked-in JSON is shared by the product runtime and evaluation harness.
+    /// A missing or invalid resource is a packaging error and must not silently change
+    /// the model's KV-cache allocation.
+    public static let production: Self = {
+        do { return try loadProductionDefaults() }
+        catch { preconditionFailure("Invalid slm-runtime-defaults.json: \(error)") }
+    }()
     public let memoryTokens: Int
     public let contextTokens: Int
     public let outputTokens: Int
@@ -22,11 +27,67 @@ public struct DialogueTokenBudget: Codable, Equatable, Sendable {
         self.outputTokens = outputTokens
     }
 
+    public static func loadProductionDefaults(data: Data) throws -> Self {
+        let document = try JSONDecoder().decode(RuntimeDefaultsDocument.self, from: data)
+        guard document.version == 1 else { throw RuntimeDefaultsError.unsupportedVersion(document.version) }
+        let budget = Self(memoryTokens: document.promptBudget.memoryTokens,
+                          contextTokens: document.runtime.maxNumTokens,
+                          outputTokens: document.promptBudget.outputTokens)
+        try budget.validate()
+        return budget
+    }
+
+    public static func loadProductionDefaults() throws -> Self {
+        try loadProductionDefaults(data: Data(contentsOf: productionDefaultsURL()))
+    }
+
+    private static func productionDefaultsURL() throws -> URL {
+#if SWIFT_PACKAGE
+        if let url = Bundle.module.url(forResource: "slm-runtime-defaults", withExtension: "json") {
+            return url
+        }
+#endif
+        for bundle in [Bundle.main, Bundle(for: RuntimeDefaultsBundleToken.self)] {
+            if let url = bundle.url(forResource: "slm-runtime-defaults", withExtension: "json",
+                                    subdirectory: "EdgeLLMPrompts")
+                ?? bundle.url(forResource: "slm-runtime-defaults", withExtension: "json") {
+                return url
+            }
+        }
+        throw RuntimeDefaultsError.resourceMissing
+    }
+
     func validate() throws {
         guard memoryTokens >= 0, contextTokens > 0, outputTokens > 0,
               outputTokens < contextTokens else { throw DialogueTokenBudgetError.invalidBudget }
     }
 }
+
+private struct RuntimeDefaultsDocument: Decodable {
+    struct Runtime: Decodable {
+        let maxNumTokens: Int
+        enum CodingKeys: String, CodingKey { case maxNumTokens = "max_num_tokens" }
+    }
+    struct PromptBudget: Decodable {
+        let memoryTokens: Int
+        let outputTokens: Int
+        enum CodingKeys: String, CodingKey {
+            case memoryTokens = "memory_tokens"
+            case outputTokens = "output_tokens"
+        }
+    }
+    let version: Int
+    let runtime: Runtime
+    let promptBudget: PromptBudget
+    enum CodingKeys: String, CodingKey { case version, runtime; case promptBudget = "prompt_budget" }
+}
+
+private enum RuntimeDefaultsError: Error {
+    case resourceMissing
+    case unsupportedVersion(Int)
+}
+
+private final class RuntimeDefaultsBundleToken {}
 
 public enum DialogueTokenBudgetError: Error, Equatable {
     case invalidBudget

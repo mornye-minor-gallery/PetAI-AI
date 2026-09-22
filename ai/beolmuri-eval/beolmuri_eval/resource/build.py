@@ -37,13 +37,19 @@ def build_app(*, signed=False, progress=lambda **kw: None):
     info['ResourceBenchProtocolVersion']=1
     info['CFBundleDisplayName']='별무리 측정'
     info_path=out/'Info.plist'; info_path.write_bytes(plistlib.dumps(info))
+    # The shared lab target has a mandatory product-content copy phase. The
+    # isolated ResourceBench binary never reads it, so supply an explicit
+    # synthetic file instead of depending on private product content or shell state.
+    resource_content=out/'dialogue-content.json'
+    atomic_json(resource_content,dict(id='resource-benchmark',name='ResourceBench',
+                                      persona='Resource benchmark fixture.'))
     argv=['xcodebuild','-project',root/'ios/EdgeLLMLab/EdgeLLMLab.xcodeproj','-scheme','EdgeLLMLab',
           '-configuration','Release','-sdk','iphoneos','-destination','generic/platform=iOS',
           '-derivedDataPath',out/'DerivedData',
           'SWIFT_ACTIVE_COMPILATION_CONDITIONS=RESOURCE_BENCH',
           'PRODUCT_BUNDLE_IDENTIFIER=com.mornye.EdgeLLMLab.resourcebench',
           'IPHONEOS_DEPLOYMENT_TARGET=26.0','CLANG_ENABLE_CODE_COVERAGE=NO',
-          'INFOPLIST_FILE='+str(info_path)]
+          'INFOPLIST_FILE='+str(info_path),'PETAI_DIALOGUE_CONTENT='+str(resource_content)]
     if signed: argv+=['-allowProvisioningUpdates']
     else: argv+=['CODE_SIGNING_ALLOWED=NO']
     argv+=['build']

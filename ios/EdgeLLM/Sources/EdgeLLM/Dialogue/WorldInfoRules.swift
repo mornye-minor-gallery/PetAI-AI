@@ -96,7 +96,7 @@ public struct WorldInfoContext: Codable, Equatable, Sendable {
     /// Retrieval is supplied by the host; the selection engine never performs I/O.
     public var vectorMatches: [String] = []
     public var messageNumber: Int = 1
-    public var contextTokens: Int = 8096
+    public var contextTokens: Int = DialogueTokenBudget.production.contextTokens
     public var randomSeed: UInt64 = 1
     public init() {}
     private enum CodingKeys: String, CodingKey, CaseIterable { case characterName, characterTags, trigger, scanFields, externallyActivated, vectorMatches, messageNumber, contextTokens, randomSeed }
@@ -110,7 +110,8 @@ public struct WorldInfoContext: Codable, Equatable, Sendable {
         externallyActivated = try c.decodeIfPresent([String].self, forKey: .externallyActivated) ?? []
         vectorMatches = try c.decodeIfPresent([String].self, forKey: .vectorMatches) ?? []
         messageNumber = try c.decodeIfPresent(Int.self, forKey: .messageNumber) ?? 1
-        contextTokens = try c.decodeIfPresent(Int.self, forKey: .contextTokens) ?? 8096
+        contextTokens = try c.decodeIfPresent(Int.self, forKey: .contextTokens)
+            ?? DialogueTokenBudget.production.contextTokens
         randomSeed = try c.decodeIfPresent(UInt64.self, forKey: .randomSeed) ?? 1
     }
 

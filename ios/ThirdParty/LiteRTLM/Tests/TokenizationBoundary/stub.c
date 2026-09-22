@@ -21,3 +21,5 @@ size_t litert_lm_tokenize_result_get_num_tokens(const LiteRtLmTokenizeResult* re
 void litert_lm_tokenize_result_delete(LiteRtLmTokenizeResult* result) { free(result); live_results--; }
 int test_live_results(void) { return live_results; }
 int test_tokenization_calls(void) { return calls; }
+
+const int* litert_lm_tokenize_result_get_tokens(const LiteRtLmTokenizeResult* r) { static int ids[7] = {1,2,3,4,5,6,7}; return ids; }

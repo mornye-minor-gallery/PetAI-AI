@@ -28,7 +28,7 @@ class WorldInfoTests(unittest.TestCase):
             config=Path(tmp)/'config.yaml'
             config.write_text(yaml.safe_dump(doc,allow_unicode=True))
             self.assertEqual(load_plan(config).configuration['worldInfo'],WI)
-            del doc['prompt_budget']
+            doc['runtime'] = {'max_num_tokens': 4096}
             config.write_text(yaml.safe_dump(doc,allow_unicode=True))
             with self.assertRaisesRegex(ValueError,'worldInfo requires prompt_budget'):
                 load_plan(config)

@@ -10,7 +10,7 @@ public enum DialoguePromptComposer {
         return try assemble(input: input, policy: policy, memory: memory, memoryByteBudget: policy.memoryByteBudget, note: resolveNote(input))
     }
 
-    static func insertionLayout(input: DialoguePromptInput, policy: DialoguePromptPolicy, note: AuthorsNoteResolution? = nil, worldInsertions: [DialoguePromptInsertion] = [], exampleDialogue: String? = nil) throws -> DialogueInsertionLayout {
+    static func insertionLayout(input: DialoguePromptInput, policy: DialoguePromptPolicy, note: AuthorsNoteResolution? = nil, worldInsertions: [DialoguePromptInsertion] = []) throws -> DialogueInsertionLayout {
         guard policy.nameRulePlacement == .system || policy.persona.enforceCharacterName else {
             throw DialoguePromptError.inactiveNameRulePlacement
         }
@@ -20,10 +20,7 @@ public enum DialoguePromptComposer {
         let nameRule: DialoguePromptInsertion? = policy.nameRulePlacement == .system ? nil : .init(
             id: "nameRule", source: .nameRule, text: policy.persona.nameInstruction(characterName: input.profile.characterName),
             placement: policy.nameRulePlacement == .beforeCurrent ? .beforeCurrent : .afterCurrent)
-        let exampleText = exampleDialogue ?? input.exampleDialogue
-        let examples: [DialoguePromptInsertion] = exampleText.isEmpty ? [] : [
-            .init(id: "dialogue.examples", source: .worldInfo, text: exampleText, placement: .afterSystem, order: 100)]
-        return try DialogueInsertionLayout(input.insertions + examples + worldInsertions + (note?.insertion.map { [$0] } ?? []), nameRule: nameRule, historyCount: input.history.count)
+        return try DialogueInsertionLayout(input.insertions + worldInsertions + (note?.insertion.map { [$0] } ?? []), nameRule: nameRule, historyCount: input.history.count)
     }
 
     static func resolveNote(_ input: DialoguePromptInput) throws -> AuthorsNoteResolution? {
@@ -50,7 +47,8 @@ public enum DialoguePromptComposer {
         let projection = worldInfo.map { WorldInfoPromptProjection(selection: $0.selection, note: expandedBaseNote) }
         let expandedNote = projection?.note ?? expandedBaseNote
         let layout = try insertionLayout(input: input, policy: policy, note: expandedNote,
-            worldInsertions: projection?.insertions ?? [], exampleDialogue: authored(input.exampleDialogue))
+            worldInsertions: projection?.insertions ?? [])
+        let exampleText = try authored(input.exampleDialogue)
         let instruction = policy.persona.nameInstruction(characterName: input.profile.characterName)
         // Move the rule as an item before serialization. User text is never searched
         // for section markers, so a quoted marker cannot change the layout.
@@ -64,12 +62,22 @@ public enum DialoguePromptComposer {
         if policy.nameRulePlacement != .system { systemPolicy.enforceCharacterName = false }
         let baseParts = try DialoguePromptRenderer.systemSections(prompts: input.persona, activeCard: input.activeCard,
             userProfileContext: input.profile, configuration: systemPolicy).map { section in
-                DialoguePromptSection(id: section.id, text: try (["persona", "scene"].contains(section.id) ? authored(section.text) : section.text), role: section.role)
+                DialoguePromptSection(id: section.id,
+                    text: try (["persona", "scene"].contains(section.id) ? authored(section.text) : section.text),
+                    role: section.role, cacheStability: section.cacheStability)
             }
-        // Lore anchors surround character description + active scene, not profile or output contracts.
+        // Lore anchors retain their relative order inside the request-dynamic tail. The stable
+        // persona and output contracts must stay contiguous at the front: native KV reuse stops
+        // at the first changed token, so inserting request data between them defeats prefix caching.
         let characterEnd = baseParts.prefix { $0.id == "persona" || $0.id == "scene" }.count
-        let systemParts = layout.beforeSystem + layout.beforePersona + baseParts.prefix(characterEnd)
-            + layout.afterPersona + baseParts.dropFirst(characterEnd) + layout.afterSystem
+        let exampleParts: [DialoguePromptSection] = exampleText.isEmpty ? [] : [
+            .init(id: "dialogue.examples", text: exampleText, role: .system, cacheStability: .sessionStable)
+        ]
+        let stableParts = baseParts.filter { $0.cacheStability == .sessionStable } + exampleParts
+        let dynamicCharacterParts = baseParts.prefix(characterEnd).filter { $0.cacheStability == .requestDynamic }
+        let dynamicRemainingParts = baseParts.dropFirst(characterEnd).filter { $0.cacheStability == .requestDynamic }
+        let systemParts = stableParts + layout.beforeSystem + layout.beforePersona + dynamicCharacterParts
+            + layout.afterPersona + dynamicRemainingParts + layout.afterSystem
         let systemPrompt = systemParts.map(\.text).joined(separator: "\n\n")
         let historyParts = DialoguePromptRenderer.historySections(input.history, insertions: layout.history)
         let currentText = positionedParts.map(\.text).joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)

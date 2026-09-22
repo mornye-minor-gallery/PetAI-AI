@@ -61,7 +61,17 @@ def collect_run(root, device):
     return state
 
 
-def wait_phase(device, root, plan, phases, *, timeout, observer, progress):
+def launch_process_id(launch):
+    process = launch.get('process') if isinstance(launch, dict) else None
+    pid = process.get('processIdentifier') if isinstance(process, dict) else None
+    if pid is None and isinstance(launch, dict):
+        pid = launch.get('processIdentifier', launch.get('pid'))
+    if not isinstance(pid, int):
+        raise RuntimeError('launch response did not include an app process identifier')
+    return pid
+
+
+def wait_phase(device, root, plan, phases, *, timeout, observer, progress, expected_pid=None):
     deadline=time.monotonic()+timeout
     last_error=None
     while time.monotonic()<deadline:
@@ -71,12 +81,25 @@ def wait_phase(device, root, plan, phases, *, timeout, observer, progress):
         except (RuntimeError,TimeoutError) as error:
             last_error=str(error)
             atomic_json(root/'host-state.json',dict(observation='unknown',error=last_error))
+            if expected_pid is not None:
+                try: rows=device.processes().get('runningProcesses')
+                except (RuntimeError,TimeoutError) as process_error:
+                    last_error='state and process inventory unavailable: '+str(process_error)
+                else:
+                    if isinstance(rows,list) and not any(row.get('processIdentifier')==expected_pid for row in rows):
+                        raise RuntimeError('app process exited while awaiting '+','.join(sorted(phases)))
         else:
             observation=observer.observe(state,now=time.monotonic())
             atomic_json(root/'host-state.json',observation)
             if state['phase'] in {'failed','cancelled'}:raise RuntimeError('app ended: '+str(state.get('error',state['phase'])))
             if state['phase'] in phases and observation['observation']=='known':return state
             last_error='device phase: '+state['phase']
+            if observation['observation']=='unknown':
+                try: rows=device.processes().get('runningProcesses')
+                except (RuntimeError,TimeoutError) as error: last_error='process inventory unavailable: '+str(error)
+                else:
+                    if isinstance(rows,list) and not any(row.get('processIdentifier')==state['pid'] for row in rows):
+                        raise RuntimeError('app process exited while awaiting '+','.join(sorted(phases)))
         progress(stage='await_app',run_id=plan['run_id'],expected=sorted(phases),last=last_error)
         time.sleep(min(5,max(0,deadline-time.monotonic())))
     raise TimeoutError('app phase unconfirmed: '+str(last_error))
@@ -95,7 +118,8 @@ def run_one(root, plan, device, expected_build, *, progress, model_source=None):
             device.copy_to(root/'manifest.json',f'{ROOT}/runs/{run_id}/manifest.json')
             launched=True  # A timeout after dispatch does not prove that launch did not occur.
             launch=device.launch(run_id);atomic_json(root/'launch.json',launch)
-            last=wait_phase(device,root,plan,{'boot_ready'},timeout=60,observer=observer,progress=progress)
+            last=wait_phase(device,root,plan,{'boot_ready'},timeout=60,observer=observer,progress=progress,
+                            expected_pid=launch_process_id(launch))
             if last.get('build_id')!=expected_build or last.get('bundle_id')!=device.bundle:
                 raise RuntimeError('installed benchmark build does not match expected build identity')
             if model_source is not None:

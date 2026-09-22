@@ -2,6 +2,7 @@
 import json
 import math
 from pathlib import Path
+import tempfile
 from uuid import uuid4
 from ..storage import read_json
 from .tools import run_tool
@@ -28,6 +29,7 @@ class Device:
         return value['result']
 
     def details(self): return self.call(['device','info','details'])
+    def lock_state(self): return self.call(['device','info','lockState'])
     def apps(self): return self.call(['device','info','apps'])
     def processes(self): return self.call(['device','info','processes'])
     def copy_to(self, source, destination, *, timeout=300):
@@ -37,6 +39,28 @@ class Device:
         Path(destination).parent.mkdir(parents=True,exist_ok=True)
         return self.call(['device','copy','from','--source',source,'--destination',str(destination),
                           '--domain-type','appDataContainer','--domain-identifier',self.bundle],timeout=timeout)
+    def probe_transport(self):
+        """Prove the app-data file channel before starting a benchmark."""
+        nonce=str(uuid4())
+        with tempfile.TemporaryDirectory(prefix='beolmuri-transport-') as temporary:
+            source=Path(temporary)/'probe.json';destination=Path(temporary)/'roundtrip.json'
+            source.write_text(json.dumps({'nonce':nonce}))
+            remote=f'{ROOT}/preflight/{nonce}.json'
+            self.copy_to(source,remote)
+            self.copy_from(remote,destination)
+            if read_json(destination).get('nonce')!=nonce:
+                raise RuntimeError('filesandbox roundtrip mismatch')
+        return {'status':'ready','nonce':nonce}
+    def running_app_processes(self):
+        apps=self.apps().get('apps',[])
+        app=next((row for row in apps if row.get('bundleIdentifier')==self.bundle),None)
+        if app is None:return []
+        url=app.get('url','')
+        prefix=url.removeprefix('file://').rstrip('/')+'/'
+        rows=self.processes().get('runningProcesses')
+        if not isinstance(rows,list):raise RuntimeError('process inventory format unverified')
+        return [row for row in rows if isinstance(row.get('executable'),str)
+                and row['executable'].startswith(prefix)]
     def launch(self, run_id):
         # Never use --terminate-existing; a previous owned process is reconciled first.
         return self.call(['device','process','launch','--environment-variables',

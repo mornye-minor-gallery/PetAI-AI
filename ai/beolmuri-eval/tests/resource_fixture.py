@@ -15,6 +15,13 @@ def app_files():
  condition=dict(foreground=True,charging='unplugged',brightness=0.5,thermal='nominal')
  events=[dict(kind='conditions',payload=condition),
          dict(kind='window_start',payload={'signpost_before_ns':'1000','signpost_after_ns':'1100'}),
+         dict(kind='native_inference_metrics',payload={
+             'turn_id':'turn','generation_id':'generation',
+             'kv_tokens_before':128,'kv_tokens_after':384,
+             'native_ttft_seconds':0.25,'first_response_seconds':0.3,
+             'generation_elapsed_seconds':2.0,'prefill_tokens':64,
+             'prefill_tokens_per_second':32.0,'decode_tokens':16,
+             'decode_tokens_per_second':8.0}),
          dict(kind='conditions',payload=condition),
          dict(kind='window_end',payload={'signpost_before_ns':'2008748958','signpost_after_ns':'2008749058'})]
  for i,event in enumerate(events):event.update(run_id=RUN,seq=i)

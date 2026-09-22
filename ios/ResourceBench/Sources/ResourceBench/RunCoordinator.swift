@@ -183,23 +183,26 @@ import OSLog
         try check()
         guard initialConditions() else { throw BenchFailure.invalid("initial_conditions_changed") }
         try store.transition(to: .running)
-        try await Task.sleep(for: .milliseconds(plan.config.recorder_pre_roll_ms))
+        let fixedTurns = plan.config.scenario == "fixed"
+        if !fixedTurns {
+            try await Task.sleep(for: .milliseconds(plan.config.recorder_pre_roll_ms))
+        }
         try check()
         guard initialConditions() else { throw BenchFailure.invalid("initial_conditions_changed") }
         try markWindow(begin: true)
-        let end = BenchIO.nanoseconds() + UInt64(plan.config.power_window_ms) * 1_000_000
-        let window = Task { [weak self] in
+        let end = fixedTurns ? nil : BenchIO.nanoseconds() + UInt64(plan.config.power_window_ms) * 1_000_000
+        let window: Task<Void, Never>? = fixedTurns ? nil : Task { [weak self] in
             do {
                 try await Task.sleep(for: .milliseconds(self?.plan.config.power_window_ms ?? 0))
                 try self?.markWindow(begin: false)
             } catch { if !(error is CancellationError) { await self?.abort(String(describing: error)) } }
         }
-        defer { window.cancel() }
+        defer { window?.cancel() }
         if plan.role == "idle" {
             try await Task.sleep(for: .milliseconds(plan.config.power_window_ms))
         } else {
             var index = 0
-            while BenchIO.nanoseconds() < end {
+            while (fixedTurns ? index < plan.inputs.count : BenchIO.nanoseconds() < end!) {
                 try check()
                 guard index < plan.inputs.count else { throw BenchFailure.invalid("fixture_exhausted") }
                 let input = plan.inputs[index]
@@ -211,16 +214,19 @@ import OSLog
                 try sampler.boundary("turn_end", turnID: input.id)
                 try journal.event("turn_end", payload: ["turn_id": input.id, "output": output])
                 try journal.seal(complete: false); try store.completedTurn(); index += 1
-                if plan.config.scenario == "paced", BenchIO.nanoseconds() < end {
+                if plan.config.scenario == "paced", BenchIO.nanoseconds() < end! {
                     let now = BenchIO.nanoseconds()
-                    let remaining = now < end ? end - now : 0
+                    let remaining = now < end! ? end! - now : 0
                     try await Task.sleep(nanoseconds: min(UInt64(plan.config.reply_gap_ms) * 1_000_000, remaining))
                 }
             }
+            if fixedTurns { try markWindow(begin: false) }
         }
-        await window.value
+        await window?.value
         try check(); try store.transition(to: .draining)
-        try await Task.sleep(for: .milliseconds(plan.config.recorder_post_roll_ms))
+        if !fixedTurns {
+            try await Task.sleep(for: .milliseconds(plan.config.recorder_post_roll_ms))
+        }
         try check(); sampler.stop()
         try journal.event("finished"); try journal.seal(complete: true)
         try store.transition(to: .finished); restore()

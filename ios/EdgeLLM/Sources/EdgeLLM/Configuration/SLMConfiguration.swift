@@ -72,15 +72,6 @@ public struct SLMConfiguration: Equatable, Sendable {
         }
     }
 
-    public struct Diagnostics: Equatable, Sendable {
-        public let telemetryCandidateCount: Int
-
-        public init(telemetryCandidateCount: Int) {
-            precondition((1...16).contains(telemetryCandidateCount))
-            self.telemetryCandidateCount = telemetryCandidateCount
-        }
-    }
-
     public struct RuntimeSafety: Equatable, Sendable {
         public let cancellationTimeoutSeconds: Int
 
@@ -94,7 +85,6 @@ public struct SLMConfiguration: Equatable, Sendable {
     public let memory: Memory
     public let generation: Generation
     public let persona: Persona
-    public let diagnostics: Diagnostics
     public let runtimeSafety: RuntimeSafety
     public let dialogueBudget: DialogueTokenBudget
     public let authoredText: DialogueTextSettings?
@@ -106,7 +96,6 @@ public struct SLMConfiguration: Equatable, Sendable {
         memory: Memory,
         generation: Generation,
         persona: Persona,
-        diagnostics: Diagnostics,
         runtimeSafety: RuntimeSafety,
         dialogueBudget: DialogueTokenBudget = .production,
         authorsNote: AuthorsNoteSettings? = nil,
@@ -118,7 +107,6 @@ public struct SLMConfiguration: Equatable, Sendable {
         self.memory = memory
         self.generation = generation
         self.persona = persona
-        self.diagnostics = diagnostics
         self.runtimeSafety = runtimeSafety
         self.dialogueBudget = dialogueBudget
         self.authorsNote = authorsNote
@@ -146,14 +134,13 @@ public extension SLMConfiguration {
                 samplerTopK: 40,
                 topP: 1
             ),
-            maxOutputTokens: 4_096,
+            maxOutputTokens: DialogueTokenBudget.production.outputTokens,
             responseThinkingDefault: false,
             routerThinkingEnabled: false,
             toolReasoningEnabled: false
         ),
         // Each user/assistant message counts separately: 20 messages retain 10 exchanges.
         persona: Persona(recentMessageLimit: 20),
-        diagnostics: Diagnostics(telemetryCandidateCount: 8),
         // Provisional UX deadline; tune after device cancellation-latency measurements.
         runtimeSafety: RuntimeSafety(cancellationTimeoutSeconds: 15)
     )

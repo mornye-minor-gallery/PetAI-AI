@@ -47,9 +47,9 @@ extension LiteRTLMRuntime: NativeToolProposalGenerating {
                     ),
                 ],
                 samplerConfig: sampler,
-                filterChannelContentFromKVCache: true,
-                maxOutputTokens: slmConfiguration.generation
-                    .maxOutputTokens
+                thinkingConfig: ThinkingConfig(
+                    enableThinking: request.reasoningEnabled
+                )
             )
             let toolConversation = try await engine.createConversation(
                 with: configuration
@@ -61,7 +61,11 @@ extension LiteRTLMRuntime: NativeToolProposalGenerating {
                 Message(request.userMessage),
                 extraContext: [
                     "enable_thinking": request.reasoningEnabled,
-                ]
+                ],
+                maxOutputTokens: slmConfiguration.generation.maxOutputTokens,
+                thinkingConfig: ThinkingConfig(
+                    enableThinking: request.reasoningEnabled
+                )
             )
             for try await _ in source { }
             await waitForNativeCompletion(toolConversation)

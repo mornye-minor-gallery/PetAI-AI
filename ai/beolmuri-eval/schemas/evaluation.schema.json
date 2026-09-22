@@ -327,17 +327,33 @@
       ]
     },
     "runtime": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "max_num_tokens": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 2147483647
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "profile": {
+              "const": "production"
+            }
+          },
+          "required": [
+            "profile"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_num_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          },
+          "required": [
+            "max_num_tokens"
+          ]
         }
-      },
-      "required": [
-        "max_num_tokens"
       ]
     },
     "prompt_budget": {

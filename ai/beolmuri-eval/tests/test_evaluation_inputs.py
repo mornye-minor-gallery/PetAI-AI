@@ -12,6 +12,9 @@ class EvaluationInputTests(unittest.TestCase):
         self.assertEqual(plan.repeats, 3)
         self.assertEqual(plan.variant, 'baseline')
         self.assertEqual(plan.judge['model'], 'gpt-5.6-sol')
+        self.assertEqual(plan.max_num_tokens, 4096)
+        self.assertEqual(plan.prompt_budget, {'memory_tokens': 2048, 'output_tokens': 1024})
+        self.assertIn('slm-runtime-defaults.json', plan.files)
 
     def test_judge_model_is_selected_by_config(self):
         original = default_config_path()

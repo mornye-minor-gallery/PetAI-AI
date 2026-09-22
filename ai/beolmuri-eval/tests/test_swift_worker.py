@@ -33,7 +33,7 @@ class SwiftWorkerTests(unittest.TestCase):
                                              characterName="엘레나", userMessage="아영아, 안녕?")
         self.assertEqual(len({row["user_prompt"] for row in prompts.values()}), 1)
         self.assertIn('캐릭터의 이름은 "엘레나"이다', prompts["name-rule"]["system_prompt"])
-        self.assertEqual(prompts["baseline"]["sampling"]["max_output_tokens"], 4096)
+        self.assertEqual(prompts["baseline"]["sampling"]["max_output_tokens"], 1024)
         self.assertEqual(prompts["baseline"]["history"], [])
         self.assertNotEqual(prompts["baseline"]["system_prompt"], prompts["answer-only"]["system_prompt"])
 

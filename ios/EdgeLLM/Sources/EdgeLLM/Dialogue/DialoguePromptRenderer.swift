@@ -20,7 +20,8 @@ enum DialoguePromptRenderer {
     ) -> [DialoguePromptSection] {
         var sections: [DialoguePromptSection] = []
         if configuration.includePersona {
-            sections.append(.init(id: "persona", text: render(prompts.core, with: userProfileContext)))
+            sections.append(.init(id: "persona", text: render(prompts.core, with: userProfileContext),
+                                  cacheStability: .sessionStable))
         }
         if configuration.includePersona, let activeCard,
            !activeCard.trimmingCharacters(
@@ -38,15 +39,18 @@ enum DialoguePromptRenderer {
             sections.append(.init(id: "profile", text: userProfileContext.promptSection()))
         }
         if configuration.enforceCharacterName, configuration.nameRuleStyle == .identityStatement {
-            sections.append(.init(id: "nameRule", text: configuration.nameInstruction(characterName: userProfileContext.characterName)))
+            sections.append(.init(id: "nameRule", text: configuration.nameInstruction(characterName: userProfileContext.characterName),
+                                  cacheStability: .sessionStable))
         }
         if configuration.memoryClassification {
-            sections.append(.init(id: "responseContract", text: MemoryTaggedChatPrompt.wrappedAxesV1))
+            sections.append(.init(id: "responseContract", text: MemoryTaggedChatPrompt.wrappedAxesV1,
+                                  cacheStability: .sessionStable))
         }
         // Keep the response action after the format contract so "first sentence"
         // cannot be mistaken for replacing the memory-classification header.
         if configuration.enforceCharacterName, configuration.nameRuleStyle != .identityStatement {
-            sections.append(.init(id: "nameRule", text: configuration.nameInstruction(characterName: userProfileContext.characterName)))
+            sections.append(.init(id: "nameRule", text: configuration.nameInstruction(characterName: userProfileContext.characterName),
+                                  cacheStability: .sessionStable))
         }
         return sections
     }
@@ -103,8 +107,11 @@ enum DialoguePromptRenderer {
     }
 }
 
+enum DialoguePromptCacheStability: Sendable { case sessionStable, requestDynamic }
+
 struct DialoguePromptSection: Sendable {
     let id: String
     let text: String
     var role: DialoguePromptRole = .user
+    var cacheStability: DialoguePromptCacheStability = .requestDynamic
 }

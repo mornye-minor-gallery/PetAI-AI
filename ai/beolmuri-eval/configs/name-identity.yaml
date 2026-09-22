@@ -1,12 +1,8 @@
 version: 1
 task: name-identity
 
-# Initial budget for new runs, not a quality-tuned optimum.
 runtime:
-  max_num_tokens: 8096
-prompt_budget:
-  memory_tokens: 2048
-  output_tokens: 1024
+  profile: production
 
 dataset:
   path: ../datasets/name-identity.jsonl

@@ -1,4 +1,7 @@
 import Foundation
+#if RESOURCE_BENCH && canImport(LiteRTLM)
+import LiteRTLM
+#endif
 
 #if canImport(EdgeLLM)
 import EdgeLLM
@@ -51,6 +54,11 @@ actor EmbeddingGemmaEmbedder:
   private var runner: PETEmbeddingGemmaRunner?
 
   func prepare(modelURL: URL, tokenizerURL: URL) throws {
+#if RESOURCE_BENCH
+    RuntimeResourceTrace.mark("embedding.load.begin")
+    defer { RuntimeResourceTrace.mark("embedding.load.exit") }
+#endif
+
     guard FileManager.default.fileExists(atPath: modelURL.path) else {
       throw EmbeddingGemmaRuntimeError.modelFileMissing(
         path: modelURL.path
@@ -98,6 +106,11 @@ actor EmbeddingGemmaEmbedder:
   }
 
   func unload() {
+#if RESOURCE_BENCH
+    RuntimeResourceTrace.mark("embedding.unload.begin")
+    defer { RuntimeResourceTrace.mark("embedding.unload.exit") }
+#endif
+
     runner = nil
   }
 
@@ -115,6 +128,11 @@ actor EmbeddingGemmaEmbedder:
       throw EmbeddingGemmaRuntimeError.notPrepared
     }
 
+
+#if RESOURCE_BENCH
+    RuntimeResourceTrace.mark("embedding.compute.begin")
+    defer { RuntimeResourceTrace.mark("embedding.compute.exit") }
+#endif
     let data = try runner.embedding(
       forText: prefix + normalizedText
     )

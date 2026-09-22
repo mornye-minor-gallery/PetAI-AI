@@ -12,6 +12,14 @@ final class NativeStreamLifetime: @unchecked Sendable {
     var isActive: Bool { lock.withLock { active } }
     var isCancellationRequested: Bool { lock.withLock { cancelled } }
 
+    func tryBegin() -> Bool {
+        lock.withLock {
+            guard !active else { return false }
+            active = true; cancelled = false
+            return true
+        }
+    }
+
     func begin() {
         lock.withLock {
             precondition(!active, "Conversation already has a native operation")
