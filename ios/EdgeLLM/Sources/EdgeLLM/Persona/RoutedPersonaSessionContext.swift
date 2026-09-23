@@ -150,7 +150,11 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
         guard visibleMessages < Int.max, visibleUserMessages < Int.max else {
             throw DialogueSessionError.counterOverflow
         }
-        return .init(requestID: requestID, history: turns, completedUserMessages: completedUserMessages,
+        // The upcoming user request is the twentieth turn, not a twenty-first
+        // turn added after twenty older ones have already entered the prompt.
+        let promptHistory = retainedTurns.suffix(max(0, maximumTurnCount - 1))
+            .flatMap(\.visibleMessages)
+        return .init(requestID: requestID, history: promptHistory, completedUserMessages: completedUserMessages,
             completedMessages: completedMessages, visibleMessages: visibleMessages,
             currentUserMessageNumber: visibleUserMessages + 1,
             currentMessageNumber: visibleMessages + 1, worldInfoState: worldInfoState,
@@ -165,6 +169,10 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
         guard !retainedTurns.contains(where: { $0.requestID == requestID }),
               lastFinishedTurn?.requestID != requestID else { throw DialogueSessionError.conflictingCommit }
         guard revision < Int.max else { throw DialogueSessionError.counterOverflow }
+        // Align the retained set with the prompt snapshot before EdgeMem recall.
+        if maximumTurnCount > 0 && retainedTurns.count == maximumTurnCount {
+            retainedTurns.removeFirst()
+        }
         activeTurn = .init(requestID: requestID, userMessage: user, status: .inProgress)
         visibleUserMessages += 1
         visibleMessages += 1

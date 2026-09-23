@@ -76,6 +76,24 @@ import Testing
     #expect(restored.visibleMessages == 33)
 }
 
+@Test func acceptedRequestTakesOneOfTheRecentTurnSlotsBeforePromptPreparation() throws {
+    var session = RoutedPersonaSessionContext(maximumTurnCount: 3)
+    for index in 1...3 {
+        _ = try session.beginRequest(requestID: "turn-\(index)", userMessage: "질문 \(index)")
+        try session.finishRequest(requestID: "turn-\(index)", status: .completed,
+            assistantMessage: "답변 \(index)")
+    }
+
+    let pending = try session.snapshot(requestID: "turn-4")
+    #expect(pending.history.map(\.text) == ["질문 2", "답변 2", "질문 3", "답변 3"])
+    let current = try session.beginRequest(requestID: "turn-4", userMessage: "질문 4")
+    #expect(current.history.map(\.text) == ["질문 2", "답변 2", "질문 3", "답변 3"])
+    #expect(session.turns == current.history)
+    #expect(session.chatTurns.map(\.requestID) == ["turn-2", "turn-3", "turn-4"])
+    #expect(current.currentUserMessageNumber == 4)
+    #expect(current.currentMessageNumber == 7)
+}
+
 @Test func staleRequestCannotAppendOrFinishNewRequest() throws {
     var session = RoutedPersonaSessionContext()
     _ = try session.beginRequest(requestID: "old", userMessage: "첫 질문")

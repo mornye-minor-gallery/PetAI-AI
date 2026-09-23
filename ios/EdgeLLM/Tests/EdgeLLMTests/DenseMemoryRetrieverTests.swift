@@ -154,6 +154,31 @@ func denseRetrieverExcludesTurnsAndDeduplicatesExactRawText() async throws {
 }
 
 @Test
+func memoryLeavingRecentWindowCanBeRetrievedWithoutReturningRecentTurns() async throws {
+  var session = RoutedPersonaSessionContext(maximumTurnCount: 3)
+  for index in 1...3 {
+    let id = "message-turn-\(index)"
+    _ = try session.beginRequest(requestID: id, userMessage: "질문 \(index)")
+    try session.finishRequest(requestID: id, status: .completed,
+      assistantMessage: "답변 \(index)")
+  }
+  let current = try session.beginRequest(requestID: "message-turn-4", userMessage: "질문 4")
+  #expect(current.history.map(\.text) == ["질문 2", "답변 2", "질문 3", "답변 3"])
+
+  let scope = MemoryScope(userID: "local-user", characterID: "default-character")
+  let loader = DenseTestCandidateLoader(candidates: (1...3).map { index in
+    makeCandidate(id: "turn-\(index)", sessionID: "session-old", scope: scope,
+      vector: [1, 0, 0])
+  })
+  let retriever = DenseMemoryRetriever(candidateLoader: loader, embedder: DenseTestEmbedder())
+  let results = try await retriever.search(MemorySearchRequest(
+    scope: scope, query: "관련 기억", topK: 3,
+    excludedTurnIDs: Set(session.chatTurns.map(\.requestID))))
+
+  #expect(results.map(\.observation.id) == ["turn-1"])
+}
+
+@Test
 func denseRetrieverFiltersCandidatesBelowMinimumSimilarity() async throws {
   let scope = MemoryScope(userID: "local-user", characterID: "default-character")
   let loader = DenseTestCandidateLoader(

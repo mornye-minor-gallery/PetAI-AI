@@ -156,10 +156,10 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
             if let content = request.configuration.dialogueContent, content.retrieval != nil {
                 guard let directory = request.retrievalDirectory else { throw WorkerError.invalidRequest }
                 (worldInfo, retrievalTrace) = try await ReactionRetrieval.shared.prepare(directory: directory, content: content,
-                    requestID: request.id, history: context.turns.map(\.text), message: message, base: worldInfo)
+                    requestID: request.id, history: snapshot.history.map(\.text), message: message, base: worldInfo)
             }
             let input = DialoguePromptInput(persona: prompts, activeCard: prompts.card(scene: .general),
-                profile: profile, history: context.turns, memories: memories, currentMessage: message,
+                profile: profile, history: snapshot.history, memories: memories, currentMessage: message,
                 insertions: request.insertions ?? [], session: snapshot, authorsNote: request.configuration.authorsNote, worldInfo: worldInfo,
                 worldInfoContext: request.worldInfoContext ?? .init(), exampleDialogue: request.configuration.dialogueContent?.exampleDialogue ?? request.exampleDialogue ?? "", authoredText: request.configuration.authoredText ?? .init())
             let policy = DialoguePromptPolicy(persona: request.configuration.persona,
@@ -198,11 +198,11 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
                     "inserted_bytes": prepared.trace.insertedMemoryBytes,
                     "byte_budget": prepared.trace.memoryByteBudget as Any? ?? NSNull()
                 ],
-                "history": context.turns.map { ["role": $0.role.rawValue, "text": $0.text] },
+                "history": snapshot.history.map { ["role": $0.role.rawValue, "text": $0.text] },
                 "history_stats": [
                     "injected_messages": context.visibleMessages,
-                    "retained_messages": context.turns.count,
-                    "dropped_messages": context.visibleMessages - context.turns.count,
+                    "retained_messages": snapshot.history.count,
+                    "dropped_messages": context.visibleMessages - snapshot.history.count,
                     "retained_turns": context.chatTurns.count,
                     "turn_limit": context.maximumTurnCount
                 ],

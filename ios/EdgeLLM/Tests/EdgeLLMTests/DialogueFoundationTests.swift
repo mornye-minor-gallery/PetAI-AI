@@ -44,7 +44,7 @@ private func foundationInput(insertions: [DialoguePromptInsertion] = [],
     var session = RoutedPersonaSessionContext(maximumTurnCount: 20)
     for i in 0..<40 { session.appendExchange(userMessage: "질문 \(i)", assistantMessage: "답변 \(i)") }
     let snapshot = try session.snapshot(requestID: "next")
-    #expect(snapshot.history.count == 40)
+    #expect(snapshot.history.count == 38)
     #expect(snapshot.completedUserMessages == 40)
     #expect(snapshot.completedMessages == 80)
     #expect(snapshot.currentUserMessageNumber == 41)
