@@ -200,11 +200,11 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
                 ],
                 "history": context.turns.map { ["role": $0.role.rawValue, "text": $0.text] },
                 "history_stats": [
-                    "injected_messages": context.completedMessages,
+                    "injected_messages": context.visibleMessages,
                     "retained_messages": context.turns.count,
-                    "dropped_messages": context.completedMessages - context.turns.count,
-                    "retained_exchanges": context.turns.count / 2,
-                    "message_limit": context.maximumTurnCount
+                    "dropped_messages": context.visibleMessages - context.turns.count,
+                    "retained_turns": context.chatTurns.count,
+                    "turn_limit": context.maximumTurnCount
                 ],
                 "session_clock": [
                     "completed_user_messages": snapshot.completedUserMessages,
@@ -226,7 +226,8 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
             guard let checkpoint = request.sessionCheckpoint, let user = request.userMessage,
                   let assistant = request.assistantMessage else { throw WorkerError.invalidRequest }
             var context = try RoutedPersonaSessionContext(checkpoint: checkpoint)
-            let pending = try context.snapshot(requestID: request.id)
+            // Transport call IDs vary on retry; the checkpoint must not vary with them.
+            let pending = try context.snapshot(requestID: "evaluation-\(context.completedUserMessages + 1)")
             try context.commit(pending, userMessage: user, assistantMessage: assistant, worldInfo: request.worldInfoTransaction)
             return ["status": "committed", "session_checkpoint": try JSONSerialization.jsonObject(with: JSONEncoder().encode(context.checkpoint()))]
         case "process":

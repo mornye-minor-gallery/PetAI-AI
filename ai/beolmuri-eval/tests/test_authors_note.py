@@ -35,7 +35,8 @@ class AuthorsNoteTests(unittest.TestCase):
                 tokenBudget={'memoryTokens':20, 'contextTokens':100, 'outputTokens':30},
                 measurerID='synthetic', measurement_handler=measure)
             self.assertEqual(result['configuration']['authorsNote'], settings)
-            self.assertEqual(result['history_stats']['retained_messages'], 20)
+            self.assertEqual(result['history_stats']['retained_messages'], 22)
+            self.assertEqual(result['history_stats']['retained_turns'], 11)
             note = result['prompt_trace']['authorsNote']
             self.assertEqual(note['userMessageNumber'], 12)
             self.assertEqual(note['state'], 'active')

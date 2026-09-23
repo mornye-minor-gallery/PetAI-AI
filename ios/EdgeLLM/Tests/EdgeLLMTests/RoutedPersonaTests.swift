@@ -90,7 +90,7 @@ func sessionProfileSanitizesNativeLabelsBeforePromptRendering() {
 
 @Test
 func routedPersonaSessionContextKeepsOnlyVisibleConversation() {
-    var context = RoutedPersonaSessionContext(maximumTurnCount: 4)
+    var context = RoutedPersonaSessionContext(maximumTurnCount: 2)
     context.appendExchange(userMessage: "첫 질문", assistantMessage: "첫 답변")
     context.appendExchange(userMessage: "둘째 질문", assistantMessage: "둘째 답변")
     context.appendExchange(userMessage: "셋째 질문", assistantMessage: "셋째 답변")
@@ -108,14 +108,15 @@ func routedPersonaSessionContextKeepsOnlyVisibleConversation() {
 }
 
 @Test
-func productionSessionRetainsTenCompleteExchanges() {
+func productionSessionRetainsTwentyRequestTurns() {
     var context = RoutedPersonaSessionContext()
-    for index in 1...12 {
+    for index in 1...22 {
         context.appendExchange(userMessage: "질문 \(index)", assistantMessage: "답변 \(index)")
     }
-    #expect(context.turns.count == 20)
+    #expect(context.chatTurns.count == 20)
+    #expect(context.turns.count == 40)
     #expect(context.turns.first == .init(role: .user, text: "질문 3"))
-    #expect(context.turns.last == .init(role: .assistant, text: "답변 12"))
+    #expect(context.turns.last == .init(role: .assistant, text: "답변 22"))
     let input = DialoguePromptRenderer.historyInput(history: context.turns, currentText: "현재 질문")
     #expect(input.contains("사용자: 질문 3\n캐릭터: 답변 3"))
     #expect(!input.contains("사용자: 질문 2\n"))

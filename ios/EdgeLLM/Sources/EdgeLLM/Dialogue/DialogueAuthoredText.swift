@@ -15,7 +15,7 @@ extension DialoguePromptComposer {
         var runtime = input.authoredText.runtime
         runtime["input"] = .string(input.currentMessage)
         runtime["messages"] = .array(input.history.map { .object(["mes": .string($0.text), "is_user": .bool($0.role == .user)]) })
-        runtime["firstIncludedMessageID"] = .number(Double(max(0, (input.session?.completedMessages ?? input.history.count) - input.history.count)))
+        runtime["firstIncludedMessageID"] = .number(Double(max(0, (input.session?.visibleMessages ?? input.history.count) - input.history.count)))
         if let tokenBudget {
             runtime["contextTokens"] = .number(Double(tokenBudget.contextTokens))
             runtime["outputTokens"] = .number(Double(tokenBudget.outputTokens))

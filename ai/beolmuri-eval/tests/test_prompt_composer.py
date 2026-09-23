@@ -23,7 +23,8 @@ class SharedPromptComposerTests(unittest.TestCase):
                                               'placement': 'afterCurrent', 'role': 'system', 'order': 100}])
             self.assertEqual(result['input_format'], 'systemAndUserText')
             self.assertTrue(result['user_prompt'].endswith('현재 질문\n\n짧은 참고'))
-            self.assertEqual(len(result['history']), 20)
+            self.assertEqual(len(result['history']), 40)
+            self.assertEqual(result['history_stats']['retained_turns'], 20)
             self.assertEqual(result['session_clock']['current_user_message_number'], 41)
             self.assertEqual(result['session_clock']['current_message_number'], 81)
             note = result['prompt_trace']['insertions'][0]

@@ -8,7 +8,7 @@ final class DialogueCheckpointTests: XCTestCase {
         let data = try JSONEncoder().encode(original.checkpoint())
         let saved = try JSONDecoder().decode(DialogueSessionCheckpoint.self, from: data)
         var restored = try RoutedPersonaSessionContext(checkpoint: saved)
-        XCTAssertEqual(restored.turns.count, 2)
+        XCTAssertEqual(restored.turns.count, 4)
         XCTAssertEqual(restored.completedMessages, 24)
         let pending = try restored.snapshot(requestID: "next")
         try restored.commit(pending, userMessage: "next", assistantMessage: "answer")
@@ -23,5 +23,18 @@ final class DialogueCheckpointTests: XCTestCase {
         XCTAssertThrowsError(try RoutedPersonaSessionContext(checkpoint: invalid)) { error in
             XCTAssertEqual(error as? DialogueSessionError, .invalidCheckpoint)
         }
+    }
+
+    func testVersionOneCheckpointRestoresForEvaluationConsumer() throws {
+        let old = DialogueSessionCheckpoint(version: 1, maximumTurnCount: 2,
+            turns: [.init(role: .user, text: "old"), .init(role: .assistant, text: "answer")],
+            completedUserMessages: 12, completedMessages: 24,
+            worldInfoState: .init(), worldInfoText: .init())
+        let data = try JSONEncoder().encode(old)
+        let restored = try RoutedPersonaSessionContext(checkpoint: JSONDecoder().decode(DialogueSessionCheckpoint.self, from: data))
+        XCTAssertEqual(restored.chatTurns.count, 1)
+        XCTAssertEqual(restored.visibleUserMessages, 12)
+        XCTAssertEqual(restored.visibleMessages, 24)
+        XCTAssertEqual(restored.turns, old.turns)
     }
 }

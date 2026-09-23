@@ -61,7 +61,7 @@ import Testing
     }
     #expect(session.checkpoint() == before)
     let retry = try session.snapshot(requestID: "retry")
-    #expect(retry.history.count == 20)
+    #expect(retry.history.count == 24)
     #expect(retry.currentUserMessageNumber == 13)
     #expect(retry.currentMessageNumber == 25)
     #expect(retry.worldInfoState == state)

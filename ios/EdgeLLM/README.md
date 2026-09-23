@@ -53,28 +53,34 @@ EdgeLLMLab 빌드는 같은 이름의 Xcode 빌드 설정을 받는다. 원본 Y
 
 ## 세션 스냅샷
 
-`RoutedPersonaSessionContext`는 유지할 최근 메시지와 누적 사용자/전체 메시지 수를
-별도로 관리한다. 초기 fixture를 공급하면 자르기 전 개수를 센다. 최근 이력 보관을
-0으로 설정해도 누적 번호는 진행한다.
+`RoutedPersonaSessionContext`는 최근 요청 20턴과 누적 순번을 관리한다. 정상
+완료·취소·오류 상태와 실제로 보인 답변 조각은 `ChatTurn`에 기록한다. 사용자
+발화는 요청 접수 시 보이는 순번을 올리고, 답변은 첫 글자가 나올 때 메시지
+순번을 한 번만 올린다. 완료된 교환 횟수는 별도로 유지하며 취소·오류로 늘지
+않는다. 이력을 잘라도 누적 순번은 유지한다.
+완료된 교환만 기록하면 실패한 사용자 발화가 다음 대화에서 사라지고, 메시지
+20개로 자르면 답변이 없는 요청이 보관 단위를 흐트러뜨린다. 따라서 요청을
+보관 단위로 삼고 보이는 순번과 완료 횟수를 분리한다.
 
 ```swift
-let snapshot = try session.snapshot(requestID: requestID)
+let snapshot = try session.beginRequest(requestID: requestID, userMessage: userMessage)
 // snapshot.history와 snapshot을 같은 DialoguePromptInput에 전달한다.
-// 응답 생성과 재시도 동안 같은 snapshot을 보관한다.
-let result = try session.commit(snapshot,
-    userMessage: userMessage, assistantMessage: visibleResponse)
+// 생성된 글자는 appendAssistantText로 누적한다.
+try session.appendAssistantText(requestID: requestID, text: visibleChunk)
+try session.finishRequest(requestID: requestID, status: .completed,
+    assistantMessage: visibleResponse, worldInfo: worldInfoTransaction)
 ```
 
 스냅샷의 `currentUserMessageNumber`, `currentMessageNumber`는 현재 사용자 발화를
-포함한 위치다. 준비·취소는 번호를 증가시키지 않는다. 성공 시 사용자와 캐릭터
-메시지 2개를 반영한다. 동일 스냅샷·동일 내용 재반영은 `alreadyCommitted`, 같은
-스냅샷의 다른 내용은 오류다. 다른 요청이 완료되거나 세션이 초기화되면 이전
-스냅샷은 거부된다. 전체 재시도 ID 목록을 무한히 보관하지 않는다.
+포함한 위치다. 취소·오류로 답변이 없더라도 사용자 발화는 다음 프롬프트에 남는다.
+부분 답변은 중단 상태를 표시하지만 월드 정보 상태와 장기기억 저장 대상이 되지
+않는다. 평가 워커는 완료된 교환을 원자적으로 넣는 기존 `snapshot/commit` 경로를
+계속 사용한다. 버전 2 체크포인트는 중단 턴을 보존하며 버전 1을 읽을 수 있다.
 
-기존 `appendExchange`는 이미 완료된 응답을 넣는 앱/fixture 소비자에 남아 있으며
-누적 번호도 갱신한다. 요청 단위의 중복·오래된 응답 방지는 새 `snapshot/commit`
-계약을 사용한다. 세션은 호출 측 actor가 소유한다. 앱 재실행을 넘는 영속화와
-World Info 준비 결과는 답변 성공 시 snapshot/commit으로 한 번만 반영한다.
+`appendExchange`는 완료된 평가 이력 공급에 사용한다. 실제 앱에서는 요청 ID로
+스트리밍과 종료를 소유하며, 오래된 요청의 토큰과 종료는 거부한다. 앱 재실행을
+넘는 대화 영속화는 아직 연결되지 않았다. 월드 정보 준비 결과는 답변이 정상
+완료될 때만 반영한다.
 
 ## 토큰 예산
 
@@ -134,7 +140,7 @@ let prepared = try await DialoguePromptComposer.prepare(
 - `swift test --package-path ios/EdgeLLM`: 기존 24개 입력 동등성, 배치·세션·예산 경계.
 - `bash scripts/test-litertlm-tokenization.sh`: C stub으로 UTF-8 전달, 결과 해제, 실패 확인.
 - Swift 평가 워커의 `prepare`는 `insertions`를 받고 `input_format`, `session_clock`,
-  `prompt_trace`를 반환한다. 고정 이력 40왕복을 주면 20개 메시지만 유지하면서
+  `prompt_trace`를 반환한다. 고정 이력 40왕복을 주면 20턴, 즉 40개 메시지를 유지하면서
   현재 사용자 번호는 41, 현재 전체 메시지 번호는 81로 보고한다.
 
 C stub 검사는 실제 모델의 토큰 수를 검증하지 않는다. iOS 타입 검사와 프레임워크

@@ -39,7 +39,7 @@ private struct AdvancedMeter: DialogueTokenMeasuring {
     #expect(try session.commit(snapshot, userMessage: "hello", assistantMessage: "hi", worldInfo: proposal) == .alreadyCommitted)
     #expect(throws: DialogueSessionError.conflictingCommit) { try session.commit(snapshot, userMessage: "hello", assistantMessage: "hi") }
     for _ in 0..<4 { session.appendExchange(userMessage: "x", assistantMessage: "y") }
-    #expect(session.turns.count == 2)
+    #expect(session.turns.count == 4)
     #expect(try session.snapshot(requestID: "next").currentMessageNumber == 11)
     #expect(session.worldInfoState.sticky["a"] != nil)
     session.removeAll()

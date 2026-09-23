@@ -18,6 +18,6 @@ func productionSLMConfigurationKeepsProductTuningInOnePlace() {
     #expect(!configuration.generation.responseThinkingDefault)
     #expect(!configuration.generation.routerThinkingEnabled)
     #expect(!configuration.generation.toolReasoningEnabled)
-    #expect(configuration.persona.recentMessageLimit == 20)
+    #expect(configuration.persona.recentTurnLimit == 20)
     #expect(configuration.runtimeSafety.cancellationTimeoutSeconds == 15)
 }

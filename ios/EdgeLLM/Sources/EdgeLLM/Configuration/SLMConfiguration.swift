@@ -64,11 +64,11 @@ public struct SLMConfiguration: Equatable, Sendable {
     }
 
     public struct Persona: Equatable, Sendable {
-        public let recentMessageLimit: Int
+        public let recentTurnLimit: Int
 
-        public init(recentMessageLimit: Int) {
-            precondition(recentMessageLimit >= 0)
-            self.recentMessageLimit = recentMessageLimit
+        public init(recentTurnLimit: Int) {
+            precondition(recentTurnLimit >= 0)
+            self.recentTurnLimit = recentTurnLimit
         }
     }
 
@@ -139,8 +139,8 @@ public extension SLMConfiguration {
             routerThinkingEnabled: false,
             toolReasoningEnabled: false
         ),
-        // Each user/assistant message counts separately: 20 messages retain 10 exchanges.
-        persona: Persona(recentMessageLimit: 20),
+        // One accepted user request is one turn, even when its answer is interrupted.
+        persona: Persona(recentTurnLimit: 20),
         // Provisional UX deadline; tune after device cancellation-latency measurements.
         runtimeSafety: RuntimeSafety(cancellationTimeoutSeconds: 15)
     )

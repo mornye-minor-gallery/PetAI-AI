@@ -44,7 +44,7 @@ private func foundationInput(insertions: [DialoguePromptInsertion] = [],
     var session = RoutedPersonaSessionContext(maximumTurnCount: 20)
     for i in 0..<40 { session.appendExchange(userMessage: "질문 \(i)", assistantMessage: "답변 \(i)") }
     let snapshot = try session.snapshot(requestID: "next")
-    #expect(snapshot.history.count == 20)
+    #expect(snapshot.history.count == 40)
     #expect(snapshot.completedUserMessages == 40)
     #expect(snapshot.completedMessages == 80)
     #expect(snapshot.currentUserMessageNumber == 41)
@@ -54,7 +54,7 @@ private func foundationInput(insertions: [DialoguePromptInsertion] = [],
     #expect(try session.commit(snapshot, userMessage: "새 질문", assistantMessage: "새 답변") == .committed)
     #expect(try session.commit(snapshot, userMessage: "새 질문", assistantMessage: "새 답변") == .alreadyCommitted)
     #expect(session.completedMessages == 82)
-    #expect(session.turns.count == 20)
+    #expect(session.turns.count == 40)
     let next = try session.snapshot(requestID: "after-next")
     try session.commit(next, userMessage: "그다음 질문", assistantMessage: "그다음 답변")
     #expect(throws: DialogueSessionError.staleSnapshot) {
