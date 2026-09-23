@@ -64,6 +64,10 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
         userID: "local-user",
         characterID: "other-character"
     )
+    let otherAccountScope = MemoryScope(
+        userID: "other-user",
+        characterID: "default-character"
+    )
     let store = SQLiteObservationStore(databaseURL: databaseURL)
     let engine = MemoryEngine(
         store: store,
@@ -91,8 +95,13 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
             occurredAt: timestamp
         )
     )
+    _ = try await engine.remember(MemoryWriteRequest(
+        sourceMessageID: "message-other-account", sessionID: "session-1",
+        scope: otherAccountScope, rawText: "나는 사과를 좋아해", occurredAt: timestamp))
     let defaultCharacterObservation = try #require(defaultCharacterResult.observation)
     #expect(otherResult.observation != nil)
+    _ = try await store.saveUserTurn(id: "incomplete-turn", sessionID: "session-1",
+        scope: otherScope, rawText: "저장 도중 중단된 원문", occurredAt: timestamp)
     #expect(
         try await engine.activeObservations(in: defaultCharacterScope)
             == [defaultCharacterObservation]
@@ -100,6 +109,10 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
     #expect(
         try await engine.activeObservations(in: otherScope).count == 1
     )
+    let allActive = try await store.allActiveObservations()
+    #expect(Set(allActive.map(\.scope.characterID)) == ["default-character", "other-character"])
+    #expect(Set(allActive.map(\.scope.userID)) == ["local-user", "other-user"])
+    #expect(allActive.count == 3)
     #expect(FileManager.default.fileExists(atPath: databaseURL.path))
     await engine.close()
 
@@ -132,6 +145,7 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
     #expect(
         try await reopenedEngine.activeObservations(in: defaultCharacterScope).isEmpty
     )
+    #expect(try await reopenedStore.allActiveObservations().count == 2)
     await reopenedEngine.close()
 }
 

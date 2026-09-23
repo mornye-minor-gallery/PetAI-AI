@@ -225,6 +225,23 @@ actor MemoryService: ClassificationEmbeddingProviding {
     return try await engine.activeObservations(in: scope)
   }
 
+  /// Data export must work without a downloaded or loaded embedding model.
+  func allActiveObservations() async throws -> [MemoryObservation] {
+    if let observationStore {
+      return try await observationStore.allActiveObservations()
+    }
+    let store = try makeStore()
+    do {
+      try await store.initialize()
+      let observations = try await store.allActiveObservations()
+      await store.close()
+      return observations
+    } catch {
+      await store.close()
+      throw error
+    }
+  }
+
   func close() async {
     worldInfoIndex = nil
     worldInfoEmbeddingIdentity = nil

@@ -396,6 +396,32 @@ public actor SQLiteObservationStore:
         return try rows.map(makeObservation)
     }
 
+    /// Export reads only complete active observations, across every device-local scope.
+    /// Orphan conversation/gate rows from an interrupted write are not observations.
+    public func allActiveObservations() async throws -> [MemoryObservation] {
+        let rows = try withStatement(
+            """
+            SELECT
+                o.id, o.turn_id, t.session_id, t.sequence, t.user_id,
+                t.character_id, t.occurred_at, t.text, o.state, o.created_at
+            FROM observations AS o
+            INNER JOIN conversation_turns AS t ON t.id = o.turn_id
+            WHERE o.state = 'active'
+            ORDER BY t.occurred_at DESC, o.id ASC;
+            """
+        ) { statement in
+            var rows: [ObservationRow] = []
+            while true {
+                let result = sqlite3_step(statement)
+                if result == SQLITE_DONE { break }
+                guard result == SQLITE_ROW else { throw statementError() }
+                rows.append(try observationRow(from: statement))
+            }
+            return rows
+        }
+        return try rows.map(makeObservation)
+    }
+
     public func embeddingCandidates(
         in scope: MemoryScope,
         modelID: String
