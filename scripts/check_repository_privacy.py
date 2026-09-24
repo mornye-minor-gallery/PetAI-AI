@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Reject newly committed personal paths and identifiers before sharing Git history.
+"""Reject personal paths and identifiers in new commit messages and added text.
 
 This is a high-confidence text check, not a substitute for reviewing binaries,
-credentials, PR descriptions, or the repository's older history.
+credentials, PR descriptions, or the repository's older history. Commit author
+identities are chosen by contributors and are not screened here.
 """
 
 from __future__ import annotations
@@ -17,7 +18,6 @@ EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b")
 PHONE = re.compile(r"(?<!\d)01[016789][- ]?\d{3,4}[- ]?\d{4}(?!\d)")
 SAFE_CONTENT_EMAIL_DOMAINS = {"example.com", "example.org", "example.net", "users.noreply.github.com", "noreply.github.com"}
 SAFE_CONTENT_EMAIL_ADDRESSES = {"noreply@github.com"}
-PRIVATE_COMMIT_EMAIL_DOMAINS = {"users.noreply.github.com", "noreply.github.com"}
 
 
 def git(*arguments: str) -> str:
@@ -46,18 +46,9 @@ def findings(value: str) -> set[str]:
 
 def scan_commit(commit: str) -> list[str]:
     problems = []
-    metadata = git("show", "-s", "--format=%B%x00%ae%x00%ce", commit).split("\x00")
-    if len(metadata) < 3:
-        raise RuntimeError("Git returned incomplete commit metadata")
-    for problem in sorted(findings(metadata[0])):
+    message = git("show", "-s", "--format=%B", commit)
+    for problem in sorted(findings(message)):
         problems.append(f"commit message: {problem}")
-    for label, address in zip(("author", "committer"), metadata[1:3]):
-        address = address.strip().lower()
-        # GitHub uses this exact committer identity for squash merges.
-        if label == "committer" and address == "noreply@github.com":
-            continue
-        if address.rsplit("@", 1)[-1] not in PRIVATE_COMMIT_EMAIL_DOMAINS:
-            problems.append(f"{label}: non-private commit email")
 
     diff = git(
         "show", "--first-parent", "--format=", "--no-ext-diff", "--no-textconv",
