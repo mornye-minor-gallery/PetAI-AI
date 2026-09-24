@@ -26,6 +26,11 @@ def resolve_run(value):
 def parser():
     result = argparse.ArgumentParser(description="Swift 공유 코어 기반 캐릭터 이름 평가")
     commands = result.add_subparsers(dest="command", required=True)
+    annotation = commands.add_parser("annotate", help="외부 프롬프트·스키마로 Codex 주석 배치 실행")
+    annotation.add_argument("--manifest", required=True)
+    annotation.add_argument("--output", required=True)
+    annotation.add_argument("--codex", default="codex")
+    annotation.add_argument("--resume", action="store_true")
     from .reaction_build import add_arguments
     add_arguments(commands.add_parser('build-reactions', help='반응풀 검색 인덱스 생성·재개'))
     replay = commands.add_parser("replay", help="보존한 모델 입력·시드 그대로 재실행; Swift 조립 없음")
@@ -78,7 +83,12 @@ def parser():
 def main():
     args = parser().parse_args()
     try:
-        if args.command == "build-reactions":
+        if args.command == "annotate":
+            from .annotation import run_batch
+            result = run_batch(args.manifest, args.output, codex=args.codex, resume=args.resume)
+            emit(result)
+            return 0 if result["complete"] else 2
+        elif args.command == "build-reactions":
             from .reaction_build import build as build_reactions
             build_reactions(args)
         elif args.command == "replay":

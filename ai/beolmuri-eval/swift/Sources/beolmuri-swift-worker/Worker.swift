@@ -165,7 +165,7 @@ private enum WorkerError: Error { case retryRequired, invalidRequest }
             let policy = DialoguePromptPolicy(persona: request.configuration.persona,
                 nameRulePlacement: request.configuration.nameRulePlacement ?? .system)
             let prepared: PreparedDialogue
-            let outputTokens = request.tokenBudget?.outputTokens ?? generation.maxOutputTokens
+            let outputTokens = request.tokenBudget?.outputTokens ?? SLMConfiguration.production.dialogueBudget.outputTokens
             if let budget = request.tokenBudget {
                 guard let identifier = request.measurerID, !identifier.isEmpty else { throw WorkerError.invalidRequest }
                 prepared = try await DialoguePromptComposer.prepare(input: input, policy: policy,

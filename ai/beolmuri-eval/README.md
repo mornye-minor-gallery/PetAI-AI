@@ -529,3 +529,16 @@ retrieval:
 `input.retrieval_trace`에는 선택 ID·유사도·예시 행·질의·임베딩 왕복시간·검색시간이 저장됩니다. 첫 임베딩 시간에는 모델 초기화가 포함됩니다. `prompt_trace.tokenBudget.sections`의 `worldInfo.depth.0.system`은 반응틀 구간 토큰 수이며, 다른 같은 위치의 항목이 있다면 합산 구간입니다. 정확한 총 입력은 `inputTokens`로 확인합니다. 반응틀은 로어북의 별도 예산에서는 제외하지만 전체 모델 입력·출력 상한은 그대로 검사합니다.
 
 실행 시작 시 인덱스와 로어북을 `inputs/`에 복사합니다. 재개 시에는 복사본을 사용하며, 외부 임베딩 모델·토크나이저는 인덱스에 기록한 해시 기반 식별자와 일치해야 합니다. 추론용 Python 환경에도 `numpy`, `sentencepiece==0.2.1`, `ai-edge-litert==2.1.3`이 필요합니다. 생성 원문과 런타임 자료는 Git 밖에 둡니다.
+
+## 외부 코퍼스 주석과 BST 제작
+
+`beolmuri-eval annotate --manifest batch.json --output <new-run-directory>`는
+요청별 프롬프트와 JSON 스키마를 사용해 Codex CLI 응답을 저장한다. 결과에는
+입력 사본, 호출 기록, 시도별 원문, 진행 상태가 남는다. 실패 후에는 같은 입력으로
+`--resume`을 명시해야 하며, 입력·실행 코드·Codex CLI 버전이 바뀌면 새 실행
+폴더를 사용한다.
+스키마 검증은 의미 정확도나 원문 사용 권한을 보장하지 않는다.
+
+BST 대화에서 엘레나 반응 초안을 만든 실행 절차와 보존된 결과의 식별 정보는
+[BST 반응 초안 제작](BST_AUTHORING.md)에 있다. 주석 실행기와 BST 묶음 실행기는
+Gemma 추론이나 앱의 대화 경로를 실행하지 않는다.

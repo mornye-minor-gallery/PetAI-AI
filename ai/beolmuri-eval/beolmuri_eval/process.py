@@ -1,5 +1,6 @@
 """Bounded subprocesses with progress and process-group cancellation."""
 import json
+from pathlib import Path
 import os
 import queue
 import signal
@@ -32,7 +33,14 @@ def stop(process):
             process.wait()
 
 
-def execute(args, *, input_text=None, timeout=120, cwd=None):
+def execute(args, *, input_text=None, timeout=120, cwd=None, capture_directory=None):
+    def capture(stdout, stderr):
+        if capture_directory is not None:
+            for name, value in (("stdout.jsonl", stdout), ("stderr.txt", stderr)):
+                if isinstance(value, bytes):
+                    value = value.decode("utf-8", errors="replace")
+                (Path(capture_directory) / name).write_text(value or "", encoding="utf-8")
+
     check_cancel()
     process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, text=True, cwd=cwd, start_new_session=True)
@@ -45,10 +53,12 @@ def execute(args, *, input_text=None, timeout=120, cwd=None):
                 raise TimeoutError(f"subprocess timed out: {args[0]}")
             try:
                 stdout, stderr = process.communicate(pending, timeout=min(10, remaining))
+                capture(stdout, stderr)
                 if process.returncode:
                     raise RuntimeError(f"subprocess exit {process.returncode}: {stderr[-2000:]}")
                 return stdout, stderr
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as error:
+                capture(error.stdout, error.stderr)
                 pending = None
                 heartbeat(f"{os.path.basename(str(args[0]))} 실행 중 ({int(time.monotonic()-started)}초)")
     finally:
