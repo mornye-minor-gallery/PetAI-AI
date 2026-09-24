@@ -52,5 +52,6 @@ import CLiteRTLM
         _ = try await run(session, "after cancel")
         precondition(test_created() == 1)
         print("cached session native boundary tests passed")
+        try await checkpointTests()
     }
 }

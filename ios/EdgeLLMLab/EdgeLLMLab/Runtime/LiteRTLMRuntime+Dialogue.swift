@@ -78,6 +78,9 @@ extension LiteRTLMRuntime {
                 temperature: configuration.temperature)
             conversation = try await engine.createCachedSession(sampler: sampler,
                 maxOutputTokens: configuration.maxOutputTokens)
+            if let cached = conversation as? CachedSession {
+                try restoreCheckpointIfAvailable(cached)
+            }
         }
         guard let cached = conversation as? CachedSession else { throw RuntimeError.conversationNotStarted }
         try cached.replaceInput(systemPrompt: configuration.systemPrompt)

@@ -42,6 +42,8 @@ actor LiteRTLMRuntime: LLMRuntime {
     private var cancellationTimeoutTask: Task<Void, Never>?
     let collectNativeBenchmark: Bool
     var latestMetrics: LiteRTLMGenerationMetrics?
+    var checkpointStore: KVCheckpointStore?
+    var checkpointModelIdentity: String?
 
     init(
         configuration: SLMConfiguration = .production,
@@ -93,6 +95,7 @@ actor LiteRTLMRuntime: LLMRuntime {
             try await candidate.initialize()
 
             engine = candidate
+            prepareCheckpointStore(modelURL: modelURL)
             currentState = .ready
         } catch {
             releaseSecurityScopedModel()
@@ -297,6 +300,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         guard let configuration = conversationConfiguration else {
             throw RuntimeError.conversationNotStarted
         }
+        try eraseCheckpoint()
         let budget = conversationDialogueBudget
         conversation = nil
         try await startConversation(configuration: configuration)
@@ -321,6 +325,8 @@ actor LiteRTLMRuntime: LLMRuntime {
         conversationConfiguration = nil
         conversationDialogueBudget = nil
         latestMetrics = nil
+        checkpointStore = nil
+        checkpointModelIdentity = nil
         engine = nil
         releaseSecurityScopedModel()
         currentState = .modelRequired

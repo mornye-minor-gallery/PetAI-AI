@@ -1,130 +1,90 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACT_ROOT="${REPO_ROOT}/ios/.artifacts"
-DESTINATION="${ARTIFACT_ROOT}/CLiteRTLM.xcframework"
-PROVENANCE_PATH="${ARTIFACT_ROOT}/CLiteRTLM.provenance"
-PACKAGE_ARTIFACT_ROOT="${REPO_ROOT}/ios/ThirdParty/LiteRTLM/Artifacts"
-PACKAGE_FRAMEWORK_PATH="${PACKAGE_ARTIFACT_ROOT}/CLiteRTLM.xcframework"
+PATCH="${REPO_ROOT}/ios/ThirdParty/LiteRTLM/native/kv-checkpoint.patch"
+PREFILL_PATCH="${REPO_ROOT}/ios/ThirdParty/LiteRTLM/native/pending-prefill.patch"
+REVISION=a327b494f874a319605e6fd7e3439678daa4d07d
+SOURCE_SHA=6f3b0f8a82f594cb14f30ac485ba5c1bfc4255f7422c83fccf7128cf9d5bd70b
+PATCH_SHA="$(shasum -a 256 "$PATCH" | awk '{print $1}')"
+PREFILL_SHA="$(shasum -a 256 "$PREFILL_PATCH" | awk '{print $1}')"
+FRAMEWORK="${ARTIFACT_ROOT}/CLiteRTLM.xcframework"
+PROVENANCE="${ARTIFACT_ROOT}/CLiteRTLM.provenance"
+SOURCE_ROOT="${PETAI_LITERTLM_SOURCE_DIR:-${ARTIFACT_ROOT}/sources/${REVISION}-${PATCH_SHA}-${PREFILL_SHA}}"
+BAZEL="${PETAI_LITERTLM_BAZEL:-${ARTIFACT_ROOT}/tools/bazel-7.6.1}"
+CONFIG="source_repository=https://github.com/google-ai-edge/LiteRT-LM.git
+source_revision=${REVISION}
+source_sha256=${SOURCE_SHA}
+patch_sha256=${PATCH_SHA}
+prefill_patch_sha256=${PREFILL_SHA}
+bazel_target=//swift:CLiteRTLM
+bazel_define=LITERT_LM_FST_CONSTRAINTS_DISABLED=1"
+if [[ "${1:-}" == --print-config ]]; then echo "$CONFIG"; exit 0; fi
+if [[ $# -ne 0 ]]; then echo "Usage: $0 [--print-config]" >&2; exit 2; fi
 
-SOURCE_REPOSITORY="https://github.com/google-ai-edge/LiteRT-LM.git"
-RELEASE_TAG="v0.17.1"
-RELEASE_ARCHIVE_SHA256="c94fc12aa0403cb47208e419cc3bfe258214ea17035f7a63c16de536869f2186"
-RELEASE_URL="https://github.com/google-ai-edge/LiteRT-LM/releases/download/${RELEASE_TAG}/CLiteRTLM.xcframework.zip"
-
-if [[ "${1:-}" == "--print-config" ]]; then
-  cat <<CONFIG
-source_repository=${SOURCE_REPOSITORY}
-release_tag=${RELEASE_TAG}
-release_url=${RELEASE_URL}
-archive_sha256=${RELEASE_ARCHIVE_SHA256}
-framework=${DESTINATION}
-CONFIG
+link_package() {
+  mkdir -p "${REPO_ROOT}/ios/ThirdParty/LiteRTLM/Artifacts"
+  ln -sfn ../../../.artifacts/CLiteRTLM.xcframework \
+    "${REPO_ROOT}/ios/ThirdParty/LiteRTLM/Artifacts/CLiteRTLM.xcframework"
+}
+validate_framework() {
+  local candidate="$1"
+  [[ -f "$candidate/Info.plist" ]] || return 1
+  for slice in ios-arm64 ios-arm64-simulator; do
+    local binary="$candidate/$slice/CLiteRTLM.framework/CLiteRTLM"
+    [[ -f "$binary" ]] || return 1
+    nm -gU "$binary" | grep -F _litert_lm_session_transfer_state >/dev/null || return 1
+    if otool -L "$binary" | grep -F libGemmaModelConstraintProvider >/dev/null; then return 1; fi
+  done
+}
+if [[ -f "$PROVENANCE" ]] && [[ "$(cat "$PROVENANCE")" == "$CONFIG" ]] && validate_framework "$FRAMEWORK"; then
+  (cd "$ARTIFACT_ROOT" && shasum -a 256 -c CLiteRTLM.binary-sha256) || exit 1
+  link_package
+  echo "Using verified KV-checkpoint LiteRT-LM framework."
   exit 0
 fi
 
-if [[ $# -ne 0 ]]; then
-  echo "Usage: $0 [--print-config]" >&2
-  exit 2
+[[ "$(uname -s)" == Darwin ]] || { echo "Native framework build requires macOS." >&2; exit 1; }
+mkdir -p "$ARTIFACT_ROOT" "$(dirname "$SOURCE_ROOT")" "$(dirname "$BAZEL")"
+if [[ ! -d "$SOURCE_ROOT" ]]; then
+  stage="$(mktemp -d "${ARTIFACT_ROOT}/litert-source.XXXXXX")"
+  curl --fail --location --retry 2 \
+    "https://api.github.com/repos/google-ai-edge/LiteRT-LM/tarball/${REVISION}" -o "$stage/source.tar.gz"
+  [[ "$(shasum -a 256 "$stage/source.tar.gz" | awk '{print $1}')" == "$SOURCE_SHA" ]] || { echo "Source checksum mismatch" >&2; exit 1; }
+  mkdir "$SOURCE_ROOT"
+  tar -xzf "$stage/source.tar.gz" -C "$SOURCE_ROOT" --strip-components=1
+  (cd "$SOURCE_ROOT" && git apply --check "$PATCH" && git apply "$PATCH")
+  (cd "$SOURCE_ROOT" && git apply --check "$PREFILL_PATCH" && git apply "$PREFILL_PATCH")
+  printf '%s\n' "$CONFIG" > "$SOURCE_ROOT/.petai-checkpoint-source"
 fi
-
-sha256() {
-  shasum -a 256 "$1" | awk '{print $1}'
+# Explicit local reuse is permitted only for a source tree prepared from this pin.
+[[ -f "$SOURCE_ROOT/.petai-checkpoint-source" ]] &&
+  [[ "$(cat "$SOURCE_ROOT/.petai-checkpoint-source")" == "$CONFIG" ]] || {
+  echo "Source provenance does not match; use a new build directory." >&2; exit 1;
 }
-
-provenance_value() {
-  local key="$1"
-  [[ -f "${PROVENANCE_PATH}" ]] || return 1
-  awk -F= -v key="${key}" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' \
-    "${PROVENANCE_PATH}"
-}
-
-validate_framework() {
-  local framework_path="$1"
-  local slice
-  local binary
-
-  [[ -f "${framework_path}/Info.plist" ]] || return 1
-  for slice in ios-arm64 ios-arm64-simulator; do
-    binary="${framework_path}/${slice}/CLiteRTLM.framework/CLiteRTLM"
-    [[ -f "${binary}" ]] || return 1
-    [[ -f "${framework_path}/${slice}/CLiteRTLM.framework/Headers/engine.h" ]] || return 1
-    [[ -f "${framework_path}/${slice}/CLiteRTLM.framework/Headers/conversation.h" ]] || return 1
-  done
-}
-
-link_package_framework() {
-  mkdir -p "${PACKAGE_ARTIFACT_ROOT}"
-  ln -sfn "../../../.artifacts/CLiteRTLM.xcframework" \
-    "${PACKAGE_FRAMEWORK_PATH}"
-}
-
-install_official_release() (
-  set -euo pipefail
-
-  command -v curl >/dev/null 2>&1 || {
-    echo "curl is required to download LiteRT-LM." >&2
-    exit 1
-  }
-  command -v unzip >/dev/null 2>&1 || {
-    echo "unzip is required to extract LiteRT-LM." >&2
-    exit 1
-  }
-
-  local stage_root
-  local archive_path
-  local extract_root
-  local extracted_framework
-  local actual_sha256
-
-  mkdir -p "${ARTIFACT_ROOT}"
-  stage_root="$(mktemp -d "${ARTIFACT_ROOT}/.litertlm-release.XXXXXX")"
-  trap 'rm -rf "${stage_root}"' EXIT
-  archive_path="${stage_root}/CLiteRTLM.xcframework.zip"
-  extract_root="${stage_root}/extracted"
-
-  echo "Downloading official LiteRT-LM ${RELEASE_TAG}..."
-  curl --fail --location --retry 3 \
-    --output "${archive_path}" \
-    "${RELEASE_URL}"
-
-  actual_sha256="$(sha256 "${archive_path}")"
-  if [[ "${actual_sha256}" != "${RELEASE_ARCHIVE_SHA256}" ]]; then
-    echo "LiteRT-LM release checksum mismatch." >&2
-    echo "Expected: ${RELEASE_ARCHIVE_SHA256}" >&2
-    echo "Actual:   ${actual_sha256}" >&2
-    exit 1
-  fi
-
-  mkdir -p "${extract_root}"
-  unzip -q "${archive_path}" -d "${extract_root}"
-  extracted_framework="${extract_root}/CLiteRTLM.xcframework"
-  if ! validate_framework "${extracted_framework}"; then
-    echo "The LiteRT-LM archive does not contain the expected iOS framework." >&2
-    exit 1
-  fi
-
-  rm -rf "${DESTINATION}"
-  mv "${extracted_framework}" "${DESTINATION}"
-  cat >"${PROVENANCE_PATH}" <<PROVENANCE
-DISTRIBUTION=official-release
-SOURCE_REPOSITORY=${SOURCE_REPOSITORY}
-RELEASE_TAG=${RELEASE_TAG}
-ARCHIVE_SHA256=${RELEASE_ARCHIVE_SHA256}
-PROVENANCE
-)
-
-if [[ "$(provenance_value DISTRIBUTION || true)" != "official-release" ]] ||
-   [[ "$(provenance_value SOURCE_REPOSITORY || true)" != "${SOURCE_REPOSITORY}" ]] ||
-   [[ "$(provenance_value RELEASE_TAG || true)" != "${RELEASE_TAG}" ]] ||
-   [[ "$(provenance_value ARCHIVE_SHA256 || true)" != "${RELEASE_ARCHIVE_SHA256}" ]] ||
-   ! validate_framework "${DESTINATION}"; then
-  install_official_release
+(cd "$SOURCE_ROOT" && git apply --reverse --check "$PREFILL_PATCH" "$PATCH")
+if [[ ! -x "$BAZEL" ]]; then
+  curl --fail --location --retry 2 \
+    https://github.com/bazelbuild/bazel/releases/download/7.6.1/bazel-7.6.1-darwin-arm64 -o "$BAZEL"
+  chmod +x "$BAZEL"
 fi
-
-link_package_framework
-echo "Using official LiteRT-LM ${RELEASE_TAG}:"
-echo "  ${DESTINATION}"
+[[ "$(shasum -a 256 "$BAZEL" | awk '{print $1}')" == 45cca81a839d7495258b19ee8371c7b891f350586ef37b9940f7b531eb654cc8 ]] || {
+  echo "Bazel checksum mismatch" >&2; exit 1;
+}
+echo "Building native KV checkpoint API (Bazel reports progress; incremental results are retained)..."
+(cd "$SOURCE_ROOT" && "$BAZEL" build //swift:CLiteRTLM \
+  --define=LITERT_LM_FST_CONSTRAINTS_DISABLED=1 --jobs=10 --progress_report_interval=15)
+stage="$(mktemp -d "${ARTIFACT_ROOT}/litert-framework.XXXXXX")"
+ditto -x -k "$SOURCE_ROOT/bazel-bin/swift/CLiteRTLM.xcframework.zip" "$stage"
+validate_framework "$stage/CLiteRTLM.xcframework" || {
+  echo "Built framework failed ABI/dependency validation" >&2; exit 1;
+}
+# Retain a prior artifact in this staging directory instead of deleting it.
+if [[ -e "$FRAMEWORK" ]]; then mv "$FRAMEWORK" "$stage/previous.xcframework"; fi
+mv "$stage/CLiteRTLM.xcframework" "$FRAMEWORK"
+printf '%s\n' "$CONFIG" > "$PROVENANCE"
+(cd "$ARTIFACT_ROOT" && shasum -a 256 \
+  CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/CLiteRTLM \
+  CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/CLiteRTLM > CLiteRTLM.binary-sha256)
+link_package
+echo "Prepared native KV checkpoint framework."

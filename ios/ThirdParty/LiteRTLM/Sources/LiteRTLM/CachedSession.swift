@@ -25,6 +25,8 @@ public final class CachedSession: TextSession, @unchecked Sendable {
     private var history: [Message] = [] // Only retries within the current request.
     private var prefix = InputPrefixTrace()
     private var trace: CachedSessionTrace?
+    private var hasNativeInput = false
+    private var requiresEngineRecreation = false
     public let id = UUID().uuidString
 
     init(engine: Engine, engineHandle: OpaquePointer, sampler: SamplerConfig, maxOutputTokens: Int) throws {
@@ -65,11 +67,40 @@ public final class CachedSession: TextSession, @unchecked Sendable {
     public func replaceInput(systemPrompt: String?) throws {
         try lock.withLock {
             guard !lifetime.isActive else { throw CachedSessionError.busy }
+            guard !requiresEngineRecreation else { throw CachedSessionError.checkpoint(10) }
             self.systemPrompt = systemPrompt; history = []; trace = nil
         }
     }
 
     public func latestCacheTrace() -> CachedSessionTrace? { lock.withLock { trace } }
+
+    public func transferState(reading: Bool,
+                              transfer: (UnsafeMutableRawPointer?, Int) throws -> Void) throws {
+        try withoutActuallyEscaping(transfer) { transfer in
+            let context = StateTransferContext(transfer)
+            try lock.withLock {
+                guard !lifetime.isActive else { throw CachedSessionError.busy }
+                guard !requiresEngineRecreation else { throw CachedSessionError.checkpoint(10) }
+                if reading {
+                    guard !hasNativeInput else { throw CachedSessionError.busy }
+                } else {
+                    guard trace?.finishReason == "stop" || trace?.finishReason == "token_limit" else {
+                        throw CachedSessionError.checkpoint(9)
+                    }
+                }
+                let status = litert_lm_session_transfer_state(handle, stateTransferCallback,
+                    Unmanaged.passUnretained(context).toOpaque(), reading)
+                if reading {
+                    prefix.invalidate()
+                    if status == 10 { requiresEngineRecreation = true }
+                    if status == 0 { hasNativeInput = true }
+                }
+                if status == 10 { throw CachedSessionError.checkpoint(10) }
+                if let error = context.error { throw error }
+                guard status == 0 else { throw CachedSessionError.checkpoint(Int(status)) }
+            }
+        }
+    }
     public func waitUntilIdle() async { await lifetime.waitUntilFinished() }
     public func cancel() throws {
         lifetime.requestCancellation()
@@ -92,7 +123,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
         guard maxOutputTokens == self.maxOutputTokens else {
             return AsyncThrowingStream { $0.finish(throwing: CachedSessionError.configuration) }
         }
-        guard lock.withLock({ lifetime.tryBegin() }) else {
+        guard lock.withLock({ !requiresEngineRecreation && lifetime.tryBegin() }) else {
             return AsyncThrowingStream { $0.finish(throwing: CachedSessionError.busy) }
         }
         return AsyncThrowingStream { continuation in
@@ -105,6 +136,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
                     let nativeText = !bos.isEmpty && rendered.hasPrefix(bos) ? String(rendered.dropFirst(bos.count)) : rendered
                     let tokens = try await self.engine.tokenIDs(bos + nativeText)
                     self.lock.withLock {
+                        self.hasNativeInput = true
                         self.trace = .init(sessionID: self.id, inputTokens: tokens.count,
                             matchingInputPrefixTokens: self.prefix.prepare(tokens))
                     }
@@ -167,11 +199,28 @@ public final class CachedSession: TextSession, @unchecked Sendable {
     }
 }
 
+private final class StateTransferContext {
+    let transfer: (UnsafeMutableRawPointer?, Int) throws -> Void
+    var error: Error?
+    init(_ transfer: @escaping (UnsafeMutableRawPointer?, Int) throws -> Void) { self.transfer = transfer }
+}
+
+private let stateTransferCallback: @convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Bool = {
+    pointer, size, opaque in
+    guard let opaque else { return false }
+    let context = Unmanaged<StateTransferContext>.fromOpaque(opaque).takeUnretainedValue()
+    guard context.error == nil else { return false }
+    do { try context.transfer(pointer, size); return true }
+    catch { context.error = error; return false }
+}
+
 public enum CachedSessionError: Error, LocalizedError {
+    case checkpoint(Int)
     case configuration, busy, rewind, input, start(Int), native(String)
     case tokenCountUnavailable, unsupportedTemplate, unsupportedBackend
     public var errorDescription: String? {
         switch self {
+        case .checkpoint(let code): return "Native KV checkpoint failed (\(code))."
         case .configuration: return "Invalid cached-session configuration or native session creation failed."
         case .busy: return "Cached session still has an active native operation."
         case .rewind: return "Native session rewind failed."

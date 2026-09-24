@@ -7,6 +7,18 @@ struct LiteRtLmSamplerParams { int unused; };
 struct LiteRtLmInputData { char* text; };
 struct LiteRtLmStreamChunk { const char* text; const char* error; bool final; };
 static int created, rewinds, pending, start_error;
+static int checkpoint_reads, checkpoint_writes, checkpoint_error;
+int test_checkpoint_reads(void) { return checkpoint_reads; }
+int test_checkpoint_writes(void) { return checkpoint_writes; }
+void test_set_checkpoint_error(int code) { checkpoint_error = code; }
+int litert_lm_session_transfer_state(LiteRtLmSession* s, LiteRtLmStateTransfer transfer, void* user_data, bool reading) {
+ if (s->active) abort();
+ if (checkpoint_error) return checkpoint_error;
+ if (reading) checkpoint_reads++; else checkpoint_writes++;
+ unsigned char value = 7;
+ if (!transfer(&value, 1, user_data) || !transfer(NULL, 0, user_data)) return 15;
+ return 0;
+}
 static char last_input[8192];
 static LiteRtLmStreamCallback saved_callback;
 static void* saved_data;
