@@ -1,6 +1,6 @@
 import Foundation
 
-/// Version 2 retains interrupted turns. Pending ownership is serialized as cancelled.
+/// Version 3 also retains authored home lines. Pending ownership is serialized as cancelled.
 public struct DialogueSessionCheckpoint: Codable, Equatable, Sendable {
     public let version: Int
     public let maximumTurnCount: Int
@@ -12,15 +12,18 @@ public struct DialogueSessionCheckpoint: Codable, Equatable, Sendable {
     public let chatTurns: [ChatTurn]?
     public let visibleUserMessages: Int?
     public let visibleMessages: Int?
+    public let recentEntries: [RecentDialogueEntry]?
 
     public init(version: Int, maximumTurnCount: Int, turns: [RoutedPersonaSessionContext.Turn],
                 completedUserMessages: Int, completedMessages: Int,
                 worldInfoState: WorldInfoState, worldInfoText: WorldInfoTextContext,
-                chatTurns: [ChatTurn]? = nil, visibleUserMessages: Int? = nil, visibleMessages: Int? = nil) {
+                chatTurns: [ChatTurn]? = nil, visibleUserMessages: Int? = nil, visibleMessages: Int? = nil,
+                recentEntries: [RecentDialogueEntry]? = nil) {
         self.version = version; self.maximumTurnCount = maximumTurnCount; self.turns = turns
         self.completedUserMessages = completedUserMessages; self.completedMessages = completedMessages
         self.worldInfoState = worldInfoState; self.worldInfoText = worldInfoText
         self.chatTurns = chatTurns; self.visibleUserMessages = visibleUserMessages; self.visibleMessages = visibleMessages
+        self.recentEntries = recentEntries
     }
 }
 

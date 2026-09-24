@@ -2,6 +2,45 @@ import Foundation
 import Testing
 @testable import EdgeLLM
 
+@Test func homeLinePrecedesNextUserRequestWithoutCompletingAnExchange() throws {
+    var session = RoutedPersonaSessionContext(maximumTurnCount: 3)
+    #expect(try session.appendHomeLine(id: "home-1", text: "밤에 안 잤구나?") == .committed)
+    #expect(try session.appendHomeLine(id: "home-1", text: "밤에 안 잤구나?") == .alreadyCommitted)
+    #expect(throws: DialogueSessionError.conflictingCommit) {
+        try session.appendHomeLine(id: "home-1", text: "다른 대사")
+    }
+    #expect(session.visibleMessages == 1)
+    #expect(session.visibleUserMessages == 0)
+    #expect(session.completedMessages == 0)
+    #expect(session.chatTurns.isEmpty)
+
+    let next = try session.beginRequest(requestID: "request-1", userMessage: "어떻게 알았어?")
+    #expect(next.history == [.init(role: .assistant, text: "밤에 안 잤구나?")])
+    #expect(next.currentUserMessageNumber == 1)
+    #expect(next.currentMessageNumber == 2)
+    let prepared = try DialoguePromptComposer.prepare(input: .init(
+        persona: try testPersona(), history: next.history,
+        currentMessage: "어떻게 알았어?", session: next))
+    #expect(prepared.userPrompt.components(separatedBy: "밤에 안 잤구나?").count == 2)
+    #expect(prepared.userPrompt.contains("캐릭터: 밤에 안 잤구나?"))
+}
+
+@Test func homeLineUsesOneRecentSlotAndSurvivesCheckpoint() throws {
+    var session = RoutedPersonaSessionContext(maximumTurnCount: 3)
+    for index in 1...2 {
+        _ = try session.beginRequest(requestID: "request-\(index)", userMessage: "질문 \(index)")
+        try session.finishRequest(requestID: "request-\(index)", status: .completed,
+            assistantMessage: "답변 \(index)")
+    }
+    try session.appendHomeLine(id: "home-1", text: "밤에 안 잤구나?")
+    let next = try session.beginRequest(requestID: "request-3", userMessage: "왜?")
+    #expect(next.history.map(\.text) == ["질문 2", "답변 2", "밤에 안 잤구나?"])
+    let restored = try RoutedPersonaSessionContext(checkpoint: session.checkpoint())
+    #expect(restored.turns.prefix(3).map(\.text) == ["질문 2", "답변 2", "밤에 안 잤구나?"])
+    #expect(restored.turns.last?.text.contains("취소") == true)
+    #expect(restored.chatTurns.map(\.requestID) == ["request-2", "request-3"])
+}
+
 @Test func cancelledUserMessageAdvancesVisibleClockWithoutCompletingExchange() throws {
     var session = RoutedPersonaSessionContext()
     let first = try session.beginRequest(requestID: "first", userMessage: "엘레나야?")

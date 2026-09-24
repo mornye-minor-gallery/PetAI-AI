@@ -5,13 +5,15 @@ public enum ChatDataExportError: Error, Equatable {
 }
 
 /// A portable view of retained data, independent of the checkpoint and SQLite schemas.
-/// Recent turns have no character identifier in the current device-local checkpoint.
+/// Recent entries have no character identifier in the current device-local checkpoint.
 public struct ChatDataExport: Codable, Sendable {
-    public struct RecentTurn: Codable, Sendable {
-        public let requestID: String
-        public let userMessage: String
-        public let assistantMessage: String
-        public let status: ChatTurn.Status
+    public struct RecentEntry: Codable, Sendable {
+        public let kind: String
+        public let id: String
+        public let userMessage: String?
+        public let assistantMessage: String?
+        public let status: ChatTurn.Status?
+        public let text: String?
     }
 
     public struct LongTermMemory: Codable, Sendable {
@@ -25,18 +27,24 @@ public struct ChatDataExport: Codable, Sendable {
 
     public let formatVersion: Int
     public let exportedAt: Date
-    public let recentTurns: [RecentTurn]
+    public let recentEntries: [RecentEntry]
     public let longTermMemories: [LongTermMemory]
 
-    public init(recentTurns: [ChatTurn], activeMemories: [MemoryObservation], exportedAt: Date = Date()) throws {
+    public init(recentEntries: [RecentDialogueEntry], activeMemories: [MemoryObservation], exportedAt: Date = Date()) throws {
         if let invalid = activeMemories.first(where: { $0.state != .active || $0.labels.isEmpty }) {
             throw ChatDataExportError.invalidMemory(invalid.id)
         }
-        formatVersion = 1
+        formatVersion = 2
         self.exportedAt = exportedAt
-        self.recentTurns = recentTurns.map {
-            RecentTurn(requestID: $0.requestID, userMessage: $0.userMessage,
-                assistantMessage: $0.assistantMessage, status: $0.status)
+        self.recentEntries = recentEntries.map { entry in
+            switch entry {
+            case .request(let turn):
+                RecentEntry(kind: "request", id: turn.requestID, userMessage: turn.userMessage,
+                    assistantMessage: turn.assistantMessage, status: turn.status, text: nil)
+            case .homeLine(let line):
+                RecentEntry(kind: "homeLine", id: line.id, userMessage: nil,
+                    assistantMessage: nil, status: nil, text: line.text)
+            }
         }
         longTermMemories = activeMemories.map {
             LongTermMemory(observationID: $0.id, sourceTurnID: $0.turnID,

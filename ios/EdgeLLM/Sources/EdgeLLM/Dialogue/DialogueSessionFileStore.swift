@@ -20,13 +20,31 @@ public struct DialogueSessionFileStore {
         let checkpoint = try JSONDecoder().decode(DialogueSessionCheckpoint.self,
             from: Data(contentsOf: fileURL))
         let session = try RoutedPersonaSessionContext(checkpoint: checkpoint)
-        let turns = session.chatTurns
-        guard turns.allSatisfy({ !$0.userMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            ($0.status != .completed || !$0.assistantMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }),
-            Set(turns.map(\.requestID)).count == turns.count else {
+        let entries = session.recentEntries
+        guard entries.allSatisfy({ entry in
+            switch entry {
+            case .request(let turn):
+                return !turn.userMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                    (turn.status != .completed || !turn.assistantMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            case .homeLine(let line):
+                return !line.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+        }), Set(entries.map(\.id)).count == entries.count else {
             throw DialogueSessionError.invalidCheckpoint
         }
         return session
+    }
+
+    @discardableResult
+    public func recordHomeLine(in session: inout RoutedPersonaSessionContext,
+                               id: String, text: String) throws -> RoutedPersonaSessionContext.CommitResult {
+        var candidate = session
+        let result = try candidate.appendHomeLine(id: id, text: text)
+        if result == .committed {
+            try save(candidate)
+            session = candidate
+        }
+        return result
     }
 
     /// Admission is durable before the in-memory session claims the request.

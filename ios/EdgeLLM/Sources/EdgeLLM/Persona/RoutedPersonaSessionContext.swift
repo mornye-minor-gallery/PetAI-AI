@@ -19,8 +19,8 @@ public struct DialogueSessionSnapshot: Equatable, Sendable, Encodable {
     fileprivate let revision: Int
 }
 
-/// Recent request turns are authoritative. Visible-message and completed-exchange
-/// clocks differ because an interrupted answer is context, not a successful reply.
+/// Recent requests and authored character lines are authoritative. Visible-message
+/// and completed-exchange clocks differ because not all context is a successful reply.
 public struct RoutedPersonaSessionContext: Equatable, Sendable {
     public enum Role: String, Equatable, Sendable, Codable {
         case user = "사용자"
@@ -42,14 +42,17 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
     }
 
     public let maximumTurnCount: Int
-    private var retainedTurns: [ChatTurn]
+    private var retainedEntries: [RecentDialogueEntry]
     private var activeTurn: ChatTurn?
-    public var chatTurns: [ChatTurn] {
+    public var recentEntries: [RecentDialogueEntry] {
         guard maximumTurnCount > 0 else { return [] }
-        return Array((retainedTurns + (activeTurn.map { [$0] } ?? [])).suffix(maximumTurnCount))
+        return Array((retainedEntries + (activeTurn.map { [.request($0)] } ?? [])).suffix(maximumTurnCount))
+    }
+    public var chatTurns: [ChatTurn] {
+        recentEntries.compactMap { if case .request(let turn) = $0 { turn } else { nil } }
     }
     /// The current user's message is excluded; the composer receives it separately.
-    public var turns: [Turn] { retainedTurns.flatMap(\.visibleMessages) }
+    public var turns: [Turn] { retainedEntries.flatMap(\.visibleMessages) }
     public private(set) var visibleUserMessages: Int
     public private(set) var visibleMessages: Int
     public private(set) var completedUserMessages: Int
@@ -67,7 +70,8 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
                 turns: [Turn] = [], worldInfoState: WorldInfoState = .init(), worldInfoText: WorldInfoTextContext = .init()) {
         self.worldInfoState = worldInfoState; self.worldInfoText = worldInfoText
         self.maximumTurnCount = max(0, maximumTurnCount)
-        retainedTurns = Array(Self.groupCompletedMessages(turns).suffix(max(0, maximumTurnCount)))
+        retainedEntries = Array(Self.groupCompletedMessages(turns).map(RecentDialogueEntry.request)
+            .suffix(max(0, maximumTurnCount)))
         activeTurn = nil
         visibleUserMessages = turns.filter { $0.role == .user }.count
         visibleMessages = turns.count
@@ -82,7 +86,7 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
               checkpoint.turns.allSatisfy({ !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
             throw DialogueSessionError.invalidCheckpoint
         }
-        let restored: [ChatTurn]
+        let restored: [RecentDialogueEntry]
         let users: Int
         let messages: Int
         switch checkpoint.version {
@@ -93,7 +97,7 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
                   checkpoint.turns.filter({ $0.role == .assistant }).count <= checkpoint.completedMessages - checkpoint.completedUserMessages else {
                 throw DialogueSessionError.invalidCheckpoint
             }
-            restored = Self.groupCompletedMessages(checkpoint.turns)
+            restored = Self.groupCompletedMessages(checkpoint.turns).map(RecentDialogueEntry.request)
             users = checkpoint.completedUserMessages
             messages = checkpoint.completedMessages
         case 2:
@@ -110,14 +114,42 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
                   checkpoint.turns.count <= visibleMessages else {
                 throw DialogueSessionError.invalidCheckpoint
             }
-            restored = chatTurns
+            restored = chatTurns.map(RecentDialogueEntry.request)
+            users = visibleUsers
+            messages = visibleMessages
+        case 3:
+            guard let entries = checkpoint.recentEntries,
+                  let visibleUsers = checkpoint.visibleUserMessages,
+                  let visibleMessages = checkpoint.visibleMessages,
+                  entries.count <= checkpoint.maximumTurnCount,
+                  Set(entries.map(\.id)).count == entries.count,
+                  entries.allSatisfy({ entry in
+                      switch entry {
+                      case .request(let turn):
+                          return turn.status != .inProgress && !turn.requestID.isEmpty &&
+                              !turn.userMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                              (turn.status != .completed || !turn.assistantMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                      case .homeLine(let line):
+                          return !line.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                              !line.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                      }
+                  }),
+                  entries.flatMap(\.visibleMessages) == checkpoint.turns,
+                  visibleUsers >= checkpoint.completedUserMessages,
+                  visibleMessages >= checkpoint.completedMessages,
+                  entries.compactMap({ if case .request(let turn) = $0 { turn } else { nil } })
+                      .filter({ !$0.userMessage.isEmpty }).count <= visibleUsers,
+                  checkpoint.turns.count <= visibleMessages else {
+                throw DialogueSessionError.invalidCheckpoint
+            }
+            restored = entries
             users = visibleUsers
             messages = visibleMessages
         default:
             throw DialogueSessionError.invalidCheckpoint
         }
         maximumTurnCount = checkpoint.maximumTurnCount
-        retainedTurns = restored
+        retainedEntries = restored
         activeTurn = nil
         visibleUserMessages = users
         visibleMessages = messages
@@ -129,17 +161,18 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
 
     public func checkpoint() -> DialogueSessionCheckpoint {
         // Ownership cannot survive process loss; persist an active turn as interrupted.
-        var saved = retainedTurns
+        var saved = retainedEntries
         if var activeTurn {
             activeTurn.status = .cancelled
-            saved.append(activeTurn)
+            saved.append(.request(activeTurn))
             saved = Array(saved.suffix(maximumTurnCount))
         }
-        return .init(version: 2, maximumTurnCount: maximumTurnCount,
+        return .init(version: 3, maximumTurnCount: maximumTurnCount,
             turns: saved.flatMap(\.visibleMessages), completedUserMessages: completedUserMessages,
             completedMessages: completedMessages, worldInfoState: worldInfoState,
-            worldInfoText: worldInfoText, chatTurns: saved,
-            visibleUserMessages: visibleUserMessages, visibleMessages: visibleMessages)
+            worldInfoText: worldInfoText,
+            visibleUserMessages: visibleUserMessages, visibleMessages: visibleMessages,
+            recentEntries: saved)
     }
 
     public func snapshot(requestID: String) throws -> DialogueSessionSnapshot {
@@ -152,7 +185,7 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
         }
         // The upcoming user request is the twentieth turn, not a twenty-first
         // turn added after twenty older ones have already entered the prompt.
-        let promptHistory = retainedTurns.suffix(max(0, maximumTurnCount - 1))
+        let promptHistory = retainedEntries.suffix(max(0, maximumTurnCount - 1))
             .flatMap(\.visibleMessages)
         return .init(requestID: requestID, history: promptHistory, completedUserMessages: completedUserMessages,
             completedMessages: completedMessages, visibleMessages: visibleMessages,
@@ -166,12 +199,12 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
         let user = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !user.isEmpty else { throw DialogueSessionError.invalidExchange }
         let prior = try snapshot(requestID: requestID)
-        guard !retainedTurns.contains(where: { $0.requestID == requestID }),
+        guard !retainedEntries.contains(where: { $0.id == requestID }),
               lastFinishedTurn?.requestID != requestID else { throw DialogueSessionError.conflictingCommit }
         guard revision < Int.max else { throw DialogueSessionError.counterOverflow }
         // Align the retained set with the prompt snapshot before EdgeMem recall.
-        if maximumTurnCount > 0 && retainedTurns.count == maximumTurnCount {
-            retainedTurns.removeFirst()
+        if maximumTurnCount > 0 && retainedEntries.count == maximumTurnCount {
+            retainedEntries.removeFirst()
         }
         activeTurn = .init(requestID: requestID, userMessage: user, status: .inProgress)
         visibleUserMessages += 1
@@ -228,7 +261,7 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
         activeTurn.assistantMessage = finalText
         activeTurn.status = status
         self.activeTurn = nil
-        retain(activeTurn)
+        retain(.request(activeTurn))
         lastFinishedTurn = activeTurn
         lastFinishedWorldInfo = worldInfo
         return .committed
@@ -272,9 +305,30 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
         return true
     }
 
+    @discardableResult
+    public mutating func appendHomeLine(id: String, text: String) throws -> CommitResult {
+        let lineID = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lineText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !lineID.isEmpty, !lineText.isEmpty else { throw DialogueSessionError.invalidExchange }
+        guard activeTurn == nil else { throw DialogueSessionError.activeRequest }
+        if let existing = retainedEntries.first(where: { $0.id == lineID }) {
+            guard existing == .homeLine(.init(id: lineID, text: lineText)) else {
+                throw DialogueSessionError.conflictingCommit
+            }
+            return .alreadyCommitted
+        }
+        guard visibleMessages < Int.max, revision < Int.max else { throw DialogueSessionError.counterOverflow }
+        retain(.homeLine(.init(id: lineID, text: lineText)))
+        visibleMessages += 1
+        revision += 1
+        lastCommit = nil
+        lastFinishedTurn = nil; lastFinishedWorldInfo = nil
+        return .committed
+    }
+
     public mutating func removeAll() {
         worldInfoState = .init(); worldInfoText = .init()
-        retainedTurns.removeAll(); activeTurn = nil
+        retainedEntries.removeAll(); activeTurn = nil
         visibleUserMessages = 0; visibleMessages = 0
         completedUserMessages = 0; completedMessages = 0
         revision = 0; epoch = UUID()
@@ -285,13 +339,13 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
         visibleUserMessages += 1; visibleMessages += 2
         completedUserMessages += 1; completedMessages += 2
         revision += 1
-        retain(.init(requestID: requestID, userMessage: user, assistantMessage: assistant, status: .completed))
+        retain(.request(.init(requestID: requestID, userMessage: user, assistantMessage: assistant, status: .completed)))
     }
 
-    private mutating func retain(_ turn: ChatTurn) {
+    private mutating func retain(_ entry: RecentDialogueEntry) {
         guard maximumTurnCount > 0 else { return }
-        retainedTurns.append(turn)
-        if retainedTurns.count > maximumTurnCount { retainedTurns.removeFirst(retainedTurns.count - maximumTurnCount) }
+        retainedEntries.append(entry)
+        if retainedEntries.count > maximumTurnCount { retainedEntries.removeFirst(retainedEntries.count - maximumTurnCount) }
     }
 
     private static func groupCompletedMessages(_ messages: [Turn]) -> [ChatTurn] {

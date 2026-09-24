@@ -20,13 +20,13 @@ func chatDataExportKeepsOnlyRetainedTurnsAndActiveMemories() throws {
         occurredAt: now, rawText: "질문 3",
         labelEvidence: [.init(label: .preference, score: nil, source: .gemmaHeader,
             classifierVersion: "test")], createdAt: now)
-    let exported = try ChatDataExport(recentTurns: session.chatTurns, activeMemories: [memory], exportedAt: now)
+    let exported = try ChatDataExport(recentEntries: session.recentEntries, activeMemories: [memory], exportedAt: now)
     let json = try JSONSerialization.jsonObject(with: exported.jsonData()) as! [String: Any]
-    let turns = json["recentTurns"] as! [[String: Any]]
+    let turns = json["recentEntries"] as! [[String: Any]]
     let memories = json["longTermMemories"] as! [[String: Any]]
 
-    #expect(json["formatVersion"] as? Int == 1)
-    #expect(turns.map { $0["requestID"] as! String } == ["turn-3", "turn-4"])
+    #expect(json["formatVersion"] as? Int == 2)
+    #expect(turns.map { $0["id"] as! String } == ["turn-3", "turn-4"])
     #expect(turns[1]["assistantMessage"] as? String == "좋아")
     #expect(turns[1]["status"] as? String == "cancelled")
     #expect(turns[0]["characterID"] == nil)
@@ -45,15 +45,29 @@ func chatDataExportSupportsLongTermOnlyAndEmptyAfterDeletion() throws {
         occurredAt: now, rawText: "등산 좋아해",
         labelEvidence: [.init(label: .event, score: nil, source: .gemmaHeader,
             classifierVersion: "test")], createdAt: now)
-    let one = try ChatDataExport(recentTurns: [], activeMemories: [memory], exportedAt: now)
+    let one = try ChatDataExport(recentEntries: [], activeMemories: [memory], exportedAt: now)
     let oneJSON = try JSONSerialization.jsonObject(with: one.jsonData()) as! [String: Any]
-    #expect((oneJSON["recentTurns"] as! [Any]).isEmpty)
+    #expect((oneJSON["recentEntries"] as! [Any]).isEmpty)
     #expect((oneJSON["longTermMemories"] as! [Any]).count == 1)
 
-    let empty = try ChatDataExport(recentTurns: [], activeMemories: [], exportedAt: now)
+    let empty = try ChatDataExport(recentEntries: [], activeMemories: [], exportedAt: now)
     let emptyJSON = try JSONSerialization.jsonObject(with: empty.jsonData()) as! [String: Any]
-    #expect((emptyJSON["recentTurns"] as! [Any]).isEmpty)
+    #expect((emptyJSON["recentEntries"] as! [Any]).isEmpty)
     #expect((emptyJSON["longTermMemories"] as! [Any]).isEmpty)
+}
+
+@Test
+func chatDataExportIncludesHomeLineInConversationOrder() throws {
+    var session = RoutedPersonaSessionContext(maximumTurnCount: 20)
+    try session.appendHomeLine(id: "home-1", text: "밤에 안 잤구나?")
+    _ = try session.beginRequest(requestID: "request-1", userMessage: "어떻게 알았어?")
+    try session.finishRequest(requestID: "request-1", status: .completed, assistantMessage: "표정이 보여.")
+    let exported = try ChatDataExport(recentEntries: session.recentEntries, activeMemories: [])
+    let json = try JSONSerialization.jsonObject(with: exported.jsonData()) as! [String: Any]
+    let entries = json["recentEntries"] as! [[String: Any]]
+    #expect(entries.map { $0["kind"] as! String } == ["homeLine", "request"])
+    #expect(entries[0]["text"] as? String == "밤에 안 잤구나?")
+    #expect(entries[1]["userMessage"] as? String == "어떻게 알았어?")
 }
 
 @Test
@@ -63,7 +77,7 @@ func chatDataExportRejectsMalformedActiveMemoryInsteadOfSilentlyOmittingIt() thr
         sequence: 0, scope: .init(userID: "local-user", characterID: "elena"),
         occurredAt: now, rawText: "기억", labelEvidence: [], createdAt: now)
     #expect(throws: ChatDataExportError.invalidMemory("broken")) {
-        try ChatDataExport(recentTurns: [], activeMemories: [malformed])
+        try ChatDataExport(recentEntries: [], activeMemories: [malformed])
     }
 }
 

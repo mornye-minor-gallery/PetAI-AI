@@ -10,6 +10,40 @@ final class DialogueSessionFileStoreTests: XCTestCase {
         return DialogueSessionFileStore(fileURL: directory.appendingPathComponent("recent-turns.json"))
     }
 
+    func testHomeLineIsDurableBeforeTheNextRequest() throws {
+        let store = temporaryStore()
+        var session = RoutedPersonaSessionContext(maximumTurnCount: 20)
+        XCTAssertEqual(try store.recordHomeLine(in: &session, id: "home-1", text: "밤에 안 잤구나?"), .committed)
+        let restored = try XCTUnwrap(store.load())
+        XCTAssertEqual(try restored.snapshot(requestID: "reply").history,
+            [.init(role: .assistant, text: "밤에 안 잤구나?")])
+        XCTAssertEqual(restored.chatTurns.count, 0)
+    }
+
+    func testExistingVersionTwoHistoryCanAddHomeLine() throws {
+        let store = temporaryStore()
+        let turn = ChatTurn(requestID: "request-1", userMessage: "안녕", assistantMessage: "반가워", status: .completed)
+        let old = DialogueSessionCheckpoint(version: 2, maximumTurnCount: 20,
+            turns: turn.visibleMessages, completedUserMessages: 1, completedMessages: 2,
+            worldInfoState: .init(), worldInfoText: .init(), chatTurns: [turn],
+            visibleUserMessages: 1, visibleMessages: 2)
+        try FileManager.default.createDirectory(at: store.fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true)
+        try JSONEncoder().encode(old).write(to: store.fileURL)
+        var restored = try XCTUnwrap(store.load())
+        try store.recordHomeLine(in: &restored, id: "home-1", text: "밤에 안 잤구나?")
+        let reopened = try XCTUnwrap(store.load())
+        XCTAssertEqual(reopened.turns.map(\.text), ["안녕", "반가워", "밤에 안 잤구나?"])
+    }
+
+    func testFailedHomeLineSaveDoesNotChangeInMemorySession() throws {
+        let store = temporaryStore()
+        try FileManager.default.createDirectory(at: store.fileURL, withIntermediateDirectories: true)
+        var session = RoutedPersonaSessionContext(maximumTurnCount: 20)
+        XCTAssertThrowsError(try store.recordHomeLine(in: &session, id: "home-1", text: "밤에 안 잤구나?"))
+        XCTAssertTrue(session.recentEntries.isEmpty)
+    }
+
     func testAcceptedUserMessageSurvivesRestartWithoutUnfinishedAnswer() throws {
         let store = temporaryStore()
         var session = RoutedPersonaSessionContext(maximumTurnCount: 20)
