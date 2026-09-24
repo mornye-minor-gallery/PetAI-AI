@@ -16,6 +16,7 @@ HOME_PATH = re.compile(r"(?:/Users/|/home/)[A-Za-z0-9._-]+|[A-Za-z]:\\Users\\[A-
 EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b")
 PHONE = re.compile(r"(?<!\d)01[016789][- ]?\d{3,4}[- ]?\d{4}(?!\d)")
 SAFE_CONTENT_EMAIL_DOMAINS = {"example.com", "example.org", "example.net", "users.noreply.github.com", "noreply.github.com"}
+SAFE_CONTENT_EMAIL_ADDRESSES = {"noreply@github.com"}
 PRIVATE_COMMIT_EMAIL_DOMAINS = {"users.noreply.github.com", "noreply.github.com"}
 
 
@@ -35,7 +36,8 @@ def findings(value: str) -> set[str]:
     if PHONE.search(value):
         found.add("phone number")
     if any(
-        match.group().rsplit("@", 1)[1].lower() not in SAFE_CONTENT_EMAIL_DOMAINS
+        match.group().lower() not in SAFE_CONTENT_EMAIL_ADDRESSES
+        and match.group().rsplit("@", 1)[1].lower() not in SAFE_CONTENT_EMAIL_DOMAINS
         for match in EMAIL.finditer(value)
     ):
         found.add("email address")
@@ -50,7 +52,11 @@ def scan_commit(commit: str) -> list[str]:
     for problem in sorted(findings(metadata[0])):
         problems.append(f"commit message: {problem}")
     for label, address in zip(("author", "committer"), metadata[1:3]):
-        if address.strip().rsplit("@", 1)[-1].lower() not in PRIVATE_COMMIT_EMAIL_DOMAINS:
+        address = address.strip().lower()
+        # GitHub uses this exact committer identity for squash merges.
+        if label == "committer" and address == "noreply@github.com":
+            continue
+        if address.rsplit("@", 1)[-1] not in PRIVATE_COMMIT_EMAIL_DOMAINS:
             problems.append(f"{label}: non-private commit email")
 
     diff = git(
