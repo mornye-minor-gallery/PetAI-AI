@@ -59,6 +59,10 @@ class RepositoryPrivacyTests(unittest.TestCase):
         self.commit("note.txt", f"contact={email}\n")
         self.assertEqual(self.check().returncode, 1)
 
+    def test_github_platform_email_in_added_content_is_allowed(self) -> None:
+        self.commit("note.txt", "committer=noreply@github.com\n")
+        self.assertEqual(self.check().returncode, 0)
+
     def test_added_line_starting_with_plus_is_scanned(self) -> None:
         private_path = "/Us" + "ers/alice/private/model.bin"
         self.commit("note.txt", f"++{private_path}\n")
@@ -91,6 +95,19 @@ class RepositoryPrivacyTests(unittest.TestCase):
     def test_placeholder_author_email_is_rejected(self) -> None:
         self.git("config", "user.email", "contributor@example.com")
         self.commit("note.txt", "safe content\n")
+        self.assertEqual(self.check().returncode, 1)
+
+    def test_github_squash_merge_committer_is_allowed(self) -> None:
+        self.git("config", "user.email", "noreply@github.com")
+        (self.repo / "note.txt").write_text("safe content\n")
+        self.git("add", "note.txt")
+        self.git("commit", "-qm", "safe change", "--author", f"Contributor <{SAFE_EMAIL}>")
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_github_squash_merge_email_is_not_allowed_for_author(self) -> None:
+        (self.repo / "note.txt").write_text("safe content\n")
+        self.git("add", "note.txt")
+        self.git("commit", "-qm", "safe change", "--author", "Contributor <noreply@github.com>")
         self.assertEqual(self.check().returncode, 1)
 
     def test_old_baseline_content_is_not_reported_as_new(self) -> None:
