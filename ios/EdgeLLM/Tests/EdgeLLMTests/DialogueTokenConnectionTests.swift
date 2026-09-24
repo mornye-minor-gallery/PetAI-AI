@@ -10,7 +10,6 @@ import Testing
     try budget.validate()
     // Existing byte fixtures and tool generations are separate consumers.
     #expect(SLMConfiguration.production.memory.promptByteBudget == 10_000)
-    #expect(SLMConfiguration.production.generation.maxOutputTokens == budget.outputTokens)
 }
 
 private struct SectionCounter: DialogueTokenMeasuring {

@@ -218,7 +218,7 @@ actor LiteRTLMRuntime: LLMRuntime {
                             .routerThinkingEnabled,
                 ],
                 maxOutputTokens: maxOutputTokens
-                    ?? slmConfiguration.generation.maxOutputTokens,
+                    ?? slmConfiguration.dialogueBudget.outputTokens,
                 thinkingConfig: ThinkingConfig(
                     enableThinking: thinkingEnabled
                         ?? slmConfiguration.generation.routerThinkingEnabled

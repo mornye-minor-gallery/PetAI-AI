@@ -21,7 +21,6 @@ import LiteRTLM
             generation: .init(
                 responseSampling: sampling,
                 deterministicSampling: sampling,
-                maxOutputTokens: plan.generation.max_output_tokens,
                 responseThinkingDefault: plan.generation.thinking_enabled,
                 routerThinkingEnabled: false,
                 toolReasoningEnabled: false

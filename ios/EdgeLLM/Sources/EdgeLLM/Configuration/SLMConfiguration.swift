@@ -40,7 +40,6 @@ public struct SLMConfiguration: Equatable, Sendable {
     public struct Generation: Equatable, Sendable {
         public let responseSampling: Sampling
         public let deterministicSampling: Sampling
-        public let maxOutputTokens: Int
         public let responseThinkingDefault: Bool
         public let routerThinkingEnabled: Bool
         public let toolReasoningEnabled: Bool
@@ -48,15 +47,12 @@ public struct SLMConfiguration: Equatable, Sendable {
         public init(
             responseSampling: Sampling,
             deterministicSampling: Sampling,
-            maxOutputTokens: Int,
             responseThinkingDefault: Bool,
             routerThinkingEnabled: Bool,
             toolReasoningEnabled: Bool
         ) {
-            precondition(maxOutputTokens > 0)
             self.responseSampling = responseSampling
             self.deterministicSampling = deterministicSampling
-            self.maxOutputTokens = maxOutputTokens
             self.responseThinkingDefault = responseThinkingDefault
             self.routerThinkingEnabled = routerThinkingEnabled
             self.toolReasoningEnabled = toolReasoningEnabled
@@ -134,7 +130,6 @@ public extension SLMConfiguration {
                 samplerTopK: 40,
                 topP: 1
             ),
-            maxOutputTokens: DialogueTokenBudget.production.outputTokens,
             responseThinkingDefault: false,
             routerThinkingEnabled: false,
             toolReasoningEnabled: false

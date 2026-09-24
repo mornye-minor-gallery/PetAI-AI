@@ -195,8 +195,7 @@ struct ContentView: View {
                             .deterministicSampling.samplerTopK,
                         topP: slmConfiguration.generation
                             .deterministicSampling.topP,
-                        maxOutputTokens: slmConfiguration.generation
-                            .maxOutputTokens
+                        maxOutputTokens: slmConfiguration.dialogueBudget.outputTokens
                     )
                 )
                 status = "Ready"

@@ -14,7 +14,7 @@ func productionSLMConfigurationKeepsProductTuningInOnePlace() {
     #expect(configuration.generation.responseSampling.samplerTopK == 40)
     #expect(configuration.generation.responseSampling.topP == 1)
     #expect(configuration.generation.deterministicSampling.temperature == 0)
-    #expect(configuration.generation.maxOutputTokens == 1_024)
+    #expect(configuration.dialogueBudget.outputTokens == 1_024)
     #expect(!configuration.generation.responseThinkingDefault)
     #expect(!configuration.generation.routerThinkingEnabled)
     #expect(!configuration.generation.toolReasoningEnabled)

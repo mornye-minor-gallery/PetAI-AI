@@ -62,7 +62,7 @@ extension LiteRTLMRuntime: NativeToolProposalGenerating {
                 extraContext: [
                     "enable_thinking": request.reasoningEnabled,
                 ],
-                maxOutputTokens: slmConfiguration.generation.maxOutputTokens,
+                maxOutputTokens: slmConfiguration.dialogueBudget.outputTokens,
                 thinkingConfig: ThinkingConfig(
                     enableThinking: request.reasoningEnabled
                 )

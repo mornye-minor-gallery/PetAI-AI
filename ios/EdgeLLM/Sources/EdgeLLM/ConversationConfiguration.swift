@@ -14,8 +14,7 @@ public struct ConversationConfiguration: Equatable, Sendable {
             .responseSampling.samplerTopK,
         topP: Float = SLMConfiguration.production.generation
             .responseSampling.topP,
-        maxOutputTokens: Int = SLMConfiguration.production.generation
-            .maxOutputTokens,
+        maxOutputTokens: Int = SLMConfiguration.production.dialogueBudget.outputTokens,
         thinkingEnabled: Bool = SLMConfiguration.production.generation.responseThinkingDefault
     ) {
         self.systemPrompt = systemPrompt
