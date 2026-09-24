@@ -6,6 +6,7 @@
   details, identifiable device addresses, real player data, secrets, game
   assets, or materials without redistribution rights.
 - Review files, commit messages, PR text, and artifacts before the first push
-  of a branch. Run `python3 scripts/check_repository_privacy.py --base origin/main`
-  after committing. The checker is not an exhaustive privacy or license audit.
+  of a branch. Install the local hook with `python3 scripts/install_privacy_hook.py`,
+  then run `python3 scripts/check_repository_privacy.py --base origin/main` after
+  committing. The checker is not an exhaustive privacy or license audit.
 - Follow `CONTRIBUTING.md` for the publication boundary and PR procedure.

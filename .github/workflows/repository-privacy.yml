@@ -18,7 +18,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Test privacy checker
-        run: python3 -m unittest discover -s scripts/tests -p 'test_repository_privacy.py'
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*privacy*.py'
       - name: Inspect new commits
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
