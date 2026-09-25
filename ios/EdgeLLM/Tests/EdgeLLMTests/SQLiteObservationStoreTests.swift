@@ -100,7 +100,7 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
         scope: otherAccountScope, rawText: "나는 사과를 좋아해", occurredAt: timestamp))
     let defaultCharacterObservation = try #require(defaultCharacterResult.observation)
     #expect(otherResult.observation != nil)
-    _ = try await store.saveUserTurn(id: "incomplete-turn", sessionID: "session-1",
+    _ = try await store.insertUserTurn(id: "incomplete-turn", sessionID: "session-1",
         scope: otherScope, rawText: "저장 도중 중단된 원문", occurredAt: timestamp)
     #expect(
         try await engine.activeObservations(in: defaultCharacterScope)

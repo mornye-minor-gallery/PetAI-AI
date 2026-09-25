@@ -14,6 +14,7 @@ public enum SQLiteObservationStoreError:
     case invalidStoredValue(column: String)
     case invalidEmbedding(String)
     case unknownObservation(String)
+    case rollbackFailed(operation: String, rollback: String)
 }
 
 extension SQLiteObservationStoreError: LocalizedError {
@@ -31,6 +32,8 @@ extension SQLiteObservationStoreError: LocalizedError {
             "EdgeMem SQLite contains an invalid value for \(column)."
         case .invalidEmbedding(let message):
             "EdgeMem cannot store this embedding: \(message)"
+        case let .rollbackFailed(operation, rollback):
+            "Memory write failed (\(operation)); rollback failed (\(rollback)). The connection was closed."
         case .unknownObservation(let observationID):
             "EdgeMem observation does not exist or is inactive: \(observationID)"
         }
@@ -165,206 +168,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    public func saveUserTurn(
-        id: String,
-        sessionID: String,
-        scope: MemoryScope,
-        rawText: String,
-        occurredAt: Date
-    ) async throws -> MemoryConversationTurn {
-        let sequence = try nextSequence(in: sessionID)
-        let contentHash = SHA256.hash(data: Data(rawText.utf8))
-            .map { String(format: "%02x", $0) }
-            .joined()
 
-        try withStatement(
-            """
-            INSERT INTO conversation_turns(
-                id,
-                user_id,
-                character_id,
-                session_id,
-                sequence,
-                role,
-                text,
-                occurred_at,
-                content_hash
-            ) VALUES (?, ?, ?, ?, ?, 'user', ?, ?, ?);
-            """
-        ) { statement in
-            try bind(id, at: 1, to: statement)
-            try bind(scope.userID, at: 2, to: statement)
-            try bind(scope.characterID, at: 3, to: statement)
-            try bind(sessionID, at: 4, to: statement)
-            try bind(sequence, at: 5, to: statement)
-            try bind(rawText, at: 6, to: statement)
-            try bind(dateString(occurredAt), at: 7, to: statement)
-            try bind(contentHash, at: 8, to: statement)
-            try stepExpectingDone(statement)
-        }
-
-        return MemoryConversationTurn(
-            id: id,
-            sessionID: sessionID,
-            sequence: sequence,
-            scope: scope,
-            rawText: rawText,
-            occurredAt: occurredAt,
-            contentHash: contentHash
-        )
-    }
-
-    public func saveGateResult(
-        _ result: MemoryGateResult
-    ) async throws {
-        let decision = result.decision
-        let patternsData = try JSONEncoder().encode(
-            decision.regex.matchedPatterns
-        )
-        guard let patternsJSON = String(
-            data: patternsData,
-            encoding: .utf8
-        ) else {
-            throw SQLiteObservationStoreError.invalidStoredValue(
-                column: "matched_patterns_json"
-            )
-        }
-
-        try withStatement(
-            """
-            INSERT INTO gate_results(
-                id,
-                turn_id,
-                regex_preference_hit,
-                regex_event_hit,
-                regex_hard_ignore,
-                matched_patterns_json,
-                preference_score,
-                event_score,
-                decision,
-                preference_threshold,
-                event_threshold,
-                classifier_version,
-                embedding_model_id,
-                created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-            """
-        ) { statement in
-            try bind(result.id, at: 1, to: statement)
-            try bind(result.turnID, at: 2, to: statement)
-            try bind(decision.regex.preferenceHit, at: 3, to: statement)
-            try bind(decision.regex.eventHit, at: 4, to: statement)
-            try bind(decision.regex.hardIgnore, at: 5, to: statement)
-            try bind(patternsJSON, at: 6, to: statement)
-            try bind(decision.preferenceScore, at: 7, to: statement)
-            try bind(decision.eventScore, at: 8, to: statement)
-            try bind(decision.label.rawValue, at: 9, to: statement)
-            try bind(decision.preferenceThreshold, at: 10, to: statement)
-            try bind(decision.eventThreshold, at: 11, to: statement)
-            try bind(decision.classifierVersion, at: 12, to: statement)
-            try bind(decision.embeddingModelID, at: 13, to: statement)
-            try bind(dateString(result.createdAt), at: 14, to: statement)
-            try stepExpectingDone(statement)
-        }
-    }
-
-    public func saveObservation(
-        _ observation: MemoryObservation,
-        embedding: MemoryObservationEmbedding?
-    ) async throws {
-        if let embedding {
-            try validate(embedding, for: observation)
-        }
-
-        try transaction {
-            try withStatement(
-                """
-                INSERT INTO observations(
-                    id,
-                    turn_id,
-                    state,
-                    created_at
-                ) VALUES (?, ?, ?, ?);
-                """
-            ) { statement in
-                try bind(observation.id, at: 1, to: statement)
-                try bind(observation.turnID, at: 2, to: statement)
-                try bind(observation.state.rawValue, at: 3, to: statement)
-                try bind(
-                    dateString(observation.createdAt),
-                    at: 4,
-                    to: statement
-                )
-                try stepExpectingDone(statement)
-            }
-
-            for evidence in observation.labelEvidence {
-                try withStatement(
-                    """
-                    INSERT INTO observation_labels(
-                        observation_id,
-                        label,
-                        score,
-                        source,
-                        classifier_version
-                    ) VALUES (?, ?, ?, ?, ?);
-                    """
-                ) { statement in
-                    try bind(observation.id, at: 1, to: statement)
-                    try bind(
-                        evidence.label.rawValue,
-                        at: 2,
-                        to: statement
-                    )
-                    try bind(evidence.score, at: 3, to: statement)
-                    try bind(
-                        evidence.source.rawValue,
-                        at: 4,
-                        to: statement
-                    )
-                    try bind(
-                        evidence.classifierVersion,
-                        at: 5,
-                        to: statement
-                    )
-                    try stepExpectingDone(statement)
-                }
-            }
-
-            if let embedding {
-                try withStatement(
-                    """
-                    INSERT INTO observation_embeddings(
-                        observation_id,
-                        model_id,
-                        dimension,
-                        vector,
-                        created_at
-                    ) VALUES (?, ?, ?, ?, ?);
-                    """
-                ) { statement in
-                    try bind(
-                        embedding.observationID,
-                        at: 1,
-                        to: statement
-                    )
-                    try bind(embedding.modelID, at: 2, to: statement)
-                    try bind(embedding.dimension, at: 3, to: statement)
-                    try bind(
-                        vectorData(embedding.vector),
-                        at: 4,
-                        to: statement
-                    )
-                    try bind(
-                        dateString(embedding.createdAt),
-                        at: 5,
-                        to: statement
-                    )
-                    try stepExpectingDone(statement)
-                }
-            }
-        }
-    }
 
     public func activeObservations(
         in scope: MemoryScope
@@ -636,7 +440,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func nextSequence(in sessionID: String) throws -> Int {
+    func nextSequence(in sessionID: String) throws -> Int {
         try withStatement(
             """
             SELECT COALESCE(MAX(sequence), -1) + 1
@@ -826,7 +630,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func validate(
+    func validate(
         _ embedding: MemoryObservationEmbedding,
         for observation: MemoryObservation
     ) throws {
@@ -875,14 +679,26 @@ public actor SQLiteObservationStore:
         }
     }
 
-    func transaction(_ body: () throws -> Void) throws {
+    func transaction<Result>(_ body: () throws -> Result) throws -> Result {
         try execute("BEGIN IMMEDIATE TRANSACTION;")
         do {
-            try body()
+            let result = try body()
             try execute("COMMIT;")
+            return result
         } catch {
-            try? execute("ROLLBACK;")
-            throw error
+            let operationError = error
+            // SQLite may already have rolled back after an I/O error or RAISE(ROLLBACK).
+            if let database = connection.handle, sqlite3_get_autocommit(database) == 0 {
+                do {
+                    try execute("ROLLBACK;")
+                } catch {
+                    closeDatabase()
+                    throw SQLiteObservationStoreError.rollbackFailed(
+                        operation: String(describing: operationError),
+                        rollback: String(describing: error))
+                }
+            }
+            throw operationError
         }
     }
 
@@ -908,7 +724,7 @@ public actor SQLiteObservationStore:
         return try body(statement)
     }
 
-    private func bind(
+    func bind(
         _ value: String,
         at index: Int32,
         to statement: OpaquePointer
@@ -927,7 +743,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func bind(
+    func bind(
         _ value: String?,
         at index: Int32,
         to statement: OpaquePointer
@@ -941,7 +757,7 @@ public actor SQLiteObservationStore:
         try bind(value, at: index, to: statement)
     }
 
-    private func bind(
+    func bind(
         _ value: Int,
         at index: Int32,
         to statement: OpaquePointer
@@ -954,7 +770,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func bind(
+    func bind(
         _ value: Bool,
         at index: Int32,
         to statement: OpaquePointer
@@ -962,7 +778,7 @@ public actor SQLiteObservationStore:
         try bind(value ? 1 : 0, at: index, to: statement)
     }
 
-    private func bind(
+    func bind(
         _ value: Float,
         at index: Int32,
         to statement: OpaquePointer
@@ -973,7 +789,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func bind(
+    func bind(
         _ value: Float?,
         at index: Int32,
         to statement: OpaquePointer
@@ -987,7 +803,7 @@ public actor SQLiteObservationStore:
         try bind(value, at: index, to: statement)
     }
 
-    private func bind(
+    func bind(
         _ value: Data,
         at index: Int32,
         to statement: OpaquePointer
@@ -1006,7 +822,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func stepExpectingDone(_ statement: OpaquePointer) throws {
+    func stepExpectingDone(_ statement: OpaquePointer) throws {
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw statementError()
         }
@@ -1125,11 +941,11 @@ public actor SQLiteObservationStore:
         return date
     }
 
-    private func dateString(_ date: Date) -> String {
+    func dateString(_ date: Date) -> String {
         dateFormatter.string(from: date)
     }
 
-    private func vectorData(_ vector: [Float]) -> Data {
+    func vectorData(_ vector: [Float]) -> Data {
         var data = Data()
         data.reserveCapacity(vector.count * MemoryLayout<UInt32>.size)
         for value in vector {
