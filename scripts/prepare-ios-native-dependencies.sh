@@ -2,21 +2,15 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACT_ROOT="${REPO_ROOT}/ios/.artifacts"
-PATCH="${REPO_ROOT}/ios/ThirdParty/LiteRTLM/native/kv-checkpoint.patch"
-PREFILL_PATCH="${REPO_ROOT}/ios/ThirdParty/LiteRTLM/native/pending-prefill.patch"
-REVISION=a327b494f874a319605e6fd7e3439678daa4d07d
-SOURCE_SHA=6f3b0f8a82f594cb14f30ac485ba5c1bfc4255f7422c83fccf7128cf9d5bd70b
-PATCH_SHA="$(shasum -a 256 "$PATCH" | awk '{print $1}')"
-PREFILL_SHA="$(shasum -a 256 "$PREFILL_PATCH" | awk '{print $1}')"
+REVISION=939b09f5ac92974bb4a7df430d440c2b8780941e
+SOURCE_SHA=7efcec573b837a882b313ae115b12cac4b6ed6a9d20673d1a91d44ddbaeede1a
 FRAMEWORK="${ARTIFACT_ROOT}/CLiteRTLM.xcframework"
 PROVENANCE="${ARTIFACT_ROOT}/CLiteRTLM.provenance"
-SOURCE_ROOT="${PETAI_LITERTLM_SOURCE_DIR:-${ARTIFACT_ROOT}/sources/${REVISION}-${PATCH_SHA}-${PREFILL_SHA}}"
+SOURCE_ROOT="${PETAI_LITERTLM_SOURCE_DIR:-${ARTIFACT_ROOT}/sources/${REVISION}}"
 BAZEL="${PETAI_LITERTLM_BAZEL:-${ARTIFACT_ROOT}/tools/bazel-7.6.1}"
-CONFIG="source_repository=https://github.com/google-ai-edge/LiteRT-LM.git
+CONFIG="source_repository=https://github.com/mornye-minor-gallery/LiteRT-LM.git
 source_revision=${REVISION}
 source_sha256=${SOURCE_SHA}
-patch_sha256=${PATCH_SHA}
-prefill_patch_sha256=${PREFILL_SHA}
 bazel_target=//swift:CLiteRTLM
 bazel_define=LITERT_LM_FST_CONSTRAINTS_DISABLED=1"
 if [[ "${1:-}" == --print-config ]]; then echo "$CONFIG"; exit 0; fi
@@ -49,12 +43,10 @@ mkdir -p "$ARTIFACT_ROOT" "$(dirname "$SOURCE_ROOT")" "$(dirname "$BAZEL")"
 if [[ ! -d "$SOURCE_ROOT" ]]; then
   stage="$(mktemp -d "${ARTIFACT_ROOT}/litert-source.XXXXXX")"
   curl --fail --location --retry 2 \
-    "https://api.github.com/repos/google-ai-edge/LiteRT-LM/tarball/${REVISION}" -o "$stage/source.tar.gz"
+    "https://api.github.com/repos/mornye-minor-gallery/LiteRT-LM/tarball/${REVISION}" -o "$stage/source.tar.gz"
   [[ "$(shasum -a 256 "$stage/source.tar.gz" | awk '{print $1}')" == "$SOURCE_SHA" ]] || { echo "Source checksum mismatch" >&2; exit 1; }
   mkdir "$SOURCE_ROOT"
   tar -xzf "$stage/source.tar.gz" -C "$SOURCE_ROOT" --strip-components=1
-  (cd "$SOURCE_ROOT" && git apply --check "$PATCH" && git apply "$PATCH")
-  (cd "$SOURCE_ROOT" && git apply --check "$PREFILL_PATCH" && git apply "$PREFILL_PATCH")
   printf '%s\n' "$CONFIG" > "$SOURCE_ROOT/.petai-checkpoint-source"
 fi
 # Explicit local reuse is permitted only for a source tree prepared from this pin.
@@ -62,7 +54,6 @@ fi
   [[ "$(cat "$SOURCE_ROOT/.petai-checkpoint-source")" == "$CONFIG" ]] || {
   echo "Source provenance does not match; use a new build directory." >&2; exit 1;
 }
-(cd "$SOURCE_ROOT" && git apply --reverse --check "$PREFILL_PATCH" "$PATCH")
 if [[ ! -x "$BAZEL" ]]; then
   curl --fail --location --retry 2 \
     https://github.com/bazelbuild/bazel/releases/download/7.6.1/bazel-7.6.1-darwin-arm64 -o "$BAZEL"

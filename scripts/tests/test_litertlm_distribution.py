@@ -1,5 +1,4 @@
 import pathlib
-import re
 import subprocess
 import unittest
 
@@ -9,25 +8,7 @@ PREPARE_SCRIPT = REPO_ROOT / "scripts" / "prepare-ios-native-dependencies.sh"
 
 
 class LiteRTLMDistributionTests(unittest.TestCase):
-    def test_engine_state_transfer_has_no_app_or_file_policy(self) -> None:
-        patch = (REPO_ROOT / "ios/ThirdParty/LiteRTLM/native/kv-checkpoint.patch").read_text()
-        additions = "\n".join(line[1:] for line in patch.splitlines()
-                              if line.startswith("+") and not line.startswith("+++"))
-        for forbidden in ("<cstdio>", "<unistd.h>", "<fcntl.h>", "FILE*", "fopen(",
-                          "fsync(", "rename(", "unlink(", "PETAI_", "identity", "SHA256"):
-            self.assertNotIn(forbidden, additions)
-        self.assertIn("litert_lm_session_transfer_state", additions)
-
-    def test_native_patches_do_not_change_comments(self) -> None:
-        for path in (REPO_ROOT / "ios/ThirdParty/LiteRTLM/native").glob("*.patch"):
-            for line in path.read_text().splitlines():
-                if line.startswith(("---", "+++")) or not line.startswith(("+", "-")):
-                    continue
-                code = re.sub(r'"(?:[^"\\]|\\.)*"', '""', line[1:])
-                self.assertNotIn("//", code, (path.name, line))
-                self.assertNotIn("/*", code, (path.name, line))
-
-    def test_checkpoint_source_and_patch_are_pinned(self) -> None:
+    def test_public_checkpoint_source_is_pinned(self) -> None:
         result = subprocess.run(
             [str(PREPARE_SCRIPT), "--print-config"],
             cwd=REPO_ROOT,
@@ -36,13 +17,14 @@ class LiteRTLMDistributionTests(unittest.TestCase):
             text=True,
         )
 
-        self.assertIn("source_repository=https://github.com/google-ai-edge/LiteRT-LM.git", result.stdout)
-        self.assertIn("source_revision=a327b494f874a319605e6fd7e3439678daa4d07d", result.stdout)
-        import hashlib
-        patch = REPO_ROOT / "ios/ThirdParty/LiteRTLM/native/kv-checkpoint.patch"
-        self.assertIn("patch_sha256=" + hashlib.sha256(patch.read_bytes()).hexdigest(), result.stdout)
-        patch = REPO_ROOT / "ios/ThirdParty/LiteRTLM/native/pending-prefill.patch"
-        self.assertIn("prefill_patch_sha256=" + hashlib.sha256(patch.read_bytes()).hexdigest(), result.stdout)
+        config = dict(line.split("=", 1) for line in result.stdout.splitlines())
+        self.assertEqual("https://github.com/mornye-minor-gallery/LiteRT-LM.git",
+                         config["source_repository"])
+        self.assertEqual("939b09f5ac92974bb4a7df430d440c2b8780941e",
+                         config["source_revision"])
+        self.assertRegex(config["source_sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual("//swift:CLiteRTLM", config["bazel_target"])
+        self.assertEqual("LITERT_LM_FST_CONSTRAINTS_DISABLED=1", config["bazel_define"])
 
     def test_product_sources_do_not_depend_on_logits_top_k_telemetry(self) -> None:
         roots = [
