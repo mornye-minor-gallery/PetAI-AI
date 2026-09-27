@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import Foundation
+#if canImport(OSLog)
 import OSLog
+#endif
 import CLiteRTLM
 
 /// Manages the lifecycle of a LiteRT-LM Embedding Engine, providing an interface for interacting

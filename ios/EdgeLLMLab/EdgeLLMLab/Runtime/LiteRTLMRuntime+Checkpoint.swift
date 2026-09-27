@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(OSLog)
 import OSLog
+#endif
 #if canImport(EdgeLLM)
 import EdgeLLM
 #endif
@@ -8,9 +10,15 @@ import LiteRTLM
 #endif
 
 extension LiteRTLMRuntime {
+    func makeCheckpointStore() throws -> KVCheckpointStore {
+        if let cacheDirectory {
+            return try KVCheckpointStore(directory: cacheDirectory.appendingPathComponent("Session"))
+        }
+        return try KVCheckpointStore.deviceLocal()
+    }
     func prepareCheckpointStore(modelURL: URL) {
         do {
-            checkpointStore = try KVCheckpointStore.deviceLocal()
+            checkpointStore = try makeCheckpointStore()
             checkpointModelIdentity = KVCheckpointStore.modelIdentity(at: modelURL)
             logger.notice("KV checkpoint storage ready")
         } catch {
@@ -64,7 +72,7 @@ extension LiteRTLMRuntime {
 
     func eraseCheckpoint() throws {
         try requireNativeIdle()
-        try (checkpointStore ?? KVCheckpointStore.deviceLocal()).remove()
+        try (checkpointStore ?? makeCheckpointStore()).remove()
         logger.notice("KV checkpoint removed")
     }
 }

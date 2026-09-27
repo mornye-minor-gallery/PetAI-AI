@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import Foundation
+#if canImport(OSLog)
 import OSLog
+#endif
 
 /// A struct to manage flags for APIs that are not yet considered mature.
 ///

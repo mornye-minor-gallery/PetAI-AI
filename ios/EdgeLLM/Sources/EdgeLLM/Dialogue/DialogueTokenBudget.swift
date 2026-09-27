@@ -43,7 +43,7 @@ public struct DialogueTokenBudget: Codable, Equatable, Sendable {
 
     private static func productionDefaultsURL() throws -> URL {
 #if SWIFT_PACKAGE
-        if let url = Bundle.module.url(forResource: "slm-runtime-defaults", withExtension: "json") {
+        if let url = try EdgeLLMResources.bundle().url(forResource: "slm-runtime-defaults", withExtension: "json") {
             return url
         }
 #endif

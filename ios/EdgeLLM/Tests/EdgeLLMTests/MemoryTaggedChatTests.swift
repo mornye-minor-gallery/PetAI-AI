@@ -1,4 +1,8 @@
+#if os(Android)
+import Crypto
+#else
 import CryptoKit
+#endif
 import Foundation
 import Testing
 @testable import EdgeLLM

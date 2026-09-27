@@ -59,6 +59,7 @@ public struct PersonaResponseConfiguration: Codable, Equatable, Sendable {
 
 enum AnswerOnlyChatProcessor {
     static func run(
+        isolation: isolated (any Actor)? = #isolation,
         stream: AsyncThrowingStream<String, Error>,
         receiveVisibleText: (String) async -> Void
     ) async throws -> MemoryTaggedChatOutcome {

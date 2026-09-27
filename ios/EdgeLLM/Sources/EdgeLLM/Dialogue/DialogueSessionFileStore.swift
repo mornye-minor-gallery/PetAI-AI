@@ -2,7 +2,7 @@ import Foundation
 
 /// Device-local recent context. EdgeMem owns durable P/E memories; this file owns
 /// only the bounded prompt window and its clocks. Login does not select a file.
-public struct DialogueSessionFileStore {
+public struct DialogueSessionFileStore: Sendable {
     public let fileURL: URL
 
     public init(fileURL: URL) {
@@ -88,9 +88,11 @@ public struct DialogueSessionFileStore {
     }
 
     private func excludeFromBackup(_ url: URL) throws {
+#if !os(Android)
         var url = url
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         try url.setResourceValues(values)
+#endif
     }
 }

@@ -118,6 +118,7 @@ public struct MemoryTaggedChatOutcome: Equatable, Sendable {
 
 public enum MemoryTaggedChatProcessor {
     public static func run(
+        isolation: isolated (any Actor)? = #isolation,
         configuration: PersonaResponseConfiguration = .production,
         primaryStream:
             () async throws -> AsyncThrowingStream<String, Error>,
@@ -127,10 +128,12 @@ public enum MemoryTaggedChatProcessor {
     ) async throws -> MemoryTaggedChatOutcome {
         if !configuration.memoryClassification {
             return try await AnswerOnlyChatProcessor.run(
+                isolation: isolation,
                 stream: primaryStream(), receiveVisibleText: receiveVisibleText
             )
         }
         let primary = try await decode(
+            isolation: isolation,
             stream: primaryStream(),
             receiveVisibleText: receiveVisibleText
         )
@@ -144,6 +147,7 @@ public enum MemoryTaggedChatProcessor {
         }
 
         let retry = try await decode(
+            isolation: isolation,
             stream: retryStream(),
             receiveVisibleText: receiveVisibleText
         )
@@ -154,6 +158,7 @@ public enum MemoryTaggedChatProcessor {
     }
 
     private static func decode(
+        isolation: isolated (any Actor)?,
         stream: AsyncThrowingStream<String, Error>,
         receiveVisibleText: (String) async -> Void
     ) async throws -> MemoryHeaderGateResult {

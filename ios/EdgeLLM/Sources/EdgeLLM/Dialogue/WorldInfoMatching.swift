@@ -1,5 +1,9 @@
 import Foundation
+#if os(Android)
+import Crypto
+#else
 import CryptoKit
+#endif
 
 extension WorldInfoEngine {
     static func secondarySatisfied(_ entry: WorldInfoEntry, matches: Int) -> Bool {

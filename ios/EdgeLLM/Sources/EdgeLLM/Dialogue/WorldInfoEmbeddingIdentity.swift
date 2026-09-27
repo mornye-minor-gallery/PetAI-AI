@@ -1,5 +1,9 @@
 import Foundation
+#if os(Android)
+import Crypto
+#else
 import CryptoKit
+#endif
 
 public enum WorldInfoEmbeddingIdentity {
     /// Content identity includes the tokenizer and preprocessing contract, not a filename or model label.

@@ -43,6 +43,7 @@ public struct SavedModelStore: Sendable {
             throw SavedModelStoreError.invalidModelFileExtension
         }
 
+#if !os(Android)
         let isScoped = sourceURL.startAccessingSecurityScopedResource()
         defer {
             if isScoped {
@@ -50,6 +51,8 @@ public struct SavedModelStore: Sendable {
             }
         }
 
+#endif
+        // Android callers provide an app-readable file after resolving picker permissions.
         let sourceSize = try fileSize(at: sourceURL)
         guard sourceSize > 0 else {
             throw SavedModelStoreError.emptyModelFile

@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import Foundation
+#if canImport(OSLog)
 import OSLog
+#endif
 import CLiteRTLM
 
 /// Data struct to hold benchmark information. Note that this is an experimental API and may change

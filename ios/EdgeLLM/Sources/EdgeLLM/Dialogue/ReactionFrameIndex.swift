@@ -1,6 +1,12 @@
 import Foundation
+#if !os(Android)
 import Accelerate
+#endif
+#if os(Android)
+import Crypto
+#else
 import CryptoKit
+#endif
 
 /// Immutable, offline-built example index. The model/tokenizer identity is checked
 /// before ranking so a different embedding space cannot silently select frames.
@@ -75,7 +81,7 @@ public struct ReactionFrameIndex: Sendable {
     public func search(query: [Float], embeddingIdentity: String) throws -> Match {
         guard embeddingIdentity == metadata.embeddingIdentity else { throw IndexError.embeddingMismatch }
         guard query.count == metadata.dimension, query.allSatisfy(\.isFinite) else { throw IndexError.invalidQuery }
-        let norm = sqrt(query.reduce(Float(0)) { $0 + $1 * $1 })
+        let norm = query.reduce(Float(0)) { $0 + $1 * $1 }.squareRoot()
         guard norm.isFinite, norm > 0 else { throw IndexError.invalidQuery }
         let q = query.map { $0 / norm }
         let start = ProcessInfo.processInfo.systemUptime
@@ -84,8 +90,14 @@ public struct ReactionFrameIndex: Sendable {
             q.withUnsafeBufferPointer { query in
                 for row in metadata.rows.indices {
                     var score: Float = 0
+#if os(Android)
+                    for column in 0..<metadata.dimension {
+                        score += matrix[row * metadata.dimension + column] * query[column]
+                    }
+#else
                     vDSP_dotpr(matrix.baseAddress! + row * metadata.dimension, 1, query.baseAddress!, 1,
                                &score, vDSP_Length(metadata.dimension))
+#endif
                     if score > best { best = score; winner = row }
                 }
             }

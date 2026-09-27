@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import Foundation
+#if canImport(OSLog)
 import OSLog
+#endif
 
 /// The role of the message in a conversation.
 public enum Role: String {

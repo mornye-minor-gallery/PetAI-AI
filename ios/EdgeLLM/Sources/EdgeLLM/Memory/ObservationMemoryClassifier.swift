@@ -1,4 +1,8 @@
+#if os(Android)
+import Crypto
+#else
 import CryptoKit
+#endif
 import Foundation
 
 public enum ObservationMemoryClassifierError:
@@ -66,7 +70,7 @@ public struct MemoryPrototypeSet: Equatable, Sendable {
 
     public static func korean() throws -> MemoryPrototypeSet {
 #if SWIFT_PACKAGE
-        let resourceBundle = Bundle.module
+        let resourceBundle = try EdgeLLMResources.bundle()
 #else
         let resourceBundle = Bundle.main
 #endif
@@ -304,9 +308,7 @@ public actor RegexPrototypeObservationClassifier:
                 mean[index] += vector[index] / Float(vectors.count)
             }
         }
-        let magnitude = sqrt(
-            mean.reduce(Float.zero) { $0 + ($1 * $1) }
-        )
+        let magnitude = mean.reduce(Float.zero) { $0 + ($1 * $1) }.squareRoot()
         guard magnitude > 0, magnitude.isFinite else {
             throw ObservationMemoryClassifierError
                 .inconsistentEmbeddingDimension

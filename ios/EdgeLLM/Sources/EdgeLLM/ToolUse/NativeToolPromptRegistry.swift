@@ -1,4 +1,8 @@
+#if os(Android)
+import Crypto
+#else
 import CryptoKit
+#endif
 import Foundation
 
 public struct NativeToolPromptContext: Equatable, Sendable {
@@ -147,7 +151,8 @@ public struct NativeToolPromptRegistry: Sendable {
         let fileExtension = String(parts[1])
 
         #if SWIFT_PACKAGE
-        let bundles = [Bundle.module]
+        guard let resourceBundle = try? EdgeLLMResources.bundle() else { return nil }
+        let bundles = [resourceBundle]
         #else
         let bundles = [Bundle.main, Bundle(for: NativeToolPromptBundleToken.self)]
         #endif

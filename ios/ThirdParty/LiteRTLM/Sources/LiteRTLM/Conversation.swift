@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import Foundation
+#if canImport(OSLog)
 import OSLog
+#endif
 import CLiteRTLM
 
 extension ResponseFormat.FormatType {

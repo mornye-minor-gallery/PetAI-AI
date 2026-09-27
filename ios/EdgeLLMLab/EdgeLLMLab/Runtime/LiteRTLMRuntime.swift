@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(OSLog)
 import OSLog
+#endif
 
 #if canImport(EdgeLLM)
 import EdgeLLM
@@ -9,7 +11,7 @@ import EdgeLLM
 import LiteRTLM
 #endif
 
-actor LiteRTLMRuntime: LLMRuntime {
+actor LiteRTLMRuntime: ChatInferenceRuntime {
     private final class SendableConversation: @unchecked Sendable {
         let value: any TextSession
 
@@ -23,6 +25,7 @@ actor LiteRTLMRuntime: LLMRuntime {
         category: "LiteRTLMRuntime"
     )
     let slmConfiguration: SLMConfiguration
+    let cacheDirectory: URL?
     var currentState: RuntimeState = .modelRequired
     var engine: Engine?
     var conversation: (any TextSession)?
@@ -47,10 +50,12 @@ actor LiteRTLMRuntime: LLMRuntime {
 
     init(
         configuration: SLMConfiguration = .production,
-        collectNativeBenchmark: Bool = false
+        collectNativeBenchmark: Bool = false,
+        cacheDirectory: URL? = nil
     ) {
         slmConfiguration = configuration
         self.collectNativeBenchmark = collectNativeBenchmark
+        self.cacheDirectory = cacheDirectory
     }
 
     private var cancellationTimeoutSeconds: Int {
@@ -65,7 +70,9 @@ actor LiteRTLMRuntime: LLMRuntime {
         try await unload()
 
         currentState = .preparingModel
+#if !os(Android)
         isAccessingSecurityScopedModel = modelURL.startAccessingSecurityScopedResource()
+#endif
         scopedModelURL = modelURL
 
         guard FileManager.default.fileExists(atPath: modelURL.path) else {
@@ -427,6 +434,10 @@ actor LiteRTLMRuntime: LLMRuntime {
     }
 
     private func runtimeCacheURL() throws -> URL {
+        if let cacheDirectory {
+            try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+            return cacheDirectory
+        }
         let baseURL = try FileManager.default.url(
             for: .cachesDirectory,
             in: .userDomainMask,
@@ -445,9 +456,11 @@ actor LiteRTLMRuntime: LLMRuntime {
     }
 
     private func releaseSecurityScopedModel() {
+#if !os(Android)
         if isAccessingSecurityScopedModel {
             scopedModelURL?.stopAccessingSecurityScopedResource()
         }
+#endif
 
         scopedModelURL = nil
         isAccessingSecurityScopedModel = false

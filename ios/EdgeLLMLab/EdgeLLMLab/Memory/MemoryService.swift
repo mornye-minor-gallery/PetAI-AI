@@ -23,7 +23,7 @@ struct EmbeddingComparison: Sendable {
   let differentScore: Float
 }
 
-actor MemoryService: ClassificationEmbeddingProviding {
+actor MemoryService: ChatMemoryService {
   nonisolated let modelID =
     "litert-community/embeddinggemma-300m-seq256-mixed-precision"
   nonisolated let dimension = 768
@@ -34,6 +34,17 @@ actor MemoryService: ClassificationEmbeddingProviding {
   private var observationStore: SQLiteObservationStore?
   private var engine: MemoryEngine?
   private var preparationTask: Task<Void, Error>?
+  private let supportDirectory: URL?
+
+  init(supportDirectory: URL? = nil) {
+    self.supportDirectory = supportDirectory
+  }
+
+  private func applicationSupportDirectory() throws -> URL {
+    if let supportDirectory { return supportDirectory }
+    return try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                      appropriateFor: nil, create: true)
+  }
 
   func prepare(
     modelURL: URL,
@@ -187,8 +198,7 @@ actor MemoryService: ClassificationEmbeddingProviding {
     _ = try requirePrepared()
     guard let identity = worldInfoEmbeddingIdentity else { throw MemoryServiceError.notPrepared }
     if worldInfoIndex == nil {
-      let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
-                                               appropriateFor: nil, create: true)
+      let support = try applicationSupportDirectory()
       worldInfoIndex = try WorldInfoVectorIndex(url: support.appendingPathComponent("PetAI/world-info/\(identity).json"),
                                                embeddingIdentity: identity)
     }
@@ -280,12 +290,7 @@ actor MemoryService: ClassificationEmbeddingProviding {
   }
 
   private func makeStore() throws -> SQLiteObservationStore {
-    let applicationSupport = try FileManager.default.url(
-      for: .applicationSupportDirectory,
-      in: .userDomainMask,
-      appropriateFor: nil,
-      create: true
-    )
+    let applicationSupport = try applicationSupportDirectory()
     let databaseURL =
       applicationSupport
       .appendingPathComponent("EdgeLLM", isDirectory: true)

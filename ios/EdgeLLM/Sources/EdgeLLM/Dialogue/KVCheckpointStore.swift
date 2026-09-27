@@ -1,6 +1,14 @@
 import Foundation
+#if os(Android)
+import Crypto
+#else
 import CryptoKit
+#endif
+#if os(Android)
+import Android
+#else
 import Darwin
+#endif
 
 /// One latest native text-session cache per device, not another dialogue archive.
 /// The authoritative recent turns remain in DialogueSessionFileStore. All input
@@ -11,11 +19,15 @@ public struct KVCheckpointStore: Sendable {
     public var exists: Bool { FileManager.default.fileExists(atPath: fileURL.path) }
 
     public init(directory: URL) throws {
+        // Android callers supply an app-private cache/no-backup directory;
+        // Apple's resource attribute does not configure Android backup rules.
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+#if !os(Android)
         var directory = directory
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         try directory.setResourceValues(values)
+#endif
 #if os(iOS)
         try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
                                               ofItemAtPath: directory.path)
@@ -83,17 +95,17 @@ private final class KVCheckpointFile {
 
     init(url: URL, reading: Bool) throws {
         self.reading = reading
-        descriptor = Darwin.open(url.path, reading ? O_RDONLY | O_NOFOLLOW : O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0o600)
+        descriptor = KVFileSystem.open(url.path, reading ? O_RDONLY | O_NOFOLLOW : O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0o600)
         guard descriptor >= 0 else { throw KVCheckpointError.io(errno) }
     }
 
     func close() {
-        if descriptor >= 0 { Darwin.close(descriptor); descriptor = -1 }
+        if descriptor >= 0 { _ = KVFileSystem.close(descriptor); descriptor = -1 }
     }
 
     func synchronizeAndClose() throws {
         guard fsync(descriptor) == 0 else { throw KVCheckpointError.io(errno) }
-        let result = Darwin.close(descriptor)
+        let result = KVFileSystem.close(descriptor)
         descriptor = -1
         guard result == 0 else { throw KVCheckpointError.io(errno) }
     }
@@ -118,7 +130,7 @@ private final class KVCheckpointFile {
             if reading {
                 var extra: UInt8 = 0
                 var count: Int
-                repeat { count = Darwin.read(descriptor, &extra, 1) } while count < 0 && errno == EINTR
+                repeat { count = KVFileSystem.read(descriptor, &extra, 1) } while count < 0 && errno == EINTR
                 guard count == 0 else { throw KVCheckpointError.invalidData }
             }
             finished = true
@@ -130,8 +142,8 @@ private final class KVCheckpointFile {
     private func bytesIO(_ pointer: UnsafeMutableRawPointer, _ size: Int) throws {
         var offset = 0
         while offset < size {
-            let count = reading ? Darwin.read(descriptor, pointer + offset, size - offset)
-                                : Darwin.write(descriptor, pointer + offset, size - offset)
+            let count = reading ? KVFileSystem.read(descriptor, pointer + offset, size - offset)
+                                : KVFileSystem.write(descriptor, pointer + offset, size - offset)
             if count < 0 && errno == EINTR { continue }
             guard count > 0 else {
                 if count == 0 { throw KVCheckpointError.invalidData }

@@ -1,5 +1,9 @@
 import Foundation
+#if os(Android)
+import Crypto
+#else
 import CryptoKit
+#endif
 
 public enum WorldInfoVectorIndexError: Error, Equatable {
     case embeddingIdentityMismatch, invalidSnapshot, duplicateEntry(String), busy
