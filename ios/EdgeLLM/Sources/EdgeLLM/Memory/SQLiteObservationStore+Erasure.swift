@@ -6,7 +6,7 @@ extension SQLiteObservationStore {
     /// Delete rows, not just visibility flags: raw turns and embeddings are private data too.
     public func eraseAllMemories() throws {
         try execute("PRAGMA secure_delete = ON;")
-        let tables = ["observation_embeddings", "observation_labels", "observations", "gate_results", "conversation_turns"]
+        let tables = ["daily_diaries", "observation_embeddings", "observation_labels", "observations", "gate_results", "conversation_turns"]
         try transaction {
             for table in tables { try execute("DELETE FROM \(table);") }
             for table in tables {

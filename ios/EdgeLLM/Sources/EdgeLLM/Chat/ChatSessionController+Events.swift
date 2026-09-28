@@ -33,7 +33,9 @@ extension ChatSessionController {
         homeSteps: HomeStepObservation? = nil,
         presentation: ChatReplyPresentation? = nil,
         worldInfoAutomation: [String]? = nil,
-        recentEntries: [NativeRestoredDialogueEntry]? = nil
+        recentEntries: [NativeRestoredDialogueEntry]? = nil,
+        diary: NativeDiaryEntry? = nil,
+        diaries: [NativeDiaryEntry]? = nil
     ) {
         eventSink(
             NativeChatEvent(
@@ -45,7 +47,9 @@ extension ChatSessionController {
                 homeSteps: homeSteps,
                 presentation: presentation,
                 worldInfoAutomation: worldInfoAutomation,
-                recentEntries: recentEntries
+                recentEntries: recentEntries,
+                diary: diary,
+                diaries: diaries
             )
         )
     }

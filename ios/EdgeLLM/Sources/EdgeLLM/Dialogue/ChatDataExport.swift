@@ -29,13 +29,16 @@ public struct ChatDataExport: Codable, Sendable {
     public let exportedAt: Date
     public let recentEntries: [RecentEntry]
     public let longTermMemories: [LongTermMemory]
+    public let diaries: [DailyDiary]
 
-    public init(recentEntries: [RecentDialogueEntry], activeMemories: [MemoryObservation], exportedAt: Date = Date()) throws {
+    public init(recentEntries: [RecentDialogueEntry], activeMemories: [MemoryObservation],
+                diaries: [DailyDiary] = [], exportedAt: Date = Date()) throws {
         if let invalid = activeMemories.first(where: { $0.state != .active || $0.labels.isEmpty }) {
             throw ChatDataExportError.invalidMemory(invalid.id)
         }
-        formatVersion = 2
+        formatVersion = 3
         self.exportedAt = exportedAt
+        self.diaries = diaries
         self.recentEntries = recentEntries.map { entry in
             switch entry {
             case .request(let turn):

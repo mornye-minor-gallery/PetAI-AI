@@ -42,6 +42,8 @@ public protocol ChatInferenceRuntime: LLMRuntime, NativeToolProposalGenerating {
     func generateIsolated(systemPrompt: String, userMessage: String,
                           sampling: SLMConfiguration.Sampling?,
                           thinkingEnabled: Bool?, maxOutputTokens: Int?) async throws -> String
+    func generateDiary(systemPrompt: String, userMessage: String) async throws -> String
+    func countDiaryInputTokens(systemPrompt: String, userMessage: String) async throws -> Int
     func saveCompletedDialogueCheckpoint() async
     func eraseCheckpoint() async throws
 }
@@ -56,6 +58,10 @@ public protocol ChatMemoryService: ClassificationEmbeddingProviding {
     func searchWorldInfo(entries: [WorldInfoEntry], newestMessages: [String],
                          settings: WorldInfoVectorSettings) async throws -> [WorldInfoVectorMatch]
     func allActiveObservations() async throws -> [MemoryObservation]
+    func activeObservations(in scope: MemoryScope, from start: Date, to end: Date) async throws -> [MemoryObservation]
+    func diary(characterID: String, localDate: String) async throws -> DailyDiary?
+    func allDiaries() async throws -> [DailyDiary]
+    func insertDiaryIfAbsent(characterID: String, localDate: String, draft: DailyDiaryDraft) async throws -> DailyDiary
     func eraseAllMemories() async throws
 }
 

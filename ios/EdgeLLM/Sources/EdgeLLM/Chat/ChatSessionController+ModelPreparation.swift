@@ -5,7 +5,7 @@ extension ChatSessionController {
     public func selectModel() async { await prepareOnce(selectingModel: true) }
 
     func prepareOnce(selectingModel: Bool) async {
-        guard !isUnloading, maintenanceRequestID == nil, !dataExportInProgress else {
+        guard !isUnloading, maintenanceRequestID == nil, !dataExportInProgress, diaryTask == nil else {
             emitError(code: "runtime_busy", message: RuntimeError.runtimeBusy.localizedDescription)
             return
         }

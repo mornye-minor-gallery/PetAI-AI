@@ -26,6 +26,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
     private var prefix = InputPrefixTrace()
     private var trace: CachedSessionTrace?
     private var hasNativeInput = false
+    private var hasPrefilledPrefix = false
     private var requiresEngineRecreation = false
     public let id = UUID().uuidString
 
@@ -84,7 +85,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
                 if reading {
                     guard !hasNativeInput else { throw CachedSessionError.busy }
                 } else {
-                    guard trace?.finishReason == "stop" || trace?.finishReason == "token_limit" else {
+                    guard hasPrefilledPrefix || trace?.finishReason == "stop" || trace?.finishReason == "token_limit" else {
                         throw CachedSessionError.checkpoint(9)
                     }
                 }
@@ -108,6 +109,34 @@ public final class CachedSession: TextSession, @unchecked Sendable {
     }
     public func getTokenCount() throws -> Int { throw CachedSessionError.tokenCountUnavailable }
 
+    /// Saveable state after a fixed system turn, before any day-specific input or decode.
+    public func primeSystemPrompt(_ prompt: String, thinkingEnabled: Bool) async throws {
+        let rendered = try await engine.renderTextRequest(systemPrompt: prompt, history: [],
+            userPrompt: "PETAI_DIARY_INPUT_MARKER", thinkingEnabled: thinkingEnabled)
+        guard let userTurn = rendered.range(of: "<|turn>user\n"),
+              rendered.contains("<|turn>model"), !rendered[..<userTurn.lowerBound].isEmpty else {
+            throw CachedSessionError.unsupportedTemplate
+        }
+        let startToken = try await engine.startTokenText()
+        let prefix = String(rendered[..<userTurn.lowerBound])
+        let nativeText = !startToken.isEmpty && prefix.hasPrefix(startToken)
+            ? String(prefix.dropFirst(startToken.count)) : prefix
+        try lock.withLock {
+            guard !lifetime.isActive, !hasNativeInput else { throw CachedSessionError.busy }
+            guard !requiresEngineRecreation else { throw CachedSessionError.checkpoint(10) }
+            let input = nativeText.withCString {
+                litert_lm_input_data_create(kLiteRtLmInputDataTypeText, $0, nativeText.utf8.count)
+            }
+            guard let input else { throw CachedSessionError.input }
+            defer { litert_lm_input_data_delete(input) }
+            var pointer: OpaquePointer? = input
+            let status = litert_lm_session_run_prefill(handle, &pointer, 1)
+            guard status == 0 else { throw CachedSessionError.start(Int(status)) }
+            hasNativeInput = true
+            hasPrefilledPrefix = true
+        }
+    }
+
     func render(_ prompt: String, thinkingEnabled: Bool) async throws -> String {
         let (system, messages) = lock.withLock { (systemPrompt, history) }
         return try await engine.renderTextRequest(systemPrompt: system, history: messages,
@@ -126,6 +155,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
         guard lock.withLock({ !requiresEngineRecreation && lifetime.tryBegin() }) else {
             return AsyncThrowingStream { $0.finish(throwing: CachedSessionError.busy) }
         }
+        lock.withLock { hasPrefilledPrefix = false }
         return AsyncThrowingStream { continuation in
             // Retains the native session through setup AND the terminal callback.
             Task {

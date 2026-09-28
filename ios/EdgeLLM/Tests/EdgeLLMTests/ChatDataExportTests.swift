@@ -20,12 +20,16 @@ func chatDataExportKeepsOnlyRetainedTurnsAndActiveMemories() throws {
         occurredAt: now, rawText: "질문 3",
         labelEvidence: [.init(label: .preference, score: nil, source: .gemmaHeader,
             classifierVersion: "test")], createdAt: now)
-    let exported = try ChatDataExport(recentEntries: session.recentEntries, activeMemories: [memory], exportedAt: now)
+    let diary = DailyDiary(characterID: "elena", localDate: "2026-09-27",
+        title: "산책한 날", body: "산책했어요.", completedAt: now)
+    let exported = try ChatDataExport(recentEntries: session.recentEntries, activeMemories: [memory],
+        diaries: [diary], exportedAt: now)
     let json = try JSONSerialization.jsonObject(with: exported.jsonData()) as! [String: Any]
     let turns = json["recentEntries"] as! [[String: Any]]
     let memories = json["longTermMemories"] as! [[String: Any]]
 
-    #expect(json["formatVersion"] as? Int == 2)
+    #expect(json["formatVersion"] as? Int == 3)
+    #expect((json["diaries"] as? [[String: Any]])?.first?["title"] as? String == "산책한 날")
     #expect(turns.map { $0["id"] as! String } == ["turn-3", "turn-4"])
     #expect(turns[1]["assistantMessage"] as? String == "좋아")
     #expect(turns[1]["status"] as? String == "cancelled")

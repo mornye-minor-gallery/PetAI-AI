@@ -2,9 +2,9 @@ import Foundation
 
 extension ChatSessionController {
     public func beginDataDeletion(id: String, reset: Bool, removeModels: Bool) {
-        guard !dataExportInProgress else {
+        guard !dataExportInProgress, diaryTask == nil else {
             emit(type: "maintenance_failed", requestId: id,
-                 message: "데이터 내보내기가 끝난 뒤 다시 시도해 주세요.")
+                 message: "진행 중인 데이터 작업이 끝난 뒤 다시 시도해 주세요.")
             return
         }
         guard maintenanceTask == nil else { return }

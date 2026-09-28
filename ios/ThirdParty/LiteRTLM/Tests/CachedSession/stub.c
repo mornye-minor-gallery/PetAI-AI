@@ -20,6 +20,14 @@ int litert_lm_session_transfer_state(LiteRtLmSession* s, LiteRtLmStateTransfer t
  return 0;
 }
 static char last_input[8192];
+static char last_prefill[8192];
+static int prefill_count;
+int test_prefill_count(void) { return prefill_count; }
+const char* test_prefill(void) { return last_prefill; }
+int litert_lm_session_run_prefill(LiteRtLmSession* s,const LiteRtLmInputData* const* inputs,size_t n) {
+ if (s->active || n!=1) abort();
+ strcpy(last_prefill,inputs[0]->text); prefill_count++; return 0;
+}
 static LiteRtLmStreamCallback saved_callback;
 static void* saved_data;
 int test_created(void) { return created; }

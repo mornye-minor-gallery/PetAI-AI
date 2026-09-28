@@ -39,6 +39,7 @@ public actor ChatSessionController {
     var maintenanceTask: Task<Void, Never>?
     var dataExportInProgress = false
     var exportTask: Task<Void, Never>?
+    var diaryTask: Task<Void, Never>?
     var dialogueTasks: [UUID: Task<Void, Never>] = [:]
     var cancelRequested = false
     var dialogueContent: DialogueContent?
@@ -76,7 +77,7 @@ public actor ChatSessionController {
     var isUnloading = false
 
     public func send(json: String) async {
-        guard maintenanceRequestID == nil, !dataExportInProgress, !isUnloading else {
+        guard maintenanceRequestID == nil, !dataExportInProgress, diaryTask == nil, !isUnloading else {
             let id = (try? JSONDecoder().decode(NativeSendRequest.self, from: Data(json.utf8)))?.requestId
             emitError(code: "runtime_busy", message: "데이터 정리 또는 이전 대화가 진행 중입니다.", requestId: id)
             return
@@ -315,7 +316,7 @@ public actor ChatSessionController {
             emitError(code: "runtime_busy", message: RuntimeError.runtimeBusy.localizedDescription)
             return
         }
-        guard !isUnloading, maintenanceRequestID == nil, !dataExportInProgress else { return }
+        guard !isUnloading, maintenanceRequestID == nil, !dataExportInProgress, diaryTask == nil else { return }
         isUnloading = true
         defer { isUnloading = false }
         if let task = preparationTask { await task.value }

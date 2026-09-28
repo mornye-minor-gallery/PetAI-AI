@@ -4,6 +4,8 @@ int test_checkpoint_writes(void);
 void test_set_checkpoint_error(int code);
 int test_created(void);
 int test_rewinds(void);
+int test_prefill_count(void);
+const char* test_prefill(void);
 const char* test_input(void);
 void test_set_pending(int pending);
 void test_set_start_error(int code);

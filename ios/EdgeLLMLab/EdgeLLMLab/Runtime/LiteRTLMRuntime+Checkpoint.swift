@@ -73,6 +73,7 @@ extension LiteRTLMRuntime {
     func eraseCheckpoint() throws {
         try requireNativeIdle()
         try (checkpointStore ?? makeCheckpointStore()).remove()
+        try makeDiaryCheckpointStore().remove()
         logger.notice("KV checkpoint removed")
     }
 }

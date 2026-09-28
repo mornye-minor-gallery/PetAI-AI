@@ -524,7 +524,7 @@ func retrievalFailureIsLoggedAndReturnsNoMemory() async {
 func sqliteSchemaIsTheFirstCanonicalObservationMemoryContract() {
     let schema = EdgeMemSQLiteSchema.statements.joined(separator: "\n")
 
-    #expect(EdgeMemSQLiteSchema.version == 3)
+    #expect(EdgeMemSQLiteSchema.version == 4)
     #expect(schema.contains("conversation_turns"))
     #expect(schema.contains("gate_results"))
     #expect(schema.contains("observations"))
@@ -532,6 +532,7 @@ func sqliteSchemaIsTheFirstCanonicalObservationMemoryContract() {
     #expect(schema.contains("observation_embeddings"))
     #expect(schema.contains("content_hash"))
     #expect(schema.contains("gemma_header"))
+    #expect(schema.contains("daily_diaries"))
     #expect(schema.contains("CHECK (decision IN"))
     #expect(!schema.contains("memory_observations"))
     #expect(!schema.lowercased().contains("fts5"))

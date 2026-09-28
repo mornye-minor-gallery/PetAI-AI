@@ -3,16 +3,27 @@ import CLiteRTLM
 
 extension LifecycleTests {
     static func checkpointTests() async throws {
+        let prefix = try CachedSession(engine: Engine(), engineHandle: OpaquePointer(bitPattern: 1)!,
+            sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
+        try await prefix.primeSystemPrompt("일기 고정 지침", thinkingEnabled: false)
+        precondition(test_prefill_count() == 1 && String(cString: test_prefill()) == "일기 고정 지침")
+        try prefix.transferState(reading: false) { _, _ in }
+        let resumed = try CachedSession(engine: Engine(), engineHandle: OpaquePointer(bitPattern: 1)!,
+            sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
+        try resumed.transferState(reading: true) { _, _ in }
+        try resumed.replaceInput(systemPrompt: "일기 고정 지침")
+        _ = try await run(resumed, "날짜별 기억")
+        precondition(test_prefill_count() == 1, "restored prefix must skip prefill")
         let session = try CachedSession(engine: Engine(), engineHandle: OpaquePointer(bitPattern: 1)!,
             sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
         do { try session.transferState(reading: false) { _, _ in }; preconditionFailure("fresh session saved") } catch {}
         try session.transferState(reading: true) { _, _ in }
-        precondition(test_checkpoint_reads() == 1)
+        precondition(test_checkpoint_reads() == 2)
         do { try session.transferState(reading: true) { _, _ in }; preconditionFailure("restored twice") } catch {}
         try session.replaceInput(systemPrompt: "fixed")
         _ = try await run(session, "checkpoint")
         try session.transferState(reading: false) { _, _ in }
-        precondition(test_checkpoint_writes() == 1)
+        precondition(test_checkpoint_writes() == 2)
         test_set_pending(1)
         let source = session.streamText("checkpoint busy", thinkingEnabled: false, maxOutputTokens: 32)
         while !String(cString: test_input()).contains("checkpoint busy") { await Task.yield() }

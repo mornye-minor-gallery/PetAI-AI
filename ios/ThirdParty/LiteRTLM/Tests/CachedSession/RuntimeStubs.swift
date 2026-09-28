@@ -14,7 +14,7 @@ struct Message: Sendable {
 }
 actor Engine {
     func renderTextRequest(systemPrompt: String?, history: [Message], userPrompt: String, thinkingEnabled: Bool) throws -> String {
-        "BOS" + (systemPrompt ?? "") + history.map(\.text).joined() + userPrompt + "<|turn>model\n"
+        "BOS" + (systemPrompt ?? "") + history.map(\.text).joined() + "<|turn>user\n" + userPrompt + "<|turn>model\n"
     }
     func countTokens(_ text: String) throws -> Int { text.utf8.count }
     func tokenIDs(_ text: String) throws -> [Int32] { text.utf8.map(Int32.init) }

@@ -252,6 +252,38 @@ actor MemoryService: ChatMemoryService {
     }
   }
 
+  func activeObservations(in scope: MemoryScope, from start: Date, to end: Date) async throws -> [MemoryObservation] {
+    try await withStore { try await $0.activeObservations(in: scope, from: start, to: end) }
+  }
+
+  func diary(characterID: String, localDate: String) async throws -> DailyDiary? {
+    try await withStore { try await $0.diary(characterID: characterID, localDate: localDate) }
+  }
+
+  func allDiaries() async throws -> [DailyDiary] {
+    try await withStore { try await $0.allDiaries() }
+  }
+
+  func insertDiaryIfAbsent(characterID: String, localDate: String, draft: DailyDiaryDraft) async throws -> DailyDiary {
+    try await withStore { try await $0.insertDiaryIfAbsent(characterID: characterID, localDate: localDate, draft: draft) }
+  }
+
+  private func withStore<Value: Sendable>(
+    _ operation: @Sendable (SQLiteObservationStore) async throws -> Value
+  ) async throws -> Value {
+    if let observationStore { return try await operation(observationStore) }
+    let store = try makeStore()
+    do {
+      try await store.initialize()
+      let result = try await operation(store)
+      await store.close()
+      return result
+    } catch {
+      await store.close()
+      throw error
+    }
+  }
+
   func close() async {
     worldInfoIndex = nil
     worldInfoEmbeddingIdentity = nil

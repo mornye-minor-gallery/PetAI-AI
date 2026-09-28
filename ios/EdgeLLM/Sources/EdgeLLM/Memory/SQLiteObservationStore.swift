@@ -119,9 +119,7 @@ public actor SQLiteObservationStore:
             if let existingVersion = try existingSchemaVersion(),
                 existingVersion != EdgeMemSQLiteSchema.version
             {
-                if existingVersion == 1,
-                    EdgeMemSQLiteSchema.version == 3
-                {
+                if existingVersion == 1 {
                     try transaction {
                         for statement in
                             EdgeMemSQLiteSchema.migrateVersion1ToVersion2
@@ -136,9 +134,7 @@ public actor SQLiteObservationStore:
                             try execute(statement)
                         }
                     }
-                } else if existingVersion == 2,
-                    EdgeMemSQLiteSchema.version == 3
-                {
+                } else if existingVersion == 2 {
                     try transaction {
                         for statement in EdgeMemSQLiteSchema
                             .resetVersion2ForCharacterNeutralVersion3
@@ -146,7 +142,7 @@ public actor SQLiteObservationStore:
                             try execute(statement)
                         }
                     }
-                } else {
+                } else if existingVersion != 3 {
                     throw SQLiteObservationStoreError
                         .unsupportedSchemaVersion(
                             found: existingVersion,
@@ -161,7 +157,7 @@ public actor SQLiteObservationStore:
                 }
                 try execute(
                     """
-                    INSERT OR IGNORE INTO schema_metadata(key, value)
+                    INSERT OR REPLACE INTO schema_metadata(key, value)
                     VALUES ('schema_version', '\(EdgeMemSQLiteSchema.version)');
                     """
                 )
@@ -201,6 +197,37 @@ public actor SQLiteObservationStore:
                 """,
             scope: scope
         )
+        return try rows.map(makeObservation)
+    }
+
+    public func activeObservations(
+        in scope: MemoryScope, from start: Date, to end: Date
+    ) throws -> [MemoryObservation] {
+        guard start < end else { return [] }
+        let rows = try withStatement(
+            """
+            SELECT o.id, o.turn_id, t.session_id, t.sequence, t.user_id,
+                   t.character_id, t.occurred_at, t.text, o.state, o.created_at
+            FROM observations AS o
+            INNER JOIN conversation_turns AS t ON t.id = o.turn_id
+            WHERE t.user_id = ? AND t.character_id = ? AND o.state = 'active'
+              AND t.occurred_at >= ? AND t.occurred_at < ?
+            ORDER BY t.occurred_at ASC, o.id ASC;
+            """
+        ) { statement in
+            try bind(scope.userID, at: 1, to: statement)
+            try bind(scope.characterID, at: 2, to: statement)
+            try bind(dateString(start), at: 3, to: statement)
+            try bind(dateString(end), at: 4, to: statement)
+            var rows: [ObservationRow] = []
+            while true {
+                let result = sqlite3_step(statement)
+                if result == SQLITE_DONE { break }
+                guard result == SQLITE_ROW else { throw statementError() }
+                rows.append(try observationRow(from: statement))
+            }
+            return rows
+        }
         return try rows.map(makeObservation)
     }
 
@@ -832,7 +859,7 @@ public actor SQLiteObservationStore:
         }
     }
 
-    private func text(
+    func text(
         at index: Int32,
         from statement: OpaquePointer,
         column: String
@@ -968,7 +995,7 @@ public actor SQLiteObservationStore:
         return database
     }
 
-    private func statementError() -> SQLiteObservationStoreError {
+    func statementError() -> SQLiteObservationStoreError {
         guard let database = connection.handle else {
             return .databaseNotInitialized
         }

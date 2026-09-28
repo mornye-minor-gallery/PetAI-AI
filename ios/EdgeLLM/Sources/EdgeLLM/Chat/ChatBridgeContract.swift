@@ -10,6 +10,22 @@ public struct NativeChatEvent: Encodable, Sendable {
     public var presentation: ChatReplyPresentation?
     public var worldInfoAutomation: [String]?
     public var recentEntries: [NativeRestoredDialogueEntry]?
+    public var diary: NativeDiaryEntry?
+    public var diaries: [NativeDiaryEntry]?
+}
+
+public struct NativeDiaryEntry: Encodable, Sendable {
+    public let characterID: String
+    public let localDate: String
+    public let title: String
+    public let body: String
+
+    public init(_ value: DailyDiary) {
+        characterID = value.characterID
+        localDate = value.localDate
+        title = value.title
+        body = value.body
+    }
 }
 
 public struct NativeRestoredDialogueEntry: Encodable, Sendable {

@@ -3,7 +3,7 @@ import Foundation
 extension ChatSessionController {
     public func beginDataExport() {
         guard exportTask == nil, !dataExportInProgress,
-              activeRequestId == nil, dialogueTasks.isEmpty, captionTask == nil,
+              activeRequestId == nil, dialogueTasks.isEmpty, captionTask == nil, diaryTask == nil,
               preparationTask == nil, maintenanceRequestID == nil, !isUnloading,
               state != .loading, state != .generating else {
             logger.notice("Data export rejected because the runtime is busy")
@@ -21,7 +21,8 @@ extension ChatSessionController {
                 let recent = try (recentTurnStore ?? platform.recentTurnStore())
                     .load()?.recentEntries ?? []
                 let memories = try await memoryService.allActiveObservations()
-                let data = try ChatDataExport(recentEntries: recent, activeMemories: memories)
+                let diaries = try await memoryService.allDiaries()
+                let data = try ChatDataExport(recentEntries: recent, activeMemories: memories, diaries: diaries)
                     .jsonData()
                 let file = try TemporaryChatDataExportFile(data: data,
                     temporaryRoot: FileManager.default.temporaryDirectory)

@@ -15,7 +15,7 @@ import CLiteRTLM
         let first = try await run(session, "기억 A")
         precondition(first == "안녕")
         precondition(test_created() == 1 && test_rewinds() == 1)
-        precondition(String(cString: test_input()).hasPrefix("fixed기억 A")) // BOS supplied once by native.
+        precondition(String(cString: test_input()).hasPrefix("fixed<|turn>user\n기억 A")) // BOS supplied once by native.
         try session.replaceInput(systemPrompt: "fixed")
         _ = try await run(session, "기억 B")
         precondition(test_created() == 1 && test_rewinds() == 2)
@@ -25,7 +25,7 @@ import CLiteRTLM
         _ = try await run(session, "기억 B")
         precondition(test_rewinds() == 3, "identical input still rewinds past old output")
         _ = try await run(session, "retry")
-        precondition(String(cString: test_input()).contains("기억 B안녕retry"))
+        precondition(String(cString: test_input()).contains("기억 B안녕<|turn>user\nretry"))
         try session.replaceInput(systemPrompt: "fixed")
         _ = try await run(session, "짧음")
         precondition(!String(cString: test_input()).contains("retry"))
