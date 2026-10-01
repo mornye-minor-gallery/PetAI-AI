@@ -1,57 +1,38 @@
-# PetAI AI
+# 별무리
 
-제17기 서울 AISW마에스트로 **온디바이스 개인화 메모리 기반 캐릭터 육성 게임 PetAI**의 AI 연구·런타임 공개 저장소입니다.
+AI·SW 마에스트로 서울 제17기
 
-사용자 발화에서 기억할 내용을 고르고, 기기에 저장한 기억을 검색해 다음 대화에 반영하는 과정을 구현합니다. 메모리 품질 평가, 장면·도구 라우팅, 네이티브 도구 인자 제안 실험도 포함합니다.
+2026.04 ~ 2026.11 (정식 출시 예정) / 온디바이스 AI 개발
 
-[전체 게임 저장소](https://github.com/mornye-minor-gallery/PetAI)는 에셋 라이선스 사유로 비공개로 유지합니다. 이 저장소에는 Unity 프로젝트, 게임 이미지·음원·폰트, 제품 배포 설정이 포함되지 않습니다.
+## 프로젝트 개요
 
-변경을 제안하거나 비공개 개발 저장소의 코드를 옮길 때에는 [공개 저장소 기여 기준](CONTRIBUTING.md)을 먼저 확인합니다.
+별무리는 스마트폰에서 완전히 온디바이스로 실행되는 소형 언어 모델(sLM)을 통해 캐릭터와 대화하며 개인화된 경험을 제공하는 앱입니다. 그날의 중요한 기억을 매일 일기로 저장하며, 자연어로 캘린더 정리와 알람 설정 등의 네이티브 기능을 호출하여 작업하는 Agent 기능을 지원합니다.
 
-## 먼저 보기
+## 담당 범위
 
-| 관심 영역 | 코드와 설명 |
-| --- | --- |
-| 실제 메모리 저장·검색 구현 | [EdgeLLM 메모리](ios/EdgeLLM/Sources/EdgeLLM/Memory/) |
-| 메모리 품질을 어떻게 평가했는가 | [EdgeMemBench](ai/edgemembench/README.md) |
-| 메모리 저장 여부 분류 | [Memory Classifier](ai/memory-classifier/README.md) |
-| 장면 라우팅 | [FacetRouteBench](ai/facetroutebench/README.md) |
-| 도구 실행 여부와 종류 판정 | [ToolRouteBench](ai/toolroutebench/README.md) |
-| 독립 실험 앱 실행 | [EdgeLLMLab 실행 안내](docs/quickstart.md) |
-| 전체 연구 목록과 해석 범위 | [AI 연구 인덱스](ai/README.md) |
+- Effective Paramter 2.3B의 파라미터 규모를 가진 소형 언어 모델 Gemma 4 E2B 모델을 활용하여 완전한 모바일 (Android, iOS) 온디바이스 추론을 구현했습니다.
+- KVCache 등의 최적화를 위해 Google의 오픈소스 엣지디바이스 추론엔진인 LiteRT-LM을 프로젝트에 맞게 직접 수정하고 적용했습니다.
+- 300M의 파라미터 규모를 가진 EmbeddingGemma를 활용한, 개인화 소형 언어 모델을 위한 장기기억 아키텍쳐 EdgeMem을 직접 설계하고 적용했으며, iOS 네이티브 앱 기능 Tool Calling을 구현했습니다.
+- 게임 클라이언트 Unity와 LiteRT-LM 추론엔진 실행부를 책임지는 Swift 엔진을 Application Binary Interface로 통신하여 C#과 C++ 두 언어의 동작을 통합했습니다.
 
-## 모델 없이 검증하기
+## 전체 구조
 
-Python 3.12, [uv](https://docs.astral.sh/uv/)와 `jq`가 필요합니다. Swift 테스트는 Swift 6.3 이상을 갖춘 macOS에서 실행합니다.
+작성중
 
-```sh
-git clone https://github.com/mornye-minor-gallery/PetAI-AI.git
-cd PetAI-AI
-uv sync --frozen
-uv run --frozen python scripts/check.py
+사용 기술: Unity / Swift / Gemma 4 E2B / LiteRT-LM / EmbeddingGemma / SQLite
 
-# macOS에서 Swift 패키지 테스트까지 실행
-uv run --frozen python scripts/check.py --swift
-```
+소스 코드: https://github.com/mornye-minor-gallery/PetAI-AI
 
-검사는 모델 다운로드나 추론 서버 없이 실행됩니다. 진행 상태는 터미널에 표시되며, 검사별 로그와 종료 상태는 `.artifacts/checks/`에 저장됩니다. 학습·추론 실험의 의존성은 각 연구 폴더의 고정 환경과 실행 안내를 따릅니다.
+## 공개 저장소 안내
 
-## 구현과 연구 결과의 관계
+별무리 개발 저장소에서 AI 추론, 장기기억, 평가 코드를 분리해 공개했습니다.
 
-- `ios/EdgeLLM/`은 메모리·프롬프트·라우팅·도구 제안의 Swift 구현과 테스트를 제공합니다.
-- `ios/EdgeLLMLab/`은 모델 파일을 직접 선택해 추론·임베딩·메모리를 실험하는 앱입니다.
-- `ai/`의 결과는 해당 데이터·모델·실험 조건에서 얻은 연구 기록입니다. 모든 연구 후보가 실험 앱에 연결된 것은 아닙니다.
-- Mac 품질 평가, Swift 테스트, 서명 없는 시뮬레이터 빌드는 iPhone의 추론 속도·메모리·발열·배터리 검증을 대신하지 않습니다.
-- 도구 라우터의 학습 가중치는 제공하지 않습니다. 호출자가 공개 권한을 확인한 산출물과 manifest 해시를 공급해야 합니다. 구현 테스트는 직접 작성한 합성 입력을 사용합니다.
+- [`ios/EdgeLLM/`](ios/EdgeLLM/): 대화·기억·라우팅 구현과 테스트
+- [`ios/EdgeLLMLab/`](ios/EdgeLLMLab/): 모델을 직접 실행하며 확인하는 실험 앱
+- [`ai/`](ai/README.md): 모델 평가와 연구 코드
 
-## 이력과 기여
+구조와 설계 과정은 [AI 기술 문서](https://pysunn.me/docs-beolmuri-ai/)에 정리했습니다. 실험 앱을 실행하려면 [실행 안내](docs/quickstart.md)를 참고해 주세요.
 
-PetAI `main`의 관련 경로에서 **63개 커밋의 개발 이력**을 추출했습니다. 작성자·작성 시각과 해당 경로의 변경 내역을 보존했으며, 공개 제외 파일과 일부 문서를 정리하는 과정에서 커밋 해시는 변경되었습니다. 원본에서 Squash된 작업의 병합 전 개별 커밋과 GitHub PR·리뷰·이슈는 포함하지 않습니다.
+이 저장소는 팀 프로젝트에서 분리했으며, 각 구현의 기여자는 Git 이력에서 확인할 수 있습니다. 변경을 제안할 때에는 [기여 기준](CONTRIBUTING.md)을 참고해 주세요.
 
-이 저장소는 팀 프로젝트에서 분리되었습니다. 각 구현의 기여자는 Git 이력으로 확인할 수 있으며, 저장소 전체를 개인 단독 작업으로 표현하지 않습니다. 연구 보고서의 시점별 결과와 현재 코드의 상태를 함께 확인해 주세요.
-
-## 공개 범위와 이용 조건
-
-모델 원본, 외부 데이터 원문·번역 캐시, 출처가 불명확한 학습 가중치와 실사용 대화 기록은 배포하지 않습니다. 데이터는 각 출처의 조건에 따라 별도로 준비합니다.
-
-이 저장소 공개는 프로젝트 자체 코드에 대한 포괄적인 오픈소스 라이선스 부여를 의미하지 않습니다. 자체 코드의 재사용 라이선스는 아직 지정하지 않았습니다. 외부 코드와 데이터에는 각각의 원래 조건이 적용됩니다. [이용 조건과 출처](THIRD_PARTY_NOTICES.md)를 확인해 주세요.
+자체 코드의 재사용 라이선스는 아직 지정하지 않았습니다. 외부 코드와 데이터의 이용 조건은 [출처 및 이용 조건](THIRD_PARTY_NOTICES.md)에 정리했습니다.
