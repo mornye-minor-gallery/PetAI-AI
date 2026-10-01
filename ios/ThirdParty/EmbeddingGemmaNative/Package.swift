@@ -23,8 +23,16 @@ let package = Package(
             path: "../../.artifacts/CSentencePiece.xcframework"
         ),
         .target(
+            name: "CEmbeddingGemma",
+            dependencies: ["CLiteRT", "CSentencePiece"],
+            path: "Sources/CEmbeddingGemma",
+            publicHeadersPath: "include",
+            cxxSettings: [.unsafeFlags(["-std=c++20"])]
+        ),
+        .target(
             name: "EmbeddingGemmaNative",
             dependencies: [
+                "CEmbeddingGemma",
                 "CLiteRT",
                 "CSentencePiece",
             ],

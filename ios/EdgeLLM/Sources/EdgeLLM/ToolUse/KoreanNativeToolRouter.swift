@@ -26,7 +26,7 @@ public struct KoreanNativeToolRouter: Sendable {
         Rule(
             tool: .createTimer,
             domain: #"타이머|카운트다운"#,
-            request: #"시작|설정|맞춰\s*줘|재\s*줘|켜\s*줘"#
+            request: #"시작|설정|맞춰\s*줘|재\s*줘|켜\s*줘|만들어\s*줘|등록해\s*줘|추가해\s*줘"#
         ),
         Rule(
             tool: .scheduleLocalNotification,
@@ -55,20 +55,16 @@ public struct KoreanNativeToolRouter: Sendable {
 
         guard !normalized.isEmpty else { return .normal }
 
-        if contains(
-            pattern: #"(?:\d+|한|두|세|네)\s*(?:초|분|시간)\s*(?:뒤|후)"#,
+        let relativeAlarmIsTimer = contains(
+            pattern: #"(?:\d+|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(?:초|분|시간)(?:\s*반)?\s*(?:뒤|후)"#,
             in: normalized
-        ), contains(pattern: #"알람|깨워"#, in: normalized), contains(
-            pattern: #"맞춰\s*줘|설정해\s*줘|등록해\s*줘|추가해\s*줘|만들어\s*줘|깨워\s*줘"#,
-            in: normalized
-        ) {
-            return .tool(.createTimer)
-        }
+        )
 
         let matches = Self.rules.compactMap { rule in
             contains(pattern: rule.domain, in: normalized)
                 && contains(pattern: rule.request, in: normalized)
-                ? rule.tool
+                ? (rule.tool == .createAlarm && relativeAlarmIsTimer
+                    ? .createTimer : rule.tool)
                 : nil
         }
         let unique = NativeToolKind.allCases.filter(matches.contains)
@@ -82,5 +78,23 @@ public struct KoreanNativeToolRouter: Sendable {
 
     private func contains(pattern: String, in text: String) -> Bool {
         text.range(of: pattern, options: .regularExpression) != nil
+    }
+}
+
+/// 명확한 한국어 도구 명령은 결정적으로 처리하고, 규칙에 걸리지 않는 표현만
+/// 임베딩 라우터에 맡긴다. 학습 분류기의 false negative가 알람 같은 실행 요청을
+/// 평범한 대화로 흘려보내지 않게 하면서 일상 대화의 기존 경로는 유지한다.
+public struct KoreanLexicalFirstNativeToolRouter: NativeToolRouting {
+    private let lexical = KoreanNativeToolRouter()
+    private let fallback: any NativeToolRouting
+
+    public init(fallback: any NativeToolRouting) {
+        self.fallback = fallback
+    }
+
+    public func route(_ utterance: String) async throws -> NativeToolRoute {
+        let lexicalRoute = lexical.route(utterance)
+        guard lexicalRoute == .normal else { return lexicalRoute }
+        return try await fallback.route(utterance)
     }
 }

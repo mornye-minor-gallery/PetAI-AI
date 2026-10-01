@@ -1,0 +1,2 @@
+{"id":"park-wrong","pair_id":"park","character_name":"엘레나","turns":[{"id":"arrival","user_message":"별빛 공원에 같이 가자."},{"id":"followup","user_message":"잠깐 쉬면서 얘기할까?"},{"id":"name","user_message":"아영아, 지금 어디서 쉬고 있지?","kind":"wrong_name","called_name":"아영"}]}
+{"id":"park-correct","pair_id":"park","character_name":"엘레나","turns":[{"id":"arrival","user_message":"별빛 공원에 같이 가자."},{"id":"followup","user_message":"잠깐 쉬면서 얘기할까?"},{"id":"name","user_message":"엘레나야, 지금 어디서 쉬고 있지?","kind":"correct_name","called_name":"엘레나"}]}

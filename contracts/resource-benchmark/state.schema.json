@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "heartbeat_seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "progress_seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "completed_turns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "owner_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "process_instance_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "phase": {
+      "enum": [
+        "booting",
+        "boot_ready",
+        "preparing",
+        "ready",
+        "running",
+        "draining",
+        "finished",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "last_monotonic_ns": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "build_id": {
+      "type": "string"
+    },
+    "bundle_id": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "revision",
+    "heartbeat_seq",
+    "progress_seq",
+    "completed_turns",
+    "schema_version",
+    "run_id",
+    "owner_id",
+    "process_instance_id",
+    "pid",
+    "phase",
+    "last_monotonic_ns"
+  ]
+}

@@ -28,6 +28,7 @@ public protocol NativeToolProposalGenerating: Sendable {
 
 public enum NativeToolProposalHarnessOutcome: Equatable, Sendable {
     case normal
+    case unsupported(tool: NativeToolKind)
     case conflict(message: String, tools: [NativeToolKind])
     case locked(tool: NativeToolKind)
     case clarification(message: String)
@@ -76,7 +77,8 @@ public struct NativeToolProposalHarness: Sendable {
         requestID: String,
         userMessage: String,
         promptContext: NativeToolPromptContext,
-        allowedTools: Set<NativeToolKind>
+        allowedTools: Set<NativeToolKind>,
+        supportedTools: Set<NativeToolKind> = Set(NativeToolKind.allCases)
     ) async throws -> NativeToolProposalHarnessOutcome {
         switch try await router.route(userMessage) {
         case .normal:
@@ -89,6 +91,7 @@ public struct NativeToolProposalHarness: Sendable {
             )
 
         case .tool(let selectedTool):
+            guard supportedTools.contains(selectedTool) else { return .unsupported(tool: selectedTool) }
             guard allowedTools.contains(selectedTool) else {
                 return .locked(tool: selectedTool)
             }

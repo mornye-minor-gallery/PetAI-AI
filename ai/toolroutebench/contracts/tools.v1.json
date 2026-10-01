@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "source": "ios/EdgeLLM/Sources/EdgeLLM/ToolUse/NativeToolContracts.swift",
   "regex_baseline": {
-    "source": "ios/EdgeLLM/Sources/EdgeLLM/ToolUse/KoreanNativeToolRouter.swift",
+    "source": "ai/toolroutebench/fixtures/KoreanNativeToolRouter.swift",
     "source_sha256": "3ba84d2685d414ad25fe889ff4e8c94a268cec0b28d4f37f603df8f586aef736",
     "port": "toolroutebench/regex_baseline.py"
   },

@@ -50,7 +50,7 @@ ALLOWED_DOMAINS = {"narrative", "shared_daily", "mixed"}
 GENERAL_HARD_NEGATIVE_DOMAINS = ("shared_daily", "narrative", "mixed")
 PERSONA_CORE_PATH = (
     REPO_ROOT
-    / "ios/EdgeLLM/Sources/EdgeLLM/Resources/Prompts/RoutedPersona/persona_core.md"
+    / "ai/facetroutebench/fixtures/persona_core.md"
 )
 
 

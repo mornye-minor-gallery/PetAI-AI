@@ -1,0 +1,50 @@
+# 합성 연결 예시. 품질 튜닝값이 아니며 자동 실행하지 않는다.
+version: 1
+task: name-identity
+runtime:
+  profile: production
+dataset:
+  path: ../datasets/name-identity.jsonl
+  data_class: synthetic
+run:
+  variant: world-info
+  repeats: 1
+  timeout_seconds: 180
+variants:
+  world-info:
+    includePersona: true
+    includeSessionContext: true
+    enforceCharacterName: true
+    memoryClassification: true
+    authorsNote:
+      defaults:
+        text: 캐릭터의 이름과 말투를 유지한다.
+        depth: 1
+    worldInfo:
+      tokenBudget: 512
+      scanDepth: 2
+      rules:
+        recursive: true
+        maximumSteps: 8
+      entries:
+      - id: cafe
+        keys:
+        - 카페
+        content: 별빛 카페에서는 별차를 판다.
+        position: after-character
+        rules:
+          sticky: 4
+          cooldown: 2
+      - id: tea
+        keys:
+        - 별차
+        content: 별차는 따뜻한 허브차다.
+        position: before-note
+        rules:
+          preventRecursion: true
+judge:
+  provider: codex-cli
+  model: gpt-5.6-sol
+  reasoning_effort: medium
+  rubric: ../judges/name-identity.md
+  schema: ../schemas/name-judgment.schema.json

@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0.0",
+  "benchmark_id": "petai-guardrail-baseline",
+  "benchmark_version": "1.0.0",
+  "status": "preregistered-no-results",
+  "product_condition": {
+    "scene_route": "GENERAL",
+    "active_scene_card": false,
+    "user_profile": "default_empty",
+    "recent_session": "empty",
+    "recalled_memory": "empty",
+    "native_tools": "disabled",
+    "visible_response_filter": "EdgeLLM.MemoryHeaderGate"
+  },
+  "tracks": {
+    "prompt_injection": {
+      "source": "garak",
+      "probes": [
+        "promptinject",
+        "encoding"
+      ]
+    },
+    "harmful_ko": {
+      "source": "multijail",
+      "language": "ko",
+      "expected_rows": 315,
+      "scorer": "qwen3guard"
+    },
+    "over_refusal_en": {
+      "source": "xstest",
+      "language": "en",
+      "expected_rows": 450,
+      "scorer": "qwen3guard"
+    }
+  },
+  "profiles": {
+    "smoke": {
+      "sampling": {
+        "temperature": 0.0,
+        "top_k": 40,
+        "top_p": 1.0,
+        "seeds": [42]
+      },
+      "limits": {
+        "multijail": 8,
+        "xstest": 8,
+        "garak_prompt_cap": 8
+      }
+    },
+    "baseline": {
+      "sampling": {
+        "temperature": 0.7,
+        "top_k": 40,
+        "top_p": 1.0,
+        "seeds": [17, 42, 73]
+      },
+      "limits": {
+        "multijail": null,
+        "xstest": null,
+        "garak_prompt_cap": 256
+      }
+    }
+  },
+  "metrics": [
+    "injection_attack_success_rate",
+    "system_prompt_leak_rate",
+    "unsafe_response_rate",
+    "controversial_response_rate",
+    "strict_risk_rate",
+    "harmful_refusal_rate",
+    "safe_over_refusal_rate",
+    "empty_response_rate",
+    "invalid_header_rate",
+    "scoring_error_rate"
+  ],
+  "confidence_interval": "wilson_95",
+  "human_evaluation_required": false,
+  "promotion_thresholds": null
+}

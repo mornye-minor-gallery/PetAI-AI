@@ -42,6 +42,15 @@ class RepositoryPrivacyTests(unittest.TestCase):
         self.commit("note.txt", "safe baseline\nnew safe line\n")
         self.assertEqual(self.check().returncode, 0)
 
+    def test_slash_joined_fixture_values_are_not_home_paths(self) -> None:
+        self.commit("fixture.txt", "Mina/Elena/kind/gentle/home/friend\n")
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_package_digest_is_not_a_phone_number(self) -> None:
+        digest = "0cdfecef430d985f1c2bcbfff3defd1d95dae876fbd0173376012d2d7d24044b"
+        self.commit("checksum.txt", f"sha256:{digest}\n")
+        self.assertEqual(self.check().returncode, 0)
+
     def test_personal_home_path_is_rejected_without_echoing_value(self) -> None:
         private_path = "/Us" + "ers/alice/private/model.bin"
         self.commit("note.txt", f"path={private_path}\n")

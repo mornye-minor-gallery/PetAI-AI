@@ -37,8 +37,6 @@ struct ContentView: View {
     @State private var memoryGateStatus = "Not run"
     @State private var retrievedMemories: [RetrievedMemoryObservation] = []
     @State private var memorySessionID = UUID().uuidString.lowercased()
-    @State private var isTopKTelemetryEnabled = false
-    @State private var topKTelemetryStatus = "Disabled"
 
     private let memoryScope = MemoryScope(
         userID: "local-user",
@@ -80,15 +78,6 @@ struct ContentView: View {
                     LabeledContent(
                         "Model",
                         value: selectedModelURL?.lastPathComponent ?? "Not selected"
-                    )
-                    Toggle(
-                        "Top-K telemetry (diagnostic)",
-                        isOn: $isTopKTelemetryEnabled
-                    )
-                    .disabled(isWorking || isModelReady)
-                    LabeledContent(
-                        "Telemetry",
-                        value: topKTelemetryStatus
                     )
 
                     Button("Choose and load .litertlm model") {
@@ -193,9 +182,6 @@ struct ContentView: View {
         response = ""
         status = "Preparing model"
         clearGenerationDiagnostics()
-        topKTelemetryStatus = isTopKTelemetryEnabled
-            ? "Enabled · waiting for generation"
-            : "Disabled"
 
         Task {
             do {
@@ -209,12 +195,7 @@ struct ContentView: View {
                             .deterministicSampling.samplerTopK,
                         topP: slmConfiguration.generation
                             .deterministicSampling.topP,
-                        maxOutputTokens: slmConfiguration.generation
-                            .maxOutputTokens,
-                        topKTelemetryCandidateCount:
-                            isTopKTelemetryEnabled
-                                ? slmConfiguration.diagnostics
-                                    .telemetryCandidateCount : nil
+                        maxOutputTokens: slmConfiguration.dialogueBudget.outputTokens
                     )
                 )
                 status = "Ready"
@@ -242,7 +223,6 @@ struct ContentView: View {
         receivedCharacterCount = 0
 
         Task {
-            await runtime.resetTopKTelemetrySummary()
             let memoryReady = await prepareMemoryIfNeeded()
             let memories = memoryReady
                 ? await recallMemories(for: userMessage)
@@ -250,7 +230,7 @@ struct ContentView: View {
             let generationPrompt = MemoryPromptBuilder.build(
                 userMessage: userMessage,
                 memories: memories,
-                tokenBudget: slmConfiguration.memory.promptTokenBudget
+                tokenBudget: slmConfiguration.memory.promptByteBudget
             )
 
             do {
@@ -303,11 +283,6 @@ struct ContentView: View {
                 if case .failed = await runtime.state {
                     isModelReady = false
                 }
-            }
-            if let summary = await runtime.takeTopKTelemetrySummary() {
-                topKTelemetryStatus = formattedTelemetry(summary)
-            } else if isTopKTelemetryEnabled {
-                topKTelemetryStatus = "Enabled · no events"
             }
             generationEndedAt = Date()
             isWorking = false
@@ -476,20 +451,6 @@ struct ContentView: View {
             "first token \(timeToFirstToken.formatted(.number.precision(.fractionLength(1))))s",
             "\(receivedCharacterCount) chars",
         ].joined(separator: " · ")
-    }
-
-    private func formattedTelemetry(
-        _ summary: TopKTelemetrySummary
-    ) -> String {
-        String(
-            format:
-                "%d tokens · H@K %.3f · margin %.3f · top1 %.1f%% · dropped %d",
-            summary.tokenCount,
-            summary.averageTopKEntropy,
-            summary.averageTop1Top2Margin,
-            summary.sampledFromTop1Rate * 100,
-            summary.droppedEventCount
-        )
     }
 
     private func clearGenerationDiagnostics() {

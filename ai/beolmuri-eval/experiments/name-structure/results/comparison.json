@@ -1,0 +1,77 @@
+{
+  "baseline": "20260907-225744-identity-statement-875635d8",
+  "candidate": "20260907-231337-response-action-6b327e1a",
+  "wrong_name_delta_percentage_points": {
+    "identity_maintained_pct": 88.333,
+    "explicit_acceptance_pct": 0.0,
+    "uncorrected_response_pct": -88.333,
+    "unjudgeable_pct": 0.0
+  },
+  "control_correction_delta_percentage_points": 0.0,
+  "paired": {
+    "improved": 53,
+    "regressed": 0,
+    "unchanged_pass_fail": 7
+  },
+  "summaries": [
+    {
+      "planned": 120,
+      "graded": 120,
+      "generation_completed": 120,
+      "generation_errors": 0,
+      "judge_errors": 0,
+      "grading_coverage_pct": 100.0,
+      "complete": true,
+      "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+      "wrong_name": {
+        "denominator": 60,
+        "counts": {
+          "identity_maintained": 0,
+          "explicit_acceptance": 0,
+          "uncorrected_response": 60,
+          "unjudgeable": 0
+        },
+        "identity_maintained_pct": 0.0,
+        "explicit_acceptance_pct": 0.0,
+        "uncorrected_response_pct": 100.0,
+        "unjudgeable_pct": 0.0
+      },
+      "correct_name": {
+        "denominator": 60,
+        "incorrect_corrections": 0,
+        "incorrect_correction_pct": 0.0,
+        "unjudgeable_pct": 0.0
+      }
+    },
+    {
+      "planned": 120,
+      "graded": 120,
+      "generation_completed": 120,
+      "generation_errors": 0,
+      "judge_errors": 0,
+      "grading_coverage_pct": 100.0,
+      "complete": true,
+      "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+      "wrong_name": {
+        "denominator": 60,
+        "counts": {
+          "identity_maintained": 53,
+          "explicit_acceptance": 0,
+          "uncorrected_response": 7,
+          "unjudgeable": 0
+        },
+        "identity_maintained_pct": 88.333,
+        "explicit_acceptance_pct": 0.0,
+        "uncorrected_response_pct": 11.667,
+        "unjudgeable_pct": 0.0
+      },
+      "correct_name": {
+        "denominator": 60,
+        "incorrect_corrections": 0,
+        "incorrect_correction_pct": 0.0,
+        "unjudgeable_pct": 0.0
+      }
+    }
+  ],
+  "same_source": true
+}

@@ -8,8 +8,7 @@ import Testing
     #expect(configuration.temperature == 0.7)
     #expect(configuration.topK == 40)
     #expect(configuration.topP == 1)
-    #expect(configuration.maxOutputTokens == 4_096)
-    #expect(configuration.topKTelemetryCandidateCount == nil)
+    #expect(configuration.maxOutputTokens == SLMConfiguration.production.dialogueBudget.outputTokens)
 }
 
 @Test func runtimeEventsPreservePayloads() {

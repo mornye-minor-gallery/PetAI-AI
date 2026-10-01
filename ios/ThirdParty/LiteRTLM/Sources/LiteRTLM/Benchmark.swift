@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import Foundation
+#if canImport(OSLog)
 import OSLog
+#endif
 import CLiteRTLM
 
 /// Data struct to hold benchmark information. Note that this is an experimental API and may change
@@ -58,6 +60,8 @@ public struct BenchmarkInfo {
 public func benchmark(
   modelPath: String,
   backend: Backend,
+  visionBackend: Backend? = nil,
+  audioBackend: Backend? = nil,
   prefillTokens: Int = 256,
   decodeTokens: Int = 256,
   cacheDir: String? = nil,
@@ -75,7 +79,9 @@ public func benchmark(
   let engineConfig = try EngineConfig(
     modelPath: modelPath,
     backend: backend,
-    maxNumTokens: max(prefillTokens, decodeTokens) + 32,
+    visionBackend: visionBackend,
+    audioBackend: audioBackend,
+    maxNumTokens: prefillTokens + decodeTokens + 32,
     cacheDir: cacheDir
   )
   let engine = Engine(engineConfig: engineConfig)

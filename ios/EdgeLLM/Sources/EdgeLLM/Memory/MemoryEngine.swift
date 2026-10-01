@@ -118,79 +118,29 @@ public actor MemoryEngine {
             return .ignoredEmpty
         }
 
-        let turn = try await store.saveUserTurn(
-            id: request.sourceMessageID,
-            sessionID: request.sessionID,
-            scope: request.scope,
-            rawText: request.rawText,
-            occurredAt: request.occurredAt
-        )
+        let generation = lifecycleGeneration
         let decision: MemoryGateDecision
         if let decisionOverride {
             decision = decisionOverride
         } else {
             decision = try await classifier.evaluate(request.rawText)
         }
+        try Task.checkCancellation()
+        try requirePrepared(generation: generation)
         let timestamp = now()
-        try requirePrepared()
-        try await store.saveGateResult(
-            MemoryGateResult(
-                id: makeGateResultID(),
-                turnID: turn.id,
-                decision: decision,
-                createdAt: timestamp
-            )
-        )
-
-        guard !decision.regex.hardIgnore else {
-            return MemoryRememberResult(
-                status: .skippedHardIgnore,
-                turn: turn,
-                gate: decision,
-                observation: nil
-            )
+        let observationID = makeObservationID()
+        let embedding: MemoryObservationEmbedding?
+        if !decision.regex.hardIgnore && !decision.observationLabels.isEmpty {
+            embedding = try await makeEmbedding(
+                observationID: observationID, text: trimmedText, createdAt: timestamp)
+        } else {
+            embedding = nil
         }
-
-        guard !decision.observationLabels.isEmpty else {
-            return MemoryRememberResult(
-                status: .skippedNoMemorySignal,
-                turn: turn,
-                gate: decision,
-                observation: nil
-            )
-        }
-
-        let observation = MemoryObservation(
-            id: makeObservationID(),
-            turnID: turn.id,
-            sessionID: turn.sessionID,
-            sequence: turn.sequence,
-            scope: turn.scope,
-            occurredAt: turn.occurredAt,
-            rawText: turn.rawText,
-            labelEvidence: decision.observationLabels.map(
-                decision.evidence(for:)
-            ),
-            createdAt: timestamp
-        )
-        let embedding = try await makeEmbedding(
-            for: observation,
-            text: trimmedText,
-            createdAt: timestamp
-        )
-        try requirePrepared()
-        try await store.saveObservation(
-            observation,
-            embedding: embedding
-        )
-        return MemoryRememberResult(
-            status: observation.labels.isEmpty
-                ? .indexedUnlabeled
-                : .indexed,
-            turn: turn,
-            gate: decision,
-            observation: observation
-        )
+        try Task.checkCancellation()
+        try requirePrepared(generation: generation)
+        return try await store.saveMemory(MemoryPreparedWrite(
+            request: request, decision: decision, gateResultID: makeGateResultID(),
+            observationID: observationID, embedding: embedding, createdAt: timestamp))
     }
 
     public func recall(
@@ -254,8 +204,15 @@ public actor MemoryEngine {
         }
     }
 
+    private func requirePrepared(generation: UInt) throws {
+        try requirePrepared()
+        guard generation == lifecycleGeneration else {
+            throw MemoryEngineError.notPrepared
+        }
+    }
+
     private func makeEmbedding(
-        for observation: MemoryObservation,
+        observationID: String,
         text: String,
         createdAt: Date
     ) async throws -> MemoryObservationEmbedding? {
@@ -274,7 +231,7 @@ public actor MemoryEngine {
             throw MemoryEngineError.nonFiniteEmbedding(index: index)
         }
         return MemoryObservationEmbedding(
-            observationID: observation.id,
+            observationID: observationID,
             modelID: embedder.modelID,
             vector: vector,
             createdAt: createdAt

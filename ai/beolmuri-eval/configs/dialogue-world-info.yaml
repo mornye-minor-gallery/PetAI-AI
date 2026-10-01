@@ -1,0 +1,44 @@
+version: 1
+task: name-identity
+runtime:
+  profile: production
+dataset:
+  path: ../datasets/scenarios/park-name.jsonl
+  format: scenarios
+  data_class: synthetic
+run:
+  variant: note-and-lore
+  repeats: 3
+  timeout_seconds: 180
+  seed: 42
+variants:
+  note-and-lore:
+    includePersona: true
+    includeSessionContext: true
+    enforceCharacterName: true
+    memoryClassification: true
+    nameRulePlacement: before-current
+    authorsNote:
+      defaults:
+        text: "엘레나는 부드러운 반말로 짧고 자연스럽게 대화한다. 사용자의 질문에도 답한다."
+        interval: 1
+        position: in-chat
+        depth: 0
+        role: system
+    lorebooks:
+      park: ../datasets/lorebooks/park.json
+    worldInfo:
+      tokenBudget: 512
+      scanDepth: 1
+      entries: []
+      library:
+        books: {}
+        global: [park]
+        characters: {}
+        strategy: even
+judge:
+  provider: codex-cli
+  model: gpt-5.6-sol
+  reasoning_effort: medium
+  rubric: ../judges/name-identity.md
+  schema: ../schemas/name-judgment.schema.json

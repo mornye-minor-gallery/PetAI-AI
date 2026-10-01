@@ -23,14 +23,28 @@ struct EmbeddingComparison: Sendable {
   let differentScore: Float
 }
 
-actor MemoryService: ClassificationEmbeddingProviding {
+actor MemoryService: ChatMemoryService {
   nonisolated let modelID =
     "litert-community/embeddinggemma-300m-seq256-mixed-precision"
   nonisolated let dimension = 768
 
   private let embedder = EmbeddingGemmaEmbedder()
+  private var worldInfoEmbeddingIdentity: String?
+  private var worldInfoIndex: WorldInfoVectorIndex?
+  private var observationStore: SQLiteObservationStore?
   private var engine: MemoryEngine?
   private var preparationTask: Task<Void, Error>?
+  private let supportDirectory: URL?
+
+  init(supportDirectory: URL? = nil) {
+    self.supportDirectory = supportDirectory
+  }
+
+  private func applicationSupportDirectory() throws -> URL {
+    if let supportDirectory { return supportDirectory }
+    return try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                      appropriateFor: nil, create: true)
+  }
 
   func prepare(
     modelURL: URL,
@@ -72,6 +86,11 @@ actor MemoryService: ClassificationEmbeddingProviding {
     }
   }
 
+  func searchEmbeddingIdentity() throws -> String {
+    guard let identity = worldInfoEmbeddingIdentity else { throw MemoryServiceError.notPrepared }
+    return identity
+  }
+
   func isPrepared() -> Bool {
     engine != nil
   }
@@ -87,6 +106,8 @@ actor MemoryService: ClassificationEmbeddingProviding {
       )
       try Task.checkCancellation()
 
+      let identity = try WorldInfoEmbeddingIdentity.make(modelURL: modelURL, tokenizerURL: tokenizerURL,
+        preprocessing: "embeddinggemma-seq256-query-document-v1:768")
       let store = try makeStore()
       let retriever = DenseMemoryRetriever(
         candidateLoader: store,
@@ -111,6 +132,8 @@ actor MemoryService: ClassificationEmbeddingProviding {
         await candidate.close()
         throw error
       }
+      worldInfoEmbeddingIdentity = identity
+      observationStore = store
       engine = candidate
     } catch {
       await embedder.unload()
@@ -171,6 +194,32 @@ actor MemoryService: ClassificationEmbeddingProviding {
     return await engine.recall(request)
   }
 
+  func searchWorldInfo(entries: [WorldInfoEntry], newestMessages: [String], settings: WorldInfoVectorSettings) async throws -> [WorldInfoVectorMatch] {
+    _ = try requirePrepared()
+    guard let identity = worldInfoEmbeddingIdentity else { throw MemoryServiceError.notPrepared }
+    if worldInfoIndex == nil {
+      let support = try applicationSupportDirectory()
+      worldInfoIndex = try WorldInfoVectorIndex(url: support.appendingPathComponent("PetAI/world-info/\(identity).json"),
+                                               embeddingIdentity: identity)
+    }
+    guard let index = worldInfoIndex else { throw MemoryServiceError.notPrepared }
+    return try await index.search(entries: entries, newestMessages: newestMessages, settings: settings,
+      embedQuery: { try await self.embedWorldInfoQuery($0) },
+      embedDocument: { try await self.embedWorldInfoDocument($0) })
+  }
+
+  func embedWorldInfoQuery(_ text: String) async throws -> [Float] {
+    _ = try requirePrepared()
+    try Task.checkCancellation()
+    return try await embedder.embedQuery(text)
+  }
+
+  func embedWorldInfoDocument(_ text: String) async throws -> [Float] {
+    _ = try requirePrepared()
+    try Task.checkCancellation()
+    return try await embedder.embedDocument(text)
+  }
+
   func embedClassification(_ text: String) async throws -> [Float] {
     _ = try requirePrepared()
     try Task.checkCancellation()
@@ -186,13 +235,83 @@ actor MemoryService: ClassificationEmbeddingProviding {
     return try await engine.activeObservations(in: scope)
   }
 
+  /// Data export must work without a downloaded or loaded embedding model.
+  func allActiveObservations() async throws -> [MemoryObservation] {
+    if let observationStore {
+      return try await observationStore.allActiveObservations()
+    }
+    let store = try makeStore()
+    do {
+      try await store.initialize()
+      let observations = try await store.allActiveObservations()
+      await store.close()
+      return observations
+    } catch {
+      await store.close()
+      throw error
+    }
+  }
+
+  func activeObservations(in scope: MemoryScope, from start: Date, to end: Date) async throws -> [MemoryObservation] {
+    try await withStore { try await $0.activeObservations(in: scope, from: start, to: end) }
+  }
+
+  func diary(characterID: String, localDate: String) async throws -> DailyDiary? {
+    try await withStore { try await $0.diary(characterID: characterID, localDate: localDate) }
+  }
+
+  func allDiaries() async throws -> [DailyDiary] {
+    try await withStore { try await $0.allDiaries() }
+  }
+
+  func insertDiaryIfAbsent(characterID: String, localDate: String, draft: DailyDiaryDraft) async throws -> DailyDiary {
+    try await withStore { try await $0.insertDiaryIfAbsent(characterID: characterID, localDate: localDate, draft: draft) }
+  }
+
+  private func withStore<Value: Sendable>(
+    _ operation: @Sendable (SQLiteObservationStore) async throws -> Value
+  ) async throws -> Value {
+    if let observationStore { return try await operation(observationStore) }
+    let store = try makeStore()
+    do {
+      try await store.initialize()
+      let result = try await operation(store)
+      await store.close()
+      return result
+    } catch {
+      await store.close()
+      throw error
+    }
+  }
+
   func close() async {
+    worldInfoIndex = nil
+    worldInfoEmbeddingIdentity = nil
     preparationTask?.cancel()
     preparationTask = nil
     let activeEngine = engine
     engine = nil
     await activeEngine?.close()
+    observationStore = nil
     await embedder.unload()
+  }
+
+  /// Bridge admission is closed and all conversations/captions have drained before this call.
+  /// Opening SQLite alone works even when the model has never been downloaded.
+  func eraseAllMemories() async throws {
+    if let observationStore {
+      try await observationStore.eraseAllMemories()
+    } else {
+      let store = try makeStore()
+      do {
+        try await store.initialize()
+        try await store.eraseAllMemories()
+        await store.close()
+      } catch {
+        await store.close()
+        throw error
+      }
+    }
   }
 
   private func requirePrepared() throws -> MemoryEngine {
@@ -203,12 +322,7 @@ actor MemoryService: ClassificationEmbeddingProviding {
   }
 
   private func makeStore() throws -> SQLiteObservationStore {
-    let applicationSupport = try FileManager.default.url(
-      for: .applicationSupportDirectory,
-      in: .userDomainMask,
-      appropriateFor: nil,
-      create: true
-    )
+    let applicationSupport = try applicationSupportDirectory()
     let databaseURL =
       applicationSupport
       .appendingPathComponent("EdgeLLM", isDirectory: true)

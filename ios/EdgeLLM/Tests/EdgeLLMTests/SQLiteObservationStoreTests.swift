@@ -64,6 +64,10 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
         userID: "local-user",
         characterID: "other-character"
     )
+    let otherAccountScope = MemoryScope(
+        userID: "other-user",
+        characterID: "default-character"
+    )
     let store = SQLiteObservationStore(databaseURL: databaseURL)
     let engine = MemoryEngine(
         store: store,
@@ -91,8 +95,13 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
             occurredAt: timestamp
         )
     )
+    _ = try await engine.remember(MemoryWriteRequest(
+        sourceMessageID: "message-other-account", sessionID: "session-1",
+        scope: otherAccountScope, rawText: "나는 사과를 좋아해", occurredAt: timestamp))
     let defaultCharacterObservation = try #require(defaultCharacterResult.observation)
     #expect(otherResult.observation != nil)
+    _ = try await store.insertUserTurn(id: "incomplete-turn", sessionID: "session-1",
+        scope: otherScope, rawText: "저장 도중 중단된 원문", occurredAt: timestamp)
     #expect(
         try await engine.activeObservations(in: defaultCharacterScope)
             == [defaultCharacterObservation]
@@ -100,6 +109,10 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
     #expect(
         try await engine.activeObservations(in: otherScope).count == 1
     )
+    let allActive = try await store.allActiveObservations()
+    #expect(Set(allActive.map(\.scope.characterID)) == ["default-character", "other-character"])
+    #expect(Set(allActive.map(\.scope.userID)) == ["local-user", "other-user"])
+    #expect(allActive.count == 3)
     #expect(FileManager.default.fileExists(atPath: databaseURL.path))
     await engine.close()
 
@@ -132,6 +145,7 @@ func sqliteStorePersistsCharacterScopedObservationsAcrossReopen() async throws {
     #expect(
         try await reopenedEngine.activeObservations(in: defaultCharacterScope).isEmpty
     )
+    #expect(try await reopenedStore.allActiveObservations().count == 2)
     await reopenedEngine.close()
 }
 
@@ -479,6 +493,36 @@ func encryptedRequirementRejectsPlainSQLiteStore() async {
     }
 }
 
+@Test
+func versionThreeMemorySurvivesDiarySchemaUpgrade() async throws {
+    let directory = temporaryMemoryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appendingPathComponent("memory.sqlite3")
+    let scope = MemoryScope(userID: "local-user", characterID: "character")
+    let first = SQLiteObservationStore(databaseURL: url)
+    let engine = MemoryEngine(store: first, classifier: SQLiteTestClassifier(label: .event),
+        securityRequirement: .allowsUnencryptedAppPrivatePrototype)
+    try await engine.prepare()
+    _ = try await engine.remember(MemoryWriteRequest(sourceMessageID: "day-turn",
+        sessionID: "session", scope: scope, rawText: "오늘 산책했어요."))
+    await engine.close()
+
+    var database: OpaquePointer?
+    #expect(sqlite3_open(url.path, &database) == SQLITE_OK)
+    #expect(sqlite3_exec(database,
+        "DROP TABLE daily_diaries; UPDATE schema_metadata SET value='3' WHERE key='schema_version';",
+        nil, nil, nil) == SQLITE_OK)
+    sqlite3_close_v2(database)
+
+    let upgraded = SQLiteObservationStore(databaseURL: url)
+    try await upgraded.initialize()
+    #expect(try await upgraded.activeObservations(in: scope).count == 1)
+    let diary = try await upgraded.insertDiaryIfAbsent(characterID: scope.characterID,
+        localDate: "2026-09-27", draft: DailyDiaryDraft(title: "산책", body: "산책했어요."))
+    #expect(diary.title == "산책")
+    await upgraded.close()
+}
+
 private func temporaryMemoryDirectory() -> URL {
     let directory = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -509,7 +553,7 @@ private func tableExists(
     defer {
         sqlite3_finalize(statement)
     }
-    name.withCString {
+    _ = name.withCString {
         sqlite3_bind_text(
             statement,
             1,
@@ -519,4 +563,28 @@ private func tableExists(
         )
     }
     return sqlite3_step(statement) == SQLITE_ROW
+}
+
+@Test func eraseAllMemoriesRemovesEveryCharacterAndCanRepeat() async throws {
+    let directory = temporaryMemoryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appendingPathComponent("erase.sqlite3")
+    let store = SQLiteObservationStore(databaseURL: url)
+    let engine = MemoryEngine(store: store, classifier: SQLiteTestClassifier(label: .preference),
+        securityRequirement: .allowsUnencryptedAppPrivatePrototype)
+    try await engine.prepare()
+    for character in ["first", "second"] {
+        _ = try await engine.remember(MemoryWriteRequest(sourceMessageID: character,
+            sessionID: "test", scope: MemoryScope(userID: "test", characterID: character), rawText: "나는 포도를 좋아해"))
+    }
+    try await store.eraseAllMemories()
+    try await store.eraseAllMemories()
+    for character in ["first", "second"] {
+        #expect(try await engine.activeObservations(in: MemoryScope(userID: "test", characterID: character)).isEmpty)
+    }
+    await engine.close()
+    let reopened = SQLiteObservationStore(databaseURL: url)
+    try await reopened.initialize()
+    try await reopened.eraseAllMemories()
+    await reopened.close()
 }

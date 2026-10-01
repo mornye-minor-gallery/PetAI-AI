@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='utf-8'?>
+<trace-query-result>
+  <node xpath="//trace-toc/run[@number=&quot;1&quot;]/data/table[@schema=&quot;SystemPowerLevel&quot;]">
+    <schema name="SystemPowerLevel" documentation="Tracks system power consumption levels, display power usage, and brightness over time intervals">
+      <col>
+        <mnemonic>start</mnemonic>
+        <name>Start</name>
+        <engineering-type>start-time</engineering-type>
+      </col>
+      <col>
+        <mnemonic>duration</mnemonic>
+        <name>Duration</name>
+        <engineering-type>duration</engineering-type>
+      </col>
+      <col>
+        <mnemonic>power-usage</mnemonic>
+        <name>Power Usage</name>
+        <engineering-type>percent-per-hour</engineering-type>
+      </col>
+      <col>
+        <mnemonic>display-power</mnemonic>
+        <name>Display Power</name>
+        <engineering-type>fixed-decimal</engineering-type>
+      </col>
+      <col>
+        <mnemonic>display-apl</mnemonic>
+        <name>Display Apl</name>
+        <engineering-type>fixed-decimal</engineering-type>
+      </col>
+      <col>
+        <mnemonic>display-brightness</mnemonic>
+        <name>Display Brightness</name>
+        <engineering-type>display-brightness</engineering-type>
+      </col>
+    </schema>
+    <row>
+      <start-time id="1" fmt="00:00.639.868">639868125</start-time>
+      <duration id="2" fmt="962.97 ms">962965791</duration>
+      <percent-per-hour id="3" fmt="10.9%/hr">10.851259819</percent-per-hour>
+      <fixed-decimal id="4" fmt="0.0000">0.000000000</fixed-decimal>
+      <fixed-decimal ref="4" />
+      <display-brightness id="5" fmt="0%">0</display-brightness>
+    </row>
+    <row>
+      <start-time id="6" fmt="00:01.602.833">1602833958</start-time>
+      <duration id="7" fmt="988.76 ms">988756958</duration>
+      <percent-per-hour id="8" fmt="19.2%/hr">19.245758257</percent-per-hour>
+      <fixed-decimal ref="4" />
+      <fixed-decimal ref="4" />
+      <display-brightness ref="5" />
+    </row>
+    <row>
+      <start-time id="9" fmt="00:02.591.590">2591590958</start-time>
+      <duration id="10" fmt="1.02 s">1020443708</duration>
+      <percent-per-hour id="11" fmt="3.3%/hr">3.266651172</percent-per-hour>
+      <fixed-decimal ref="4" />
+      <fixed-decimal ref="4" />
+      <display-brightness ref="5" />
+    </row>
+  </node>
+</trace-query-result>

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "run_id": "00000000-0000-0000-0000-000000000001",
+  "owner_id": "00000000-0000-0000-0000-000000000002",
+  "role": "work",
+  "config": {
+    "schema_version": 1,
+    "target": "inference",
+    "profile": "basic",
+    "scenario": "paced",
+    "bundle_id": "com.example.resourcebench",
+    "fixture": "input.jsonl",
+    "initial_state": "empty.json",
+    "model_manifest": "models.json",
+    "generation_config": "generation.json",
+    "pair_count": 1,
+    "power_window_ms": 10000,
+    "reply_gap_ms": 1000,
+    "brightness": 0.5,
+    "required_initial_thermal_state": "nominal",
+    "ram_sample_period_ms": 100,
+    "ram_max_gap_ms": 300,
+    "recorder_pre_roll_ms": 3000,
+    "recorder_post_roll_ms": 3000,
+    "prepare_timeout_ms": 300000,
+    "turn_timeout_ms": 120000,
+    "finalize_timeout_ms": 300000
+  },
+  "model": {
+    "path": "models/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.litertlm",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "generation": {
+    "context_tokens": 8096,
+    "max_output_tokens": 1024,
+    "temperature": 0.7,
+    "top_k": 40,
+    "top_p": 1,
+    "thinking_enabled": false,
+    "conversation_mode": "fresh_per_input"
+  },
+  "inputs": [
+    {
+      "id": "turn-1",
+      "system_prompt": "시험용 입력입니다.",
+      "user_prompt": "짧게 인사해 주세요."
+    }
+  ]
+}

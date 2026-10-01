@@ -59,18 +59,8 @@ public protocol MemoryObservationStoring: Sendable {
     var securityPolicy: MemoryStoreSecurityPolicy { get }
 
     func initialize() async throws
-    func saveUserTurn(
-        id: String,
-        sessionID: String,
-        scope: MemoryScope,
-        rawText: String,
-        occurredAt: Date
-    ) async throws -> MemoryConversationTurn
-    func saveGateResult(_ result: MemoryGateResult) async throws
-    func saveObservation(
-        _ observation: MemoryObservation,
-        embedding: MemoryObservationEmbedding?
-    ) async throws
+    /// Commits the whole write or throws without retaining a partial write.
+    func saveMemory(_ write: MemoryPreparedWrite) async throws -> MemoryRememberResult
     func activeObservations(in scope: MemoryScope) async throws
         -> [MemoryObservation]
     func markDeleted(
@@ -78,14 +68,6 @@ public protocol MemoryObservationStoring: Sendable {
         in scope: MemoryScope
     ) async throws
     func close() async
-}
-
-extension MemoryObservationStoring {
-    public func saveObservation(
-        _ observation: MemoryObservation
-    ) async throws {
-        try await saveObservation(observation, embedding: nil)
-    }
 }
 
 public protocol MemoryEmbeddingCandidateLoading: Sendable {

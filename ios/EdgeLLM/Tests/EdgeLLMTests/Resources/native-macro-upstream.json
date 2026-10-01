@@ -1,0 +1,2651 @@
+{
+  "revision": "06bde939fb1e9c4c8d8641d810f0a916b5bce127",
+  "cases": [
+    {
+      "id": "macro-0",
+      "text": "{{reverse:abc::def}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "fed::cba",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-1",
+      "text": "{{if::noop}}{{incvar::n}}{{else}}no{{/if}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "no",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-2",
+      "text": "{{#setvar::x}}  a  {{/setvar}}[{{getvar::x}}]",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "[  a  ]",
+      "localVariables": {
+        "n": "2",
+        "s": "cat",
+        "x": "  a  "
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-3",
+      "text": "{{user}}/{{char}}/{{charDescription}}/{{charPersonality}}/{{charScenario}}/{{persona}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "Mina/Elena/kind/gentle/home/friend",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-4",
+      "text": "{{getvar::x}}{{setvar::x::4}}{{incvar::n}}{{getglobalvar::n}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "38",
+      "localVariables": {
+        "n": "3",
+        "s": "cat",
+        "x": "4"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-5",
+      "text": "{{.n--}}/{{.n-=1}}{{.n}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "1/0",
+      "localVariables": {
+        "n": "0",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-6",
+      "text": "{{.missing ??= yes}}/{{.missing}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "yes/yes",
+      "localVariables": {
+        "n": "2",
+        "s": "cat",
+        "missing": "yes"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-7",
+      "text": "{{if false}}{{if true}}x{{/if}}{{else}}yes{{/if}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "yes",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-8",
+      "text": "{{setvar::{{char}}::value}}{{getvar::Elena}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "value",
+      "localVariables": {
+        "n": "2",
+        "s": "cat",
+        "Elena": "value"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-9",
+      "text": "{{setvar::n::0}}{{.n || fallback}}/{{.n ?? fallback}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "fallback/0",
+      "localVariables": {
+        "n": "0",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-10",
+      "text": "{{addvar::s::fish}}{{getvar::s}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "catfish",
+      "localVariables": {
+        "n": "2",
+        "s": "catfish"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-11",
+      "text": "{{setvar::x}}hello {{user}}{{/setvar}}{{getvar::x}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "hello Mina",
+      "localVariables": {
+        "n": "2",
+        "s": "cat",
+        "x": "hello Mina"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-12",
+      "text": "{{setglobalvar::x::1}}{{incglobalvar::x}}{{getglobalvar::x}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "22",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8",
+        "x": "2"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-13",
+      "text": "{{setvarkey::obj::key::value}}{{getvarkey::obj::key}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "value",
+      "localVariables": {
+        "n": "2",
+        "s": "cat",
+        "obj": "{\"key\":\"value\"}"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-14",
+      "text": "{{hasvar::n}}/{{deletevar::n}}{{hasvar::n}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "true/false",
+      "localVariables": {
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-15",
+      "text": "{{if::true}}yes{{else}}no{{/if}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "yes",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-16",
+      "text": "{{if::false}}{{incvar::n}}{{else}}{{getvar::n}}{{/if}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "2",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-17",
+      "text": "{{if::{{hasvar::n}}}}{{char}}{{else}}none{{/if}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "Elena",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-18",
+      "text": "{{if !description}}no{{else}}yes{{/if}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "yes",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-19",
+      "text": "{{if .n}}yes{{/if}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "yes",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-20",
+      "text": "{{if true}}a{{if false}}x{{else}}b{{/if}}c{{/if}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "abc",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-21",
+      "text": "{{.n += 3}}{{.n}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "5",
+      "localVariables": {
+        "n": "5",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-22",
+      "text": "{{.missing ?? fallback}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "fallback",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-23",
+      "text": "{{.n == 2}}/{{.n >= 1}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "true/true",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-24",
+      "text": "{{random::a::b::c}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "c",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 1
+    },
+    {
+      "id": "macro-25",
+      "text": "{{pick::a::b::c}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "c",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-26",
+      "text": "prefix {{pick::a::b::c}} {{pick::a::b::c}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "prefix a a",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-27",
+      "text": "{{roll::2d6+1}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "7",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 2
+    },
+    {
+      "id": "macro-28",
+      "text": "{{outlet::room}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "warm",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-29",
+      "text": "{{reverse::abc😀}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "😀cba",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-30",
+      "text": "{{space::3}}x{{newline::2}}y",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "   x\n\ny",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-31",
+      "text": "a\n{{trim}}\nb",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "ab",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-32",
+      "text": "{{trim}}   hi   {{/trim}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "hi",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-33",
+      "text": "{{// ignored}}ok",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "ok",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-34",
+      "text": "{{greeting}}/{{greeting::1}}/{{charVersion}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "hello/welcome/1",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-35",
+      "text": "{{lastUserMessage}}/{{lastCharMessage}}/{{lastMessageId}}/{{allChatRange}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "hi/hello/1/0-1",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-36",
+      "text": "{{model}}/{{maxPrompt}}/{{maxContext}}/{{maxResponse}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "test/7000/8096/1024",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-37",
+      "text": "{{isodate}}/{{isotime}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "2026-01-01/00:00",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-38",
+      "text": "{{datetimeformat::YYYY-MM-DD HH:mm:ss}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "2026-01-01 00:00:00",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    },
+    {
+      "id": "macro-39",
+      "text": "{{getvar::{{user}}}}",
+      "context": {
+        "user": "Mina",
+        "char": "Elena",
+        "description": "kind",
+        "personality": "gentle",
+        "scenario": "home",
+        "persona": "friend",
+        "localVariables": {
+          "n": "2",
+          "s": "cat"
+        },
+        "globalVariables": {
+          "n": "8"
+        },
+        "outlets": {
+          "room": "warm"
+        },
+        "randomRolls": [
+          0.75,
+          0.1,
+          0.9,
+          0.2
+        ],
+        "randomIndex": 0,
+        "picks": {},
+        "runtime": {
+          "chatID": "fixture-chat",
+          "nowMilliseconds": 1767225600000,
+          "utcOffsetMinutes": 0,
+          "locale": "en",
+          "model": "test",
+          "inputTokens": 7000,
+          "contextTokens": 8096,
+          "outputTokens": 1024,
+          "messages": [
+            {
+              "mes": "hi",
+              "is_user": true
+            },
+            {
+              "mes": "hello",
+              "is_user": false
+            }
+          ],
+          "character": {
+            "firstMessage": "hello",
+            "alternateGreetings": [
+              "welcome"
+            ],
+            "version": "1"
+          }
+        }
+      },
+      "expected": "",
+      "localVariables": {
+        "n": "2",
+        "s": "cat"
+      },
+      "globalVariables": {
+        "n": "8"
+      },
+      "randomIndex": 0
+    }
+  ]
+}

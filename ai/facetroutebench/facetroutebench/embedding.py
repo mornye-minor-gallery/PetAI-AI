@@ -143,7 +143,7 @@ def prepare_embedding_inputs(dataset_dir: Path, output_path: Path) -> Path:
         raise FacetRouteBenchError("dataset manifest is not marked valid")
     persona_core = (
         REPO_ROOT
-        / "ios/EdgeLLM/Sources/EdgeLLM/Resources/Prompts/RoutedPersona/persona_core.md"
+        / "ai/facetroutebench/fixtures/persona_core.md"
     )
     expected_contracts = {
         "benchmark_sha256": sha256_file(

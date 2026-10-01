@@ -2,7 +2,7 @@ public enum EdgeMemSQLiteSchema {
     /// Version 3 starts the character-neutral memory namespace. Existing
     /// observations are intentionally cleared instead of carrying a retired
     /// character scope into the new product identity.
-    public static let version = 3
+    public static let version = 4
 
     public static let migrateVersion1ToVersion2 = [
         """
@@ -192,6 +192,16 @@ public enum EdgeMemSQLiteSchema {
             vector BLOB NOT NULL,
             created_at TEXT NOT NULL,
             PRIMARY KEY (observation_id, model_id)
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS daily_diaries (
+            character_id TEXT NOT NULL,
+            local_date TEXT NOT NULL,
+            title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+            body TEXT NOT NULL CHECK (length(trim(body)) > 0),
+            completed_at TEXT NOT NULL,
+            PRIMARY KEY (character_id, local_date)
         );
         """,
     ]

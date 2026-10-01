@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "character_id": "elena",
+  "player_name": "테스터",
+  "thinking_enabled": false,
+  "ram_sample_period_ms": 50,
+  "reply_gap_ms": 1000,
+  "timeout_ms": 180000,
+  "inputs": [
+    {"id": "first", "prompt": "안녕?"},
+    {"id": "followup", "prompt": "오늘은 어떻게 지냈어?"}
+  ]
+}

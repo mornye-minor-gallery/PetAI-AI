@@ -1,0 +1,62 @@
+<?xml version='1.0' encoding='utf-8'?>
+<trace-query-result>
+  <node xpath="//trace-toc[1]/run[1]/data[1]/table[2]">
+    <schema name="os-signpost-interval" documentation="Marks an interesting interval in time using the os_signpost API.">
+      <col>
+        <mnemonic>start</mnemonic>
+        <name>Start</name>
+        <engineering-type>start-time</engineering-type>
+      </col>
+      <col>
+        <mnemonic>duration</mnemonic>
+        <name>Duration</name>
+        <engineering-type>duration</engineering-type>
+      </col>
+      <col>
+        <mnemonic>name</mnemonic>
+        <name>Name</name>
+        <engineering-type>string</engineering-type>
+      </col>
+      <col>
+        <mnemonic>subsystem</mnemonic>
+        <name>Subsystem</name>
+        <engineering-type>subsystem</engineering-type>
+      </col>
+      <col>
+        <mnemonic>process</mnemonic>
+        <name>Start Process</name>
+        <engineering-type>process</engineering-type>
+      </col>
+      <col>
+        <mnemonic>end-process</mnemonic>
+        <name>End Process</name>
+        <engineering-type>process</engineering-type>
+      </col>
+      <col>
+        <mnemonic>start-message</mnemonic>
+        <name>Start Message</name>
+        <engineering-type>os-log-metadata</engineering-type>
+      </col>
+      <col>
+        <mnemonic>end-message</mnemonic>
+        <name>End Message</name>
+        <engineering-type>os-log-metadata</engineering-type>
+      </col>
+    </schema>
+    <row>
+      <start-time id="1" fmt="00:01.774.535">1774535125</start-time>
+      <duration id="2" fmt="2.01 s">2008747958</duration>
+      <string id="4" fmt="PowerWindow">PowerWindow</string>
+      <subsystem id="6" fmt="org.petai.resourcebench">org.petai.resourcebench</subsystem>
+      <process id="8" fmt="probe (4242)">
+        <pid id="9" fmt="4242">4242</pid>
+        <device-session id="10" fmt="TODO">TODO</device-session>
+      </process>
+      <process ref="8" />
+      <os-log-metadata id="13" fmt="00000000-0000-0000-0000-000000000001">
+        <string id="14" fmt="00000000-0000-0000-0000-000000000001">00000000-0000-0000-0000-000000000001</string>
+      </os-log-metadata>
+      <os-log-metadata ref="13" />
+    </row>
+  </node>
+</trace-query-result>

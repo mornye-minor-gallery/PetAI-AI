@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "runtime": {
+    "max_num_tokens": 4096
+  },
+  "prompt_budget": {
+    "memory_tokens": 2048,
+    "output_tokens": 1024
+  }
+}

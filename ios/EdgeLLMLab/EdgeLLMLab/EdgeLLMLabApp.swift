@@ -11,7 +11,11 @@ import SwiftUI
 struct EdgeLLMLabApp: App {
     var body: some Scene {
         WindowGroup {
+            #if RESOURCE_BENCH
+            ResourceBenchView()
+            #else
             ContentView()
+            #endif
         }
     }
 }

@@ -1,0 +1,423 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "task": {
+      "const": "name-identity"
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_class": {
+          "const": "synthetic"
+        },
+        "format": {
+          "enum": [
+            "name-cases",
+            "scenarios"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "wrong_name",
+            "correct_name"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "data_class"
+      ]
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "variant": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "repeats": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "variant",
+        "repeats",
+        "timeout_seconds"
+      ]
+    },
+    "variants": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "includePersona": {
+            "type": "boolean"
+          },
+          "includeSessionContext": {
+            "type": "boolean"
+          },
+          "enforceCharacterName": {
+            "type": "boolean"
+          },
+          "memoryClassification": {
+            "type": "boolean"
+          },
+          "thinking": {
+            "type": "boolean"
+          },
+          "sampling": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "temperature",
+              "top_k",
+              "top_p"
+            ],
+            "properties": {
+              "temperature": {
+                "type": "number",
+                "minimum": 0
+              },
+              "top_k": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "top_p": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "nameRuleStyle": {
+            "enum": [
+              "identity-statement",
+              "response-action"
+            ]
+          },
+          "history_file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "memories_file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authorsNote": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "defaults": {
+                "$ref": "#/$defs/authorsNoteOptions"
+              },
+              "chat": {
+                "$ref": "#/$defs/authorsNoteOptions"
+              },
+              "allowWorldInfoScan": {
+                "type": "boolean"
+              },
+              "character": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "mode": {
+                    "enum": [
+                      "replace",
+                      "before",
+                      "after"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "worldInfo": {
+            "$ref": "https://beolmuri.invalid/schemas/world-info.schema.json#/$defs/worldInfo"
+          },
+          "nameRulePlacement": {
+            "enum": [
+              "system",
+              "before-current",
+              "after-current"
+            ]
+          },
+          "lorebooks": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "world_info_context": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "characterTags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "trigger": {
+                "type": "string"
+              },
+              "scanFields": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "externallyActivated": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "vectorMatches": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "example_dialogue": {
+            "type": "string"
+          },
+          "authoredText": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "runtime": {
+                "type": "object"
+              },
+              "regex": {
+                "type": "object"
+              }
+            }
+          },
+          "personaCore": {
+            "type": "string",
+            "minLength": 1
+          },
+          "content": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "character",
+              "situation"
+            ],
+            "properties": {
+              "character": {
+                "type": "string",
+                "minLength": 1
+              },
+              "situation": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "retrieval": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "directory",
+              "model",
+              "tokenizer",
+              "reactions",
+              "worldLore"
+            ],
+            "properties": {
+              "directory": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tokenizer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reactions": {
+                "type": "boolean"
+              },
+              "worldLore": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "required": [
+          "includePersona",
+          "includeSessionContext",
+          "enforceCharacterName",
+          "memoryClassification"
+        ]
+      }
+    },
+    "judge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "const": "codex-cli"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasoning_effort": {
+          "const": "medium"
+        },
+        "rubric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "reasoning_effort",
+        "rubric",
+        "schema"
+      ]
+    },
+    "runtime": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "profile": {
+              "const": "production"
+            }
+          },
+          "required": [
+            "profile"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_num_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          },
+          "required": [
+            "max_num_tokens"
+          ]
+        }
+      ]
+    },
+    "prompt_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "memory_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "memory_tokens",
+        "output_tokens"
+      ]
+    }
+  },
+  "required": [
+    "version",
+    "task",
+    "dataset",
+    "run",
+    "variants",
+    "judge"
+  ],
+  "$defs": {
+    "authorsNoteOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "position": {
+          "enum": [
+            "before-system",
+            "after-system",
+            "in-chat"
+          ]
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "role": {
+          "enum": [
+            "system",
+            "user",
+            "assistant"
+          ]
+        }
+      }
+    }
+  }
+}

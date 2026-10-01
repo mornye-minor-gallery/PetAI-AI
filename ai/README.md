@@ -12,6 +12,9 @@
 | [ToolRouteBench](toolroutebench/README.md) | 도구 실행 여부와 종류 판정 | 오활성률을 별도로 평가합니다. 연구용 학습 가중치는 제공하지 않습니다. |
 | [Needle 2 Argument Canary](needle2-argument-canary/README.md) | 선택된 도구의 인자 제안 | 소규모 진단 실험이며 도구 라우팅 성능은 평가하지 않습니다. |
 | [모델 준비](models/README.md) | 모델 버전·해시와 다운로드 | 모델 파일은 저장소에 포함하지 않습니다. |
+| [Beolmuri Eval](beolmuri-eval/README.md) | 공통 Swift 프롬프트, 이름 정정, World Info, 자원 계측 | 합성 입력의 평가 조건과 실행 결과를 함께 기록합니다. |
+| [Guardrail](guardrail/README.md) | 입력 가드 적용 전후의 응답 비교 | 기준선과 표본·채점·생성 조건을 대조한 뒤 비교합니다. |
+| [입력 필터 생성기](guardrails/input_filter_generator/README.md) | 후보 수집과 두 차례 검수 | 생성 코드와 합성 테스트를 공개하며, 제품 필터 목록은 별도로 관리합니다. |
 
 Swift 구현은 [EdgeLLM](../ios/EdgeLLM/), 독립 실행 안내는 [빠른 시작](../docs/quickstart.md)에 있습니다. 모델 없이 검사하려면 저장소 루트에서 `uv run --frozen python scripts/check.py --swift`를 실행합니다.
 

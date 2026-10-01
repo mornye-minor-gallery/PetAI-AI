@@ -1,0 +1,344 @@
+[
+  {
+    "variant": "identity-statement",
+    "run_id": "20260907-225744-identity-statement-875635d8",
+    "source_commit_at_execution": "302e2efa5541d32fa7b2c2849b96fe30acdaea2c",
+    "source_sha256": "dcee77dd7064510bbec275a43b85365f3e97c31d0859e2458a4b8cfc4f69974a",
+    "dataset_sha256": "37862a13391812d1c84734969d77d218cb9c760c39a366cbc611e13496cd392f",
+    "input_hashes": {
+      "config.yaml": "1031c96d92ee0c471fea038e083e829b3ceb82ed7cee50c42758a222469fdb1c",
+      "dataset.jsonl": "9d9df9a1031b2651a0b696bd51c869d28dd48c07a1b8ce778094f22a17ea3ea9",
+      "judge.md": "7b71d35963b40a46aef69f524acef5e89cf108640cfa24c04de9d54b0b72ffea",
+      "judge.schema.json": "f37f5f4a423e6561954b0a70408ca2028502dc699735c7de84cf642818d8f7b3"
+    },
+    "configuration": {
+      "includePersona": true,
+      "includeSessionContext": true,
+      "enforceCharacterName": true,
+      "memoryClassification": true,
+      "thinking": false,
+      "nameRuleStyle": "identity-statement"
+    },
+    "scope": "single-turn-fixed-general-empty-memory",
+    "seed_policy": "repeat-index; paired inputs use the same seed; bitwise reproducibility not claimed",
+    "model": {
+      "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "revision": "9262660a1676eed6d0c477ab1a86344430854664",
+      "repository": "litert-community/gemma-4-E2B-it-litert-lm",
+      "format": "litertlm",
+      "quantization": "Gemma 4 mobile mixed-precision QAT"
+    },
+    "runtime": {
+      "version": "0.13.1",
+      "backend": "gpu",
+      "speculative_decoding": false,
+      "kv_capacity": "artifact default",
+      "mobile_parity": "Mac LiteRT-LM 0.13.1; mobile fork 0.14.0 is not the same runtime"
+    },
+    "judge": {
+      "provider": "codex-cli",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "medium",
+      "cli_version": "codex-cli 0.153.4",
+      "rubric_sha256": "7429dc33064abb6fc3783a7b226bfaf4693dfaa0b8ababe033626c2b278d4da3",
+      "schema_sha256": "5a317f4d6079c76bab3d1fe9d9718d83658d3f58f28735fc337749d7af1be517"
+    },
+    "summary": {
+      "planned": 120,
+      "graded": 120,
+      "generation_completed": 120,
+      "generation_errors": 0,
+      "judge_errors": 0,
+      "grading_coverage_pct": 100.0,
+      "complete": true,
+      "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+      "wrong_name": {
+        "denominator": 60,
+        "counts": {
+          "identity_maintained": 0,
+          "explicit_acceptance": 0,
+          "uncorrected_response": 60,
+          "unjudgeable": 0
+        },
+        "identity_maintained_pct": 0.0,
+        "explicit_acceptance_pct": 0.0,
+        "uncorrected_response_pct": 100.0,
+        "unjudgeable_pct": 0.0
+      },
+      "correct_name": {
+        "denominator": 60,
+        "incorrect_corrections": 0,
+        "incorrect_correction_pct": 0.0,
+        "unjudgeable_pct": 0.0
+      }
+    },
+    "per_seed": {
+      "0": {
+        "planned": 40,
+        "graded": 40,
+        "generation_completed": 40,
+        "generation_errors": 0,
+        "judge_errors": 0,
+        "grading_coverage_pct": 100.0,
+        "complete": true,
+        "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+        "wrong_name": {
+          "denominator": 20,
+          "counts": {
+            "identity_maintained": 0,
+            "explicit_acceptance": 0,
+            "uncorrected_response": 20,
+            "unjudgeable": 0
+          },
+          "identity_maintained_pct": 0.0,
+          "explicit_acceptance_pct": 0.0,
+          "uncorrected_response_pct": 100.0,
+          "unjudgeable_pct": 0.0
+        },
+        "correct_name": {
+          "denominator": 20,
+          "incorrect_corrections": 0,
+          "incorrect_correction_pct": 0.0,
+          "unjudgeable_pct": 0.0
+        }
+      },
+      "1": {
+        "planned": 40,
+        "graded": 40,
+        "generation_completed": 40,
+        "generation_errors": 0,
+        "judge_errors": 0,
+        "grading_coverage_pct": 100.0,
+        "complete": true,
+        "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+        "wrong_name": {
+          "denominator": 20,
+          "counts": {
+            "identity_maintained": 0,
+            "explicit_acceptance": 0,
+            "uncorrected_response": 20,
+            "unjudgeable": 0
+          },
+          "identity_maintained_pct": 0.0,
+          "explicit_acceptance_pct": 0.0,
+          "uncorrected_response_pct": 100.0,
+          "unjudgeable_pct": 0.0
+        },
+        "correct_name": {
+          "denominator": 20,
+          "incorrect_corrections": 0,
+          "incorrect_correction_pct": 0.0,
+          "unjudgeable_pct": 0.0
+        }
+      },
+      "2": {
+        "planned": 40,
+        "graded": 40,
+        "generation_completed": 40,
+        "generation_errors": 0,
+        "judge_errors": 0,
+        "grading_coverage_pct": 100.0,
+        "complete": true,
+        "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+        "wrong_name": {
+          "denominator": 20,
+          "counts": {
+            "identity_maintained": 0,
+            "explicit_acceptance": 0,
+            "uncorrected_response": 20,
+            "unjudgeable": 0
+          },
+          "identity_maintained_pct": 0.0,
+          "explicit_acceptance_pct": 0.0,
+          "uncorrected_response_pct": 100.0,
+          "unjudgeable_pct": 0.0
+        },
+        "correct_name": {
+          "denominator": 20,
+          "incorrect_corrections": 0,
+          "incorrect_correction_pct": 0.0,
+          "unjudgeable_pct": 0.0
+        }
+      }
+    },
+    "latency_ms": {
+      "primary_mean": 768.1247023894684,
+      "primary_median": 754.12189605413,
+      "primary_min": 657.2011670796201,
+      "primary_max": 907.5799580896273,
+      "including_retry_mean": 768.1247023894684
+    },
+    "retry_count": 0
+  },
+  {
+    "variant": "response-action",
+    "run_id": "20260907-231337-response-action-6b327e1a",
+    "source_commit_at_execution": "302e2efa5541d32fa7b2c2849b96fe30acdaea2c",
+    "source_sha256": "dcee77dd7064510bbec275a43b85365f3e97c31d0859e2458a4b8cfc4f69974a",
+    "dataset_sha256": "37862a13391812d1c84734969d77d218cb9c760c39a366cbc611e13496cd392f",
+    "input_hashes": {
+      "config.yaml": "1031c96d92ee0c471fea038e083e829b3ceb82ed7cee50c42758a222469fdb1c",
+      "dataset.jsonl": "9d9df9a1031b2651a0b696bd51c869d28dd48c07a1b8ce778094f22a17ea3ea9",
+      "judge.md": "7b71d35963b40a46aef69f524acef5e89cf108640cfa24c04de9d54b0b72ffea",
+      "judge.schema.json": "f37f5f4a423e6561954b0a70408ca2028502dc699735c7de84cf642818d8f7b3"
+    },
+    "configuration": {
+      "includePersona": true,
+      "includeSessionContext": true,
+      "enforceCharacterName": true,
+      "memoryClassification": true,
+      "thinking": false,
+      "nameRuleStyle": "response-action"
+    },
+    "scope": "single-turn-fixed-general-empty-memory",
+    "seed_policy": "repeat-index; paired inputs use the same seed; bitwise reproducibility not claimed",
+    "model": {
+      "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "revision": "9262660a1676eed6d0c477ab1a86344430854664",
+      "repository": "litert-community/gemma-4-E2B-it-litert-lm",
+      "format": "litertlm",
+      "quantization": "Gemma 4 mobile mixed-precision QAT"
+    },
+    "runtime": {
+      "version": "0.13.1",
+      "backend": "gpu",
+      "speculative_decoding": false,
+      "kv_capacity": "artifact default",
+      "mobile_parity": "Mac LiteRT-LM 0.13.1; mobile fork 0.14.0 is not the same runtime"
+    },
+    "judge": {
+      "provider": "codex-cli",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "medium",
+      "cli_version": "codex-cli 0.153.4",
+      "rubric_sha256": "7429dc33064abb6fc3783a7b226bfaf4693dfaa0b8ababe033626c2b278d4da3",
+      "schema_sha256": "5a317f4d6079c76bab3d1fe9d9718d83658d3f58f28735fc337749d7af1be517"
+    },
+    "summary": {
+      "planned": 120,
+      "graded": 120,
+      "generation_completed": 120,
+      "generation_errors": 0,
+      "judge_errors": 0,
+      "grading_coverage_pct": 100.0,
+      "complete": true,
+      "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+      "wrong_name": {
+        "denominator": 60,
+        "counts": {
+          "identity_maintained": 53,
+          "explicit_acceptance": 0,
+          "uncorrected_response": 7,
+          "unjudgeable": 0
+        },
+        "identity_maintained_pct": 88.333,
+        "explicit_acceptance_pct": 0.0,
+        "uncorrected_response_pct": 11.667,
+        "unjudgeable_pct": 0.0
+      },
+      "correct_name": {
+        "denominator": 60,
+        "incorrect_corrections": 0,
+        "incorrect_correction_pct": 0.0,
+        "unjudgeable_pct": 0.0
+      }
+    },
+    "per_seed": {
+      "0": {
+        "planned": 40,
+        "graded": 40,
+        "generation_completed": 40,
+        "generation_errors": 0,
+        "judge_errors": 0,
+        "grading_coverage_pct": 100.0,
+        "complete": true,
+        "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+        "wrong_name": {
+          "denominator": 20,
+          "counts": {
+            "identity_maintained": 17,
+            "explicit_acceptance": 0,
+            "uncorrected_response": 3,
+            "unjudgeable": 0
+          },
+          "identity_maintained_pct": 85.0,
+          "explicit_acceptance_pct": 0.0,
+          "uncorrected_response_pct": 15.0,
+          "unjudgeable_pct": 0.0
+        },
+        "correct_name": {
+          "denominator": 20,
+          "incorrect_corrections": 0,
+          "incorrect_correction_pct": 0.0,
+          "unjudgeable_pct": 0.0
+        }
+      },
+      "1": {
+        "planned": 40,
+        "graded": 40,
+        "generation_completed": 40,
+        "generation_errors": 0,
+        "judge_errors": 0,
+        "grading_coverage_pct": 100.0,
+        "complete": true,
+        "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+        "wrong_name": {
+          "denominator": 20,
+          "counts": {
+            "identity_maintained": 17,
+            "explicit_acceptance": 0,
+            "uncorrected_response": 3,
+            "unjudgeable": 0
+          },
+          "identity_maintained_pct": 85.0,
+          "explicit_acceptance_pct": 0.0,
+          "uncorrected_response_pct": 15.0,
+          "unjudgeable_pct": 0.0
+        },
+        "correct_name": {
+          "denominator": 20,
+          "incorrect_corrections": 0,
+          "incorrect_correction_pct": 0.0,
+          "unjudgeable_pct": 0.0
+        }
+      },
+      "2": {
+        "planned": 40,
+        "graded": 40,
+        "generation_completed": 40,
+        "generation_errors": 0,
+        "judge_errors": 0,
+        "grading_coverage_pct": 100.0,
+        "complete": true,
+        "rates_denominator": "graded responses, including unjudgeable; inspect coverage before comparison",
+        "wrong_name": {
+          "denominator": 20,
+          "counts": {
+            "identity_maintained": 19,
+            "explicit_acceptance": 0,
+            "uncorrected_response": 1,
+            "unjudgeable": 0
+          },
+          "identity_maintained_pct": 95.0,
+          "explicit_acceptance_pct": 0.0,
+          "uncorrected_response_pct": 5.0,
+          "unjudgeable_pct": 0.0
+        },
+        "correct_name": {
+          "denominator": 20,
+          "incorrect_corrections": 0,
+          "incorrect_correction_pct": 0.0,
+          "unjudgeable_pct": 0.0
+        }
+      }
+    },
+    "latency_ms": {
+      "primary_mean": 743.5361868333226,
+      "primary_median": 747.2526459605433,
+      "primary_min": 672.4844579584897,
+      "primary_max": 886.1099580535665,
+      "including_retry_mean": 743.5361868333226
+    },
+    "retry_count": 0
+  }
+]

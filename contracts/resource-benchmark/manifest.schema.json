@@ -1,0 +1,255 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "owner_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "role": {
+      "enum": [
+        "idle",
+        "work"
+      ]
+    },
+    "measurement_mode": {
+      "enum": [
+        "power",
+        "inference"
+      ]
+    },
+    "config": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "Resource benchmark config",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "target": {
+          "enum": [
+            "unity",
+            "inference"
+          ]
+        },
+        "profile": {
+          "enum": [
+            "basic",
+            "memory",
+            "cpu",
+            "gpu",
+            "unity-memory"
+          ]
+        },
+        "scenario": {
+          "enum": [
+            "paced",
+            "sustained",
+            "fixed"
+          ]
+        },
+        "bundle_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "initial_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_manifest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generation_config": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pair_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "power_window_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reply_gap_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "brightness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "required_initial_thermal_state": {
+          "enum": [
+            "nominal",
+            "fair",
+            "serious",
+            "critical"
+          ]
+        },
+        "ram_sample_period_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ram_max_gap_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recorder_pre_roll_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recorder_post_roll_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "prepare_timeout_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "turn_timeout_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "finalize_timeout_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "schema_version",
+        "target",
+        "profile",
+        "scenario",
+        "bundle_id",
+        "fixture",
+        "initial_state",
+        "model_manifest",
+        "generation_config",
+        "pair_count",
+        "power_window_ms",
+        "reply_gap_ms",
+        "brightness",
+        "required_initial_thermal_state",
+        "ram_sample_period_ms",
+        "ram_max_gap_ms",
+        "recorder_pre_roll_ms",
+        "recorder_post_roll_ms",
+        "prepare_timeout_ms",
+        "turn_timeout_ms",
+        "finalize_timeout_ms"
+      ]
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^models/[a-f0-9]{64}\\.litertlm$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ]
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "context_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_output_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0
+        },
+        "top_k": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "top_p": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "thinking_enabled": {
+          "type": "boolean"
+        },
+        "conversation_mode": {
+          "enum": ["fresh_per_input", "cached_full_prompt"]
+        }
+      },
+      "required": [
+        "context_tokens",
+        "max_output_tokens",
+        "temperature",
+        "top_k",
+        "top_p",
+        "thinking_enabled",
+        "conversation_mode"
+      ]
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "system_prompt": {
+            "type": "string"
+          },
+          "user_prompt": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "system_prompt",
+          "user_prompt"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "owner_id",
+    "role",
+    "config",
+    "model",
+    "generation",
+    "inputs"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

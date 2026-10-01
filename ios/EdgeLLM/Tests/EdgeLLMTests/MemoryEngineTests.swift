@@ -64,36 +64,22 @@ private actor RecordingMemoryStore: MemoryObservationStoring {
         didInitialize = true
     }
 
-    func saveUserTurn(
-        id: String,
-        sessionID: String,
-        scope: MemoryScope,
-        rawText: String,
-        occurredAt: Date
-    ) async throws -> MemoryConversationTurn {
+    func saveMemory(_ write: MemoryPreparedWrite) throws -> MemoryRememberResult {
+        let request = write.request
         let turn = MemoryConversationTurn(
-            id: id,
-            sessionID: sessionID,
-            sequence: turns.filter { $0.sessionID == sessionID }.count,
-            scope: scope,
-            rawText: rawText,
-            occurredAt: occurredAt,
-            contentHash: "test-hash"
-        )
+            id: request.sourceMessageID, sessionID: request.sessionID,
+            sequence: turns.filter { $0.sessionID == request.sessionID }.count,
+            scope: request.scope, rawText: request.rawText,
+            occurredAt: request.occurredAt, contentHash: "test-hash")
+        let result = write.result(for: turn)
         turns.append(turn)
-        return turn
-    }
-
-    func saveGateResult(_ result: MemoryGateResult) async throws {
-        gates.append(result)
-    }
-
-    func saveObservation(
-        _ observation: MemoryObservation,
-        embedding: MemoryObservationEmbedding?
-    ) async throws {
-        observations.append(observation)
-        embeddings.append(embedding)
+        gates.append(MemoryGateResult(id: write.gateResultID, turnID: turn.id,
+                                      decision: write.decision, createdAt: write.createdAt))
+        if let observation = result.observation {
+            observations.append(observation)
+            embeddings.append(write.embedding)
+        }
+        return result
     }
 
     func activeObservations(
@@ -207,23 +193,10 @@ private actor SuspendingInitializationMemoryStore:
         }
     }
 
-    func saveUserTurn(
-        id: String,
-        sessionID: String,
-        scope: MemoryScope,
-        rawText: String,
-        occurredAt: Date
-    ) async throws -> MemoryConversationTurn {
+    func saveMemory(_ write: MemoryPreparedWrite) throws -> MemoryRememberResult {
         Issue.record("Unexpected store access.")
         throw MemoryEngineError.notPrepared
     }
-
-    func saveGateResult(_ result: MemoryGateResult) async throws {}
-
-    func saveObservation(
-        _ observation: MemoryObservation,
-        embedding: MemoryObservationEmbedding?
-    ) async throws {}
 
     func activeObservations(
         in scope: MemoryScope
@@ -551,7 +524,7 @@ func retrievalFailureIsLoggedAndReturnsNoMemory() async {
 func sqliteSchemaIsTheFirstCanonicalObservationMemoryContract() {
     let schema = EdgeMemSQLiteSchema.statements.joined(separator: "\n")
 
-    #expect(EdgeMemSQLiteSchema.version == 3)
+    #expect(EdgeMemSQLiteSchema.version == 4)
     #expect(schema.contains("conversation_turns"))
     #expect(schema.contains("gate_results"))
     #expect(schema.contains("observations"))
@@ -559,6 +532,7 @@ func sqliteSchemaIsTheFirstCanonicalObservationMemoryContract() {
     #expect(schema.contains("observation_embeddings"))
     #expect(schema.contains("content_hash"))
     #expect(schema.contains("gemma_header"))
+    #expect(schema.contains("daily_diaries"))
     #expect(schema.contains("CHECK (decision IN"))
     #expect(!schema.contains("memory_observations"))
     #expect(!schema.lowercased().contains("fts5"))

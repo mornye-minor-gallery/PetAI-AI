@@ -118,13 +118,22 @@ public struct MemoryTaggedChatOutcome: Equatable, Sendable {
 
 public enum MemoryTaggedChatProcessor {
     public static func run(
+        isolation: isolated (any Actor)? = #isolation,
+        configuration: PersonaResponseConfiguration = .production,
         primaryStream:
             () async throws -> AsyncThrowingStream<String, Error>,
         retryStream:
             () async throws -> AsyncThrowingStream<String, Error>,
         receiveVisibleText: (String) async -> Void
     ) async throws -> MemoryTaggedChatOutcome {
+        if !configuration.memoryClassification {
+            return try await AnswerOnlyChatProcessor.run(
+                isolation: isolation,
+                stream: primaryStream(), receiveVisibleText: receiveVisibleText
+            )
+        }
         let primary = try await decode(
+            isolation: isolation,
             stream: primaryStream(),
             receiveVisibleText: receiveVisibleText
         )
@@ -138,6 +147,7 @@ public enum MemoryTaggedChatProcessor {
         }
 
         let retry = try await decode(
+            isolation: isolation,
             stream: retryStream(),
             receiveVisibleText: receiveVisibleText
         )
@@ -148,16 +158,19 @@ public enum MemoryTaggedChatProcessor {
     }
 
     private static func decode(
+        isolation: isolated (any Actor)?,
         stream: AsyncThrowingStream<String, Error>,
         receiveVisibleText: (String) async -> Void
     ) async throws -> MemoryHeaderGateResult {
+        let filter = DialogueTextFilter()
         var gate = MemoryHeaderGate()
         var deliveredText = ""
 
         for try await chunk in stream {
             for visibleChunk in gate.consume(chunk) {
                 deliveredText += visibleChunk
-                await receiveVisibleText(visibleChunk)
+                let visible = filter.apply(to: visibleChunk)
+                if !visible.isEmpty { await receiveVisibleText(visible) }
             }
         }
 
@@ -167,10 +180,11 @@ public enum MemoryTaggedChatProcessor {
                 result.visibleText.dropFirst(deliveredText.count)
             )
             if !suffix.isEmpty {
-                await receiveVisibleText(suffix)
+                let visible = filter.apply(to: suffix)
+                if !visible.isEmpty { await receiveVisibleText(visible) }
             }
         }
-        return result
+        return filter.apply(to: result)
     }
 }
 

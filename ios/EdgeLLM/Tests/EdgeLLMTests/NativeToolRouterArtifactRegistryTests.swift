@@ -53,12 +53,12 @@ func externalArtifactRejectsUnsupportedModelContract() throws {
     #expect(throws: NativeToolRoutingError.self) { _ = try registry.load() }
 }
 
-private struct OwnedRouterFixture: Sendable {
+struct OwnedRouterFixture: Sendable {
     let files: [String: Data]
     let digest: String
 }
 
-private func makeOwnedRouterFixture(
+func makeOwnedRouterFixture(
     modelID: String = NativeToolRouterArtifactRegistry.expectedModelID
 ) throws -> OwnedRouterFixture {
     let dimension = 768

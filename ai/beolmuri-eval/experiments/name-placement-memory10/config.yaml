@@ -1,0 +1,39 @@
+version: 1
+task: name-identity
+dataset:
+  path: ../../datasets/name-identity.jsonl
+  data_class: synthetic
+  kind: wrong_name
+run:
+  variant: before-current
+  repeats: 3
+  timeout_seconds: 180
+variants:
+  before-current:
+    includePersona: true
+    includeSessionContext: true
+    enforceCharacterName: true
+    memoryClassification: true
+    thinking: false
+    nameRuleStyle: response-action
+    history_file: ../../datasets/history/daily-10.json
+    memories_file: ../../datasets/memories/daily-full-10.json
+    nameRulePlacement: before-current
+  after-current:
+    includePersona: true
+    includeSessionContext: true
+    enforceCharacterName: true
+    memoryClassification: true
+    thinking: false
+    nameRuleStyle: response-action
+    history_file: ../../datasets/history/daily-10.json
+    memories_file: ../../datasets/memories/daily-full-10.json
+    nameRulePlacement: after-current
+judge:
+  provider: codex-cli
+  model: gpt-5.6-luna
+  reasoning_effort: medium
+  rubric: ../../judges/name-identity.md
+  schema: ../../schemas/name-judgment.schema.json
+runtime:
+  max_num_tokens: 8096

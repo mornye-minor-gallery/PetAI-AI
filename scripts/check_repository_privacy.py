@@ -13,9 +13,9 @@ import re
 import subprocess
 
 
-HOME_PATH = re.compile(r"(?:/Users/|/home/)[A-Za-z0-9._-]+|[A-Za-z]:\\Users\\[A-Za-z0-9._-]+")
+HOME_PATH = re.compile(r"(?<![A-Za-z0-9])(?:/Users/|/home/)[A-Za-z0-9._-]+|[A-Za-z]:\\Users\\[A-Za-z0-9._-]+")
 EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b")
-PHONE = re.compile(r"(?<!\d)01[016789][- ]?\d{3,4}[- ]?\d{4}(?!\d)")
+PHONE = re.compile(r"(?<![A-Za-z0-9])01[016789][- ]?\d{3,4}[- ]?\d{4}(?![A-Za-z0-9])")
 SAFE_CONTENT_EMAIL_DOMAINS = {"example.com", "example.org", "example.net", "users.noreply.github.com", "noreply.github.com"}
 SAFE_CONTENT_EMAIL_ADDRESSES = {"noreply@github.com"}
 

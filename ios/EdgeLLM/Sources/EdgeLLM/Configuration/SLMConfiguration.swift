@@ -1,19 +1,19 @@
 public struct SLMConfiguration: Equatable, Sendable {
     public struct Memory: Equatable, Sendable {
         public let recallLimit: Int
-        public let promptTokenBudget: Int
+        public let promptByteBudget: Int
         public let minimumSimilarity: Float
 
         public init(
             recallLimit: Int,
-            promptTokenBudget: Int,
+            promptByteBudget: Int,
             minimumSimilarity: Float
         ) {
             precondition(recallLimit > 0)
-            precondition(promptTokenBudget > 0)
+            precondition(promptByteBudget > 0)
             precondition((-1...1).contains(minimumSimilarity))
             self.recallLimit = recallLimit
-            self.promptTokenBudget = promptTokenBudget
+            self.promptByteBudget = promptByteBudget
             self.minimumSimilarity = minimumSimilarity
         }
     }
@@ -40,7 +40,6 @@ public struct SLMConfiguration: Equatable, Sendable {
     public struct Generation: Equatable, Sendable {
         public let responseSampling: Sampling
         public let deterministicSampling: Sampling
-        public let maxOutputTokens: Int
         public let responseThinkingDefault: Bool
         public let routerThinkingEnabled: Bool
         public let toolReasoningEnabled: Bool
@@ -48,15 +47,12 @@ public struct SLMConfiguration: Equatable, Sendable {
         public init(
             responseSampling: Sampling,
             deterministicSampling: Sampling,
-            maxOutputTokens: Int,
             responseThinkingDefault: Bool,
             routerThinkingEnabled: Bool,
             toolReasoningEnabled: Bool
         ) {
-            precondition(maxOutputTokens > 0)
             self.responseSampling = responseSampling
             self.deterministicSampling = deterministicSampling
-            self.maxOutputTokens = maxOutputTokens
             self.responseThinkingDefault = responseThinkingDefault
             self.routerThinkingEnabled = routerThinkingEnabled
             self.toolReasoningEnabled = toolReasoningEnabled
@@ -64,20 +60,11 @@ public struct SLMConfiguration: Equatable, Sendable {
     }
 
     public struct Persona: Equatable, Sendable {
-        public let recentMessageLimit: Int
+        public let recentTurnLimit: Int
 
-        public init(recentMessageLimit: Int) {
-            precondition(recentMessageLimit >= 0)
-            self.recentMessageLimit = recentMessageLimit
-        }
-    }
-
-    public struct Diagnostics: Equatable, Sendable {
-        public let telemetryCandidateCount: Int
-
-        public init(telemetryCandidateCount: Int) {
-            precondition((1...16).contains(telemetryCandidateCount))
-            self.telemetryCandidateCount = telemetryCandidateCount
+        public init(recentTurnLimit: Int) {
+            precondition(recentTurnLimit >= 0)
+            self.recentTurnLimit = recentTurnLimit
         }
     }
 
@@ -94,24 +81,33 @@ public struct SLMConfiguration: Equatable, Sendable {
     public let memory: Memory
     public let generation: Generation
     public let persona: Persona
-    public let diagnostics: Diagnostics
     public let runtimeSafety: RuntimeSafety
+    public let dialogueBudget: DialogueTokenBudget
+    public let authoredText: DialogueTextSettings?
+    public let authorsNote: AuthorsNoteSettings?
+    public let worldInfo: WorldInfoSettings?
 
     public init(
         id: String,
         memory: Memory,
         generation: Generation,
         persona: Persona,
-        diagnostics: Diagnostics,
-        runtimeSafety: RuntimeSafety
+        runtimeSafety: RuntimeSafety,
+        dialogueBudget: DialogueTokenBudget = .production,
+        authorsNote: AuthorsNoteSettings? = nil,
+        worldInfo: WorldInfoSettings? = nil,
+        authoredText: DialogueTextSettings? = nil
     ) {
         precondition(!id.isEmpty)
         self.id = id
         self.memory = memory
         self.generation = generation
         self.persona = persona
-        self.diagnostics = diagnostics
         self.runtimeSafety = runtimeSafety
+        self.dialogueBudget = dialogueBudget
+        self.authorsNote = authorsNote
+        self.worldInfo = worldInfo
+        self.authoredText = authoredText
     }
 }
 
@@ -120,7 +116,7 @@ public extension SLMConfiguration {
         id: "petai-slm-v1",
         memory: Memory(
             recallLimit: 10,
-            promptTokenBudget: 10_000,
+            promptByteBudget: 10_000,
             minimumSimilarity: 0.3
         ),
         generation: Generation(
@@ -134,13 +130,13 @@ public extension SLMConfiguration {
                 samplerTopK: 40,
                 topP: 1
             ),
-            maxOutputTokens: 4_096,
             responseThinkingDefault: false,
             routerThinkingEnabled: false,
             toolReasoningEnabled: false
         ),
-        persona: Persona(recentMessageLimit: 6),
-        diagnostics: Diagnostics(telemetryCandidateCount: 8),
-        runtimeSafety: RuntimeSafety(cancellationTimeoutSeconds: 10)
+        // One accepted user request is one turn, even when its answer is interrupted.
+        persona: Persona(recentTurnLimit: 20),
+        // Provisional UX deadline; tune after device cancellation-latency measurements.
+        runtimeSafety: RuntimeSafety(cancellationTimeoutSeconds: 15)
     )
 }

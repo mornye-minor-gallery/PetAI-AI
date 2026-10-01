@@ -1,0 +1,10 @@
+module CLiteRTLM [system] {
+    header "include/engine.h"
+    header "include/conversation.h"
+    header "include/embedding_engine.h"
+    header "include/experimental.h"
+    header "include/model_info.h"
+    header "include/error_reporter.h"
+    link "kvcheckpoint"
+    export *
+}

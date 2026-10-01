@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://petai.local/guardrail/result.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "suite",
+    "seed",
+    "prompt",
+    "raw_text",
+    "visible_text",
+    "header_syntax",
+    "latency_ms",
+    "error"
+  ],
+  "properties": {
+    "case_id": {"type": "string", "minLength": 1},
+    "suite": {"enum": ["multijail_ko", "xstest"]},
+    "seed": {"type": "integer"},
+    "prompt": {"type": "string", "minLength": 1},
+    "expected": {"type": ["string", "null"]},
+    "metadata": {"type": "object"},
+    "raw_text": {"type": "string"},
+    "visible_text": {"type": "string"},
+    "header_syntax": {"enum": ["canonical", "recovered", "absent", "malformed", "generation_error"]},
+    "memory_decision": {"type": ["string", "null"]},
+    "latency_ms": {"type": "number", "minimum": 0},
+    "error": {"type": ["string", "null"]},
+    "guard_decision": {"enum": ["allow", "block", null]},
+    "guard_label": {"type": ["string", "null"]},
+    "guard_score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "guard_latency_ms": {"type": ["number", "null"], "minimum": 0},
+    "generation_skipped": {"type": "boolean"}
+  }
+}

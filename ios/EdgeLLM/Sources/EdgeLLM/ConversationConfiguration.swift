@@ -3,8 +3,8 @@ public struct ConversationConfiguration: Equatable, Sendable {
     public let temperature: Float
     public let topK: Int
     public let topP: Float
+    public let thinkingEnabled: Bool
     public let maxOutputTokens: Int
-    public let topKTelemetryCandidateCount: Int?
 
     public init(
         systemPrompt: String? = nil,
@@ -14,15 +14,14 @@ public struct ConversationConfiguration: Equatable, Sendable {
             .responseSampling.samplerTopK,
         topP: Float = SLMConfiguration.production.generation
             .responseSampling.topP,
-        maxOutputTokens: Int = SLMConfiguration.production.generation
-            .maxOutputTokens,
-        topKTelemetryCandidateCount: Int? = nil
+        maxOutputTokens: Int = SLMConfiguration.production.dialogueBudget.outputTokens,
+        thinkingEnabled: Bool = SLMConfiguration.production.generation.responseThinkingDefault
     ) {
         self.systemPrompt = systemPrompt
+        self.thinkingEnabled = thinkingEnabled
         self.temperature = temperature
         self.topK = topK
         self.topP = topP
         self.maxOutputTokens = maxOutputTokens
-        self.topKTelemetryCandidateCount = topKTelemetryCandidateCount
     }
 }

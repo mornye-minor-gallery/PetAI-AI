@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "source_base": "27b742513543a3e5b8cda8e34107117e468fd9ee",
+  "source_head": "27d2d6450fbf377a228f85f2fabe5247dc00a94d",
+  "public_base": "316d252582e543bf401591c7808db5d9ea6f409d",
+  "method": "Curated path patches; source author and author date retained. Public integration changes follow the replayed commits.",
+  "commits": [
+    {
+      "source": "12700153c0b5e8a48faa7ed6c3fc78d3c80f86c1",
+      "public": "54f77e9fbef5af9b3e9679195f2952fe82af74c0"
+    },
+    {
+      "source": "e2f183098f161a7eefc4383a1d5b4e986580a056",
+      "public": "98c3ad9ec4465b25a61e3f1e9ba4ba3195bf01b0"
+    },
+    {
+      "source": "325483fc0223fc3b0baaa5c7fb8f3e56869480b5",
+      "public": "87e855bbe3ebbe064bef5aa88adff76e64dd01e5"
+    },
+    {
+      "source": "839e24475374f9e57994fbfb1eaf92824160a4a8",
+      "public": "ec6eb88aa268a6dcea4f20cd239a6dcded8fb032"
+    },
+    {
+      "source": "f4d655851c944214953e891dd69cf9c5f2d3bbdf",
+      "public": "7bdbf3cc7d9a2fde8aa304d727c89a5c197b5820"
+    },
+    {
+      "source": "c37fa905bf5250dc8bc77f60a3166e5a31abe851",
+      "public": "b56077ed6005e3f294ee011e762c85b88d41e8cc"
+    },
+    {
+      "source": "a4d85f7c425f27c0fe4abc0405ff94c22ffafce5",
+      "public": "546a0dc21961e8edacf9595337f3480f29b7e91c"
+    },
+    {
+      "source": "eb844906a17a89ee0e885c2615924a6bf232a6c7",
+      "public": "19ab3a6da0d5290cc4dda7d3f8630e5bd678de2c"
+    },
+    {
+      "source": "578779490ccfb9d76321773add638b2521013b62",
+      "public": "e5ecc21f38fba4af95152e34a3d5436c80a4ffb2"
+    },
+    {
+      "source": "963f1ecbacb77463095b50665a7c6751a4eaa326",
+      "public": "a4fe9e892bd30da7a854570615fdee0c354e41f2"
+    },
+    {
+      "source": "6d278c1656dff453ae7ac437e73b061d5b5da740",
+      "public": "7bae9ec3828717bd23a4bbe85833afde3af9ff2d"
+    },
+    {
+      "source": "a0944f3780d78b854680b6545967f5652dd751b8",
+      "public": "c41730f66621782f1b0f0dc1b5b9c06943aad770"
+    },
+    {
+      "source": "2fcc0a3ea12ef7a0581df75b73b7708774320fd4",
+      "public": "c30c57c5d51750e29be2c7411dc980c19dfdfcfb"
+    },
+    {
+      "source": "58fdd877f45619e8285ecd4642abe573e854bbbb",
+      "public": "0403772ed43481e9603dec27b761b2538b87765c"
+    },
+    {
+      "source": "eb6a42acb2f73372c283ad41f38687c56889d5c5",
+      "public": "33455888691c2aafb26154d90639ff034c31f097"
+    },
+    {
+      "source": "d25bef018960a7251fa0f7ba933d465df03892fb",
+      "public": "573e56e5761b7d5e9594d46583dfd6df39abc62c"
+    },
+    {
+      "source": "b1f05c260a6054a891933ee41b141f027357df36",
+      "public": "c57c855f6486f79237eca9bde0dafaf2dc59ec2b"
+    },
+    {
+      "source": "8f3aafa17b666535242fe99f92332988b0849c91",
+      "public": "1866b4a4130b6130f1db2758867aa794435ea50a"
+    },
+    {
+      "source": "fe9f9194535f0d0361e32d620f6a68d948242545",
+      "public": "8ed681cf4c5046d83bfdeec3fe4ef0eafb9ec0b5"
+    },
+    {
+      "source": "e26b1f2b4ede56da31915147ecf8d7d1122ed8d5",
+      "public": "71310f29fe745e39e43bf5c7f706a460872ed971"
+    },
+    {
+      "source": "6b7c7e2afa7d6b7e48aeed8c159adbc3ca0f36d3",
+      "public": "1e5f710687f611a22c30b97498a9d6dabeb45f33"
+    },
+    {
+      "source": "8b338c0402d2074ab0cab204c67a6b676001c58b",
+      "public": "c95396e17f4dcf197626dc8e4d13d48a3d0216db"
+    },
+    {
+      "source": "d73fc3dd1be7450e5a3310d3d1c94f96aa5287b0",
+      "public": "0a0a02d78f43a6cffeb09da840b9081e63ee9f7b"
+    },
+    {
+      "source": "27d2d6450fbf377a228f85f2fabe5247dc00a94d",
+      "public": "41c042aca42fc07f9097b366078343e69252c8ce"
+    }
+  ]
+}

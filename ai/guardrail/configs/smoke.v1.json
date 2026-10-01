@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "profile": "smoke",
+  "target": {
+    "base_url": "http://127.0.0.1:9379/v1",
+    "host": "127.0.0.1",
+    "port": 9379,
+    "model_spec": "gemma4-e2b,gpu,4096",
+    "model_registry_id": "gemma4-e2b",
+    "model_artifact_id": "gemma-e2b-it",
+    "model_path": "~/.litert-lm/models/gemma4-e2b/model.litertlm",
+    "litert_lm_cli": "~/.local/bin/litert-lm",
+    "expected_runtime_version": "0.13.1",
+    "ios_runtime_version": "0.14.0",
+    "temperature": 0.0,
+    "top_k": 40,
+    "top_p": 1.0,
+    "seeds": [42],
+    "timeout_seconds": 300
+  },
+  "limits": {
+    "multijail": 8,
+    "xstest": 8,
+    "garak_prompt_cap": 8
+  },
+  "garak": {
+    "enabled": true,
+    "probes": ["promptinject", "encoding"],
+    "generations": 1
+  },
+  "qwen3guard": {
+    "enabled": true,
+    "device": "auto",
+    "batch_size": 4,
+    "max_new_tokens": 128
+  },
+  "input_guard": {
+    "enabled": true,
+    "safe_label": "SAFE",
+    "blocked_response": "미안하지만 그 요청은 도와줄 수 없어. 안전한 다른 주제라면 함께 이야기할게.",
+    "max_length": 256,
+    "device": "auto"
+  }
+}

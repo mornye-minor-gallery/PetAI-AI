@@ -1,0 +1,55 @@
+{
+  "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+  "worker_sha256": "09c417f1989ec38cd0be1f1c21a343ff4965f1af1485f87906077250e3b77ccd",
+  "cases": [
+    {
+      "scenario": "next",
+      "checks": {
+        "restored_matches_cold": true,
+        "cache_preserved": true,
+        "same_session_after_save_matches_cold": true,
+        "corrupt_recovers_cold_output": true,
+        "incompatible_recovers_cold_output": true,
+        "truncated_recovers_cold_output": true,
+        "old-format_recovers_cold_output": true
+      }
+    },
+    {
+      "scenario": "dynamic",
+      "checks": {
+        "restored_matches_cold": true,
+        "cache_preserved": true,
+        "same_session_after_save_matches_cold": true
+      }
+    },
+    {
+      "scenario": "boundary",
+      "checks": {
+        "restored_matches_cold": true,
+        "cache_preserved": true,
+        "same_session_after_save_matches_cold": true
+      }
+    },
+    {
+      "scenario": "cancelled",
+      "checks": {
+        "restored_matches_cold": true,
+        "cache_preserved": true,
+        "busy_save_rejected": true
+      }
+    },
+    {
+      "scenario": "failed",
+      "checks": {
+        "restored_matches_cold": true,
+        "cache_preserved": true,
+        "same_session_after_save_matches_cold": true
+      }
+    }
+  ],
+  "criterion": "Identical visible output with greedy sampling; Mac CPU, synthetic fixtures, actual app composer, app file store and native state-transfer API.",
+  "native_source_revision": "a327b494f874a319605e6fd7e3439678daa4d07d",
+  "device_validation": "UNVERIFIED",
+  "native_patch_sha256": "ddd49958f1c3fd5c594c6077622947ece22eb4fc0e91cadc9aefd1c291ad15c2",
+  "prefill_patch_sha256": "6d6469726af355fc4b528d5c8c799dd8b633becce83660545165d0658ac1f957"
+}
