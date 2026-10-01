@@ -30,12 +30,12 @@ extension ChatSessionController {
             )
             switch outcome {
             case .unsupported:
-                finishFailedRequest(requestID, code: "platform_unsupported",
+                await finishFailedRequest(requestID, code: "platform_unsupported",
                     message: nativeToolAdapterHub.unsupportedMessage)
                 return true
             case .normal:
                 if cancelRequested {
-                    finishCancelledRequest(requestID)
+                    await finishCancelledRequest(requestID)
                     return true
                 }
                 return false
@@ -90,7 +90,7 @@ extension ChatSessionController {
                         committedTool: true
                     )
                 } else {
-                    finishNativeToolFailure(
+                    await finishNativeToolFailure(
                         requestID: requestID,
                         code: envelope.errorCode ?? .nativeFailure,
                         message: NativeToolResultFormatter()
@@ -114,7 +114,7 @@ extension ChatSessionController {
             try? await nativeToolCoordinator.removeFinished(
                 requestID: requestID
             )
-            finishCancelledRequest(requestID)
+            await finishCancelledRequest(requestID)
             return true
         } catch let error as NativeToolValidationError {
             _ = try? await nativeToolCoordinator.cancel(
@@ -123,7 +123,7 @@ extension ChatSessionController {
             try? await nativeToolCoordinator.removeFinished(
                 requestID: requestID
             )
-            finishNativeToolFailure(
+            await finishNativeToolFailure(
                 requestID: requestID,
                 code: error.code
             )
@@ -135,7 +135,7 @@ extension ChatSessionController {
             try? await nativeToolCoordinator.removeFinished(
                 requestID: requestID
             )
-            finishNativeToolFailure(
+            await finishNativeToolFailure(
                 requestID: requestID,
                 code: .nativeFailure
             )
@@ -153,7 +153,7 @@ extension ChatSessionController {
         committedTool: Bool = false
     ) async {
         guard activeRequestId == requestID else { return }
-        guard committedTool || !cancelRequested else { finishCancelledRequest(requestID); return }
+        guard committedTool || !cancelRequested else { await finishCancelledRequest(requestID); return }
         // Once a tool has executed successfully, a late cancel cannot undo its side effect.
         emitVisibleAnswer(visibleText, requestID: requestID, allowAfterCancel: committedTool)
         do {
@@ -161,7 +161,7 @@ extension ChatSessionController {
                 homeSteps: homeSteps, allowAfterCancel: committedTool, presentation: .tool)
         } catch {
             logger.error("Could not complete native tool chat turn request=\(requestID) error=\(error.localizedDescription)")
-            finishFailedRequest(requestID, code: "chat_turn_state_failed", message: "대화 상태를 기록하지 못했습니다.")
+            await finishFailedRequest(requestID, code: "chat_turn_state_failed", message: "대화 상태를 기록하지 못했습니다.")
         }
     }
 
@@ -169,9 +169,9 @@ extension ChatSessionController {
         requestID: String,
         code: NativeToolErrorCode,
         message: String = "요청을 처리하지 못했어요. 다시 시도해 주세요."
-    ) {
+    ) async {
         guard activeRequestId == requestID else { return }
-        finishFailedRequest(requestID,
+        await finishFailedRequest(requestID,
             code: code.rawValue,
             message: message)
     }

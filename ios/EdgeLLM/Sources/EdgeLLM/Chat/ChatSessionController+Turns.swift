@@ -76,11 +76,20 @@ extension ChatSessionController {
         emit(type: "token", requestId: requestID, text: text)
     }
 
-    func finishCancelledRequest(_ requestID: String) {
+    func finishCancelledRequest(_ requestID: String) async {
         guard activeRequestId == requestID else { return }
+        let text = routedPersonaSession.chatTurns.last?.assistantMessage ?? ""
+        let decision = await displayDecision(requestID, text: text, cancelled: true)
+        commitCancelledRequest(requestID, displayedText: decision?.text ?? "")
+    }
+
+    private func commitCancelledRequest(_ requestID: String, displayedText: String) {
+        guard activeRequestId == requestID else { return }
+        defer { isCommittingTurn = false }
         do {
             guard let recentTurnStore else { throw RecentTurnStorageError.notLoaded }
-            try recentTurnStore.finishRequest(in: &routedPersonaSession, requestID: requestID, status: .cancelled)
+            try recentTurnStore.finishRequest(in: &routedPersonaSession, requestID: requestID,
+                status: .cancelled, assistantMessage: displayedText)
         } catch {
             logger.error("Could not record cancelled chat turn request=\(requestID) error=\(error.localizedDescription)")
             finishTurnStorageFailure(requestID)
@@ -93,10 +102,10 @@ extension ChatSessionController {
     }
 
     func finishFailedRequest(_ requestID: String, code: String, message: String,
-                             recoverable: Bool = true) {
+                             recoverable: Bool = true) async {
         guard activeRequestId == requestID else { return }
         if cancelRequested {
-            finishCancelledRequest(requestID)
+            await finishCancelledRequest(requestID)
             return
         }
         do {
@@ -124,9 +133,16 @@ extension ChatSessionController {
                                 checkpointDialogue: Bool = false) async throws -> Bool {
         guard activeRequestId == requestID else { return false }
         if cancelRequested && !allowAfterCancel {
-            finishCancelledRequest(requestID)
+            await finishCancelledRequest(requestID)
             return false
         }
+        let decision = await displayDecision(requestID, text: visibleText, cancelled: false)
+        guard let decision, !decision.cancelled else {
+            // Host teardown has no confirmed display text; retain only the user request.
+            commitCancelledRequest(requestID, displayedText: decision?.text ?? "")
+            return false
+        }
+        defer { isCommittingTurn = false }
         let result: RoutedPersonaSessionContext.CommitResult
         do {
             guard let recentTurnStore else { throw RecentTurnStorageError.notLoaded }
@@ -142,8 +158,6 @@ extension ChatSessionController {
         }
         // Commit user-visible history first. Keep request admission closed until
         // KV persistence ends; cancellation after this commit cannot undo the turn.
-        isCommittingTurn = true
-        defer { isCommittingTurn = false }
         if result == .committed && checkpointDialogue {
             await runtime.saveCompletedDialogueCheckpoint()
         }

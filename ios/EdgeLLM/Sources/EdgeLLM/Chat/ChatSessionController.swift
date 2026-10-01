@@ -4,6 +4,7 @@ import Foundation
 // memory operations without introducing another owner for activeRequestId.
 public actor ChatSessionController {
     var isCommittingTurn = false
+    var pendingTurnDecision: PendingTurnDecision?
     public static let routedPersonaDefaultsKey =
         "PetAIRoutedPersonaEnabled"
 
@@ -200,7 +201,7 @@ public actor ChatSessionController {
             excludingTurnIDs: recentTurnIDs
         )
         guard activeRequestId == request.requestId, !cancelRequested else {
-            finishCancelledRequest(request.requestId)
+            await finishCancelledRequest(request.requestId)
             return
         }
         let generationPrompt: String
@@ -217,11 +218,11 @@ public actor ChatSessionController {
             generationPrompt = prepared.prompt
             worldInfoTransaction = prepared.worldInfo
         } catch RuntimeError.generationCancelled {
-            finishCancelledRequest(request.requestId)
+            await finishCancelledRequest(request.requestId)
             return
         } catch {
             logger.error("Dialogue preparation failed: \(error.localizedDescription)")
-            finishFailedRequest(request.requestId,
+            await finishFailedRequest(request.requestId,
                 code: "persona_routing_failed",
                 message: "대화 구성을 준비하지 못했습니다. 다시 시도해 주세요.")
             return
@@ -230,7 +231,7 @@ public actor ChatSessionController {
             activeRequestId == request.requestId,
             !cancelRequested
         else {
-            finishCancelledRequest(request.requestId)
+            await finishCancelledRequest(request.requestId)
             return
         }
 
@@ -263,7 +264,7 @@ public actor ChatSessionController {
                 activeRequestId == request.requestId,
                 !cancelRequested
             else {
-                finishCancelledRequest(request.requestId)
+                await finishCancelledRequest(request.requestId)
                 return
             }
 
@@ -274,7 +275,7 @@ public actor ChatSessionController {
             }
 
             guard outcome.hasVisibleResponse else {
-                finishFailedRequest(request.requestId,
+                await finishFailedRequest(request.requestId,
                     code: "response_body_missing",
                     message: "Gemma가 대화 답변을 생성하지 못했습니다. 다시 시도해 주세요.")
                 return
@@ -298,29 +299,29 @@ public actor ChatSessionController {
                 )
             }
         } catch RuntimeError.generationCancelled {
-            finishCancelledRequest(request.requestId)
+            await finishCancelledRequest(request.requestId)
         } catch {
-            finishFailedRequest(request.requestId,
+            await finishFailedRequest(request.requestId,
                 code: "generation_failed",
                 message: error.localizedDescription,
                 recoverable: false)
         }
     }
 
-    public func cancel() async {
-        guard state == .generating, !isCommittingTurn else { return }
+    public func cancel(requestID: String? = nil) async {
+        guard state == .generating, !isCommittingTurn,
+              let activeID = activeRequestId,
+              requestID == nil || requestID == activeID else { return }
         cancelRequested = true
         await nativeToolAdapterHub.cancelConfirmation()
+        guard activeRequestId == activeID, !isCommittingTurn else { return }
         await runtime.cancel()
     }
 
     public func unload() async {
-        guard !isCommittingTurn else {
-            emitError(code: "runtime_busy", message: RuntimeError.runtimeBusy.localizedDescription)
-            return
-        }
         guard !isUnloading, maintenanceRequestID == nil, !dataExportInProgress, diaryTask == nil else { return }
         isUnloading = true
+        abandonPendingTurnDecision()
         defer { isUnloading = false }
         if let task = preparationTask { await task.value }
         await cancel()

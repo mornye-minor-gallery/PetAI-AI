@@ -4,7 +4,14 @@ import Foundation
 final class ChatEventRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var events: [NativeChatEvent] = []
-    func receive(_ event: NativeChatEvent) { lock.withLock { events.append(event) } }
+    private var receiver: (@Sendable (NativeChatEvent) -> Void)?
+    func setReceiver(_ receiver: @escaping @Sendable (NativeChatEvent) -> Void) {
+        lock.withLock { self.receiver = receiver }
+    }
+    func receive(_ event: NativeChatEvent) {
+        let receiver = lock.withLock { events.append(event); return self.receiver }
+        receiver?(event)
+    }
     func snapshot() -> [NativeChatEvent] { lock.withLock { events } }
 }
 
@@ -16,12 +23,24 @@ struct ChatControllerFixture {
     let events = ChatEventRecorder()
     let controller: ChatSessionController
 
-    init(toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) throws {
+    init(automaticallyFinalize: Bool = true, toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("chat-controller-\(UUID())")
         store = .init(fileURL: directory.appendingPathComponent("recent.json"))
         controller = ChatSessionController(runtime: runtime, memory: memory,
             platform: ChatTestPlatform(store: store), eventSink: events.receive,
             toolRouterArtifacts: toolRouterArtifacts)
+        if automaticallyFinalize {
+            let controller = controller
+            // Existing controller tests use a display host that accepts every delivered token.
+            events.setReceiver { [weak controller] event in
+                guard event.type == "completion_pending" || event.type == "cancellation_pending",
+                      let id = event.requestId, let controller else { return }
+                let decision = NativeTurnDecision(requestId: id,
+                    cancelled: event.type == "cancellation_pending", text: event.text ?? "")
+                let json = String(decoding: try! JSONEncoder().encode(decision), as: UTF8.self)
+                Task { await controller.finalizeTurn(json: json) }
+            }
+        }
     }
     func remove() { try? FileManager.default.removeItem(at: directory) }
     func request(_ id: String, _ text: String) -> String {
@@ -84,6 +103,7 @@ actor ChatTestMemory: ChatMemoryService {
     var lastExcluded: Set<String> = []
     var holdWrite = false
     var writeStarted = false
+    var writeCount = 0
     var closedDuringWrite = false
     var pendingWrite: CheckedContinuation<Void, Never>?
     var diaryObservations: [MemoryObservation] = []
@@ -98,6 +118,7 @@ actor ChatTestMemory: ChatMemoryService {
         return []
     }
     func remember(_ request: MemoryWriteRequest, decision: MemoryGateDecision) async -> MemoryRememberResult {
+        writeCount += 1
         if holdWrite {
             writeStarted = true
             await withCheckedContinuation { pendingWrite = $0 }
