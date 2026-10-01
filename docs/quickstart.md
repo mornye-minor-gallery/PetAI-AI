@@ -18,12 +18,14 @@ bash scripts/prepare-ios-native-dependencies.sh
 bash scripts/prepare-ios-embedding-dependencies.sh
 ```
 
-두 명령은 공개된 조직 LiteRT-LM 포크의 고정 릴리스에서 바이너리를 내려받고 SHA-256과 provenance를 검증합니다. 산출물은 `ios/.artifacts/`에 저장합니다. 준비에 실패하면 메시지를 확인하고 원인을 해결해야 합니다.
+첫 명령은 공개 LiteRT-LM 포크의 고정 커밋에서 KV 체크포인트 API를 빌드합니다.
+두 번째 명령은 고정 릴리스의 임베딩 의존성을 내려받습니다. 두 경로 모두 해시와
+출처를 검증하며, 산출물은 `ios/.artifacts/`에 저장합니다.
 
-LiteRT-LM은 Top-K 진단 API가 추가된 포크를 사용합니다. 공식 바이너리는 같은 API를 제공한다고 가정할 수 없습니다. 직접 빌드할 때는 다음 명령을 사용합니다.
+네이티브 변경 범위와 저장·복원 계약은 [LiteRTLM 연결 안내](../ios/ThirdParty/LiteRTLM/README.md)에 있습니다.
+임베딩 의존성도 직접 빌드하려면 다음 명령을 사용합니다.
 
 ```sh
-bash scripts/build-ios-litertlm-from-source.sh
 bash scripts/prepare-ios-embedding-dependencies.sh --build-from-source
 ```
 
@@ -36,10 +38,14 @@ xcodebuild \
   -configuration Debug \
   -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath .artifacts/lab-build \
-  CODE_SIGNING_ALLOWED=NO build
+  CODE_SIGNING_ALLOWED=NO \
+  PETAI_DIALOGUE_CONTENT="$PWD/examples/dialogue-content.json" build
 ```
 
 이 명령은 시뮬레이터용 컴파일을 검사합니다. 실제 모델 추론이나 iPhone 성능을 검증하는 명령은 아닙니다.
+
+`examples/dialogue-content.json`은 공개 테스트용 가상 캐릭터입니다. 직접 만든 콘텐츠를
+사용하려면 `PETAI_DIALOGUE_CONTENT`에 해당 JSON의 경로를 전달합니다.
 
 ## 기기에서 실험
 
@@ -56,3 +62,10 @@ xcodebuild \
 도구 라우팅 구현은 포함하지만 학습된 가중치는 제공하지 않습니다. 사용 권한을 확인한 산출물을 준비한 뒤 `NativeToolRouterArtifactRegistry(manifestSHA256:loader:)`에 고정 manifest 해시와 파일 로더를 전달합니다. 파일 누락·손상·계약 불일치는 오류로 반환합니다.
 
 `ToolRouteBench`의 exporter는 manifest와 바이너리를 만드는 코드를 제공합니다. 자체 데이터로 실험할 때도 개발·평가 데이터의 분리와 공개 조건을 따로 확인해야 합니다.
+
+공통 대화 컨트롤러에는 `toolRouterArtifacts`로 해당 레지스트리를 전달합니다.
+생략하면 학습 기반 도구 라우팅을 활성화하지 않으며 초기화 로그에 표시합니다.
+
+## Android 연결
+
+공통 Swift 코어와 네이티브 라이브러리의 빌드·호스트 연결은 [Android 안내](../android/README.md)를 참고해 주세요.

@@ -16,11 +16,12 @@ struct ChatControllerFixture {
     let events = ChatEventRecorder()
     let controller: ChatSessionController
 
-    init() throws {
+    init(toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("chat-controller-\(UUID())")
         store = .init(fileURL: directory.appendingPathComponent("recent.json"))
         controller = ChatSessionController(runtime: runtime, memory: memory,
-            platform: ChatTestPlatform(store: store), eventSink: events.receive)
+            platform: ChatTestPlatform(store: store), eventSink: events.receive,
+            toolRouterArtifacts: toolRouterArtifacts)
     }
     func remove() { try? FileManager.default.removeItem(at: directory) }
     func request(_ id: String, _ text: String) -> String {

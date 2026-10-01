@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Resource benchmark event",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "process_instance_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "monotonic_ticks": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "monotonic_ns": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "process_instance_id",
+    "seq",
+    "kind",
+    "monotonic_ticks",
+    "monotonic_ns",
+    "payload"
+  ]
+}

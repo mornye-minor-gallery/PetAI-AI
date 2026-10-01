@@ -26,7 +26,7 @@ python3 -m ai.guardrails.input_filter_generator.generate build-policy \
   --candidates ai/guardrails/input_filter_generator/.artifacts/candidates.json \
   --first-review ai/guardrails/input_filter_generator/.artifacts/first-review.json \
   --second-review ai/guardrails/input_filter_generator/.artifacts/second-review.json \
-  --output unity/Assets/Resources/ChatInputFilterPolicy.json
+  --output ai/guardrails/input_filter_generator/.artifacts/ChatInputFilterPolicy.json
 ```
 
 The reviewer runs two independent `gpt-6-luna` `xhigh` passes, each in an empty temporary

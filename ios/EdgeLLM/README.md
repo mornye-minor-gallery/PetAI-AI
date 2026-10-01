@@ -179,10 +179,9 @@ variant의 `authorsNote`로 같은 `AuthorsNoteSettings`를 공급한다. 기본
 기준 소스는 [SillyTavern 고정 커밋](https://github.com/SillyTavern/SillyTavern/tree/06bde939fb1e9c4c8d8641d810f0a916b5bce127)의
 `authors-note.js`에 있는 `loadSettings`/`setFloatingPrompt`, `script.js`의 `doChatInject`다.
 브라우저 기능 전체를 복제하는 포팅이 아니라, 위 동작 계약을 Swift로 구현한 것이다.
-원본 함수에서 기대값을 다시 생성할 수 있다.
+원본 함수에서 생성한 기대값은 테스트 리소스에 고정되어 있다.
 
 ```sh
-node scripts/sillytavern/authors-note-fixtures.cjs <고정-커밋-checkout> ios/EdgeLLM/Tests/EdgeLLMTests/Resources/authors-note-upstream.json
 swift test --package-path ios/EdgeLLM
 ```
 
@@ -258,7 +257,7 @@ before-examples, after-examples, outlet이다. 같은 depth/role은 한 블록�
 embedding을 만들고 코사인 유사도·상한으로 선택한다. 초기 query=2/최대5/threshold=.25는
 원본 확장 기본값이지 제품 최적값이 아니다. 현재 문서 벡터는 요청마다 계산하며 지속
 인덱스는 없다. 평가 worker는 명시적인 vectorMatches fixture를 받으며 자체 임베딩 추론을
-하지 않는다. 게임 입력·성공 후 관찰 이벤트 계약은 `contracts/platform/world-info-v1.md`다.
+하지 않는다. 게임 입력·성공 후 관찰 이벤트는 `WorldInfoSettings`와 `WorldInfoEngine`에서 정의한다.
 
 추적에는 매칭 키, 선택/탈락 이유, 후보 토큰, 목적지와 삽입 여부가 들어간다.
 선택됐어도 비활성 노트·빈 내용·아웃렛이면 실제 입력과 다르다. 최종 블록 토큰은
@@ -267,10 +266,9 @@ embedding을 만들고 코사인 유사도·상한으로 선택한다. 초기 qu
 ### 원본 대조와 호환 범위
 
 원본: SillyTavern `06bde939fb1e9c4c8d8641d810f0a916b5bce127`.
-다음 생성기는 원본 검색·기간·그룹·정규식·데코레이터 함수를 직접 실행한다.
+테스트 리소스에는 원본 검색·기간·그룹·정규식·데코레이터 함수의 기대값이 포함되어 있다.
 
 ```sh
-node scripts/sillytavern/world-info-fixtures.cjs <고정-커밋-checkout> ios/EdgeLLM/Tests/EdgeLLMTests/Resources/world-info-upstream.json
 swift test --package-path ios/EdgeLLM
 ```
 
@@ -307,7 +305,7 @@ UTF-16 길이이며 모델 품질이나 실제 토큰 정확도의 증거가 아
 
 ### 네이티브 텍스트 설정과 비교 테스트
 
-앱에는 JS 리소스·JavaScriptCore 의존성이 없다. 원본 JS는 개발용 비교 생성기에만 있다.
+텍스트 처리는 Swift로 실행한다. 원본 JS와 대조한 합성 입력·기대값은 테스트 리소스에 있다.
 `DialoguePromptInput.authoredText`와 평가 YAML의 `authoredText`가 동일한 설정을 받는다.
 `runtime`은 `nowMilliseconds`, `utcOffsetMinutes`, `locale`, `chatID`, 카드 필드와
 모델 메타데이터를 제공하고, `regex`는 global/preset/character 설정을 제공한다.
@@ -319,17 +317,13 @@ UTF-16 길이이며 모델 품질이나 실제 토큰 정확도의 증거가 아
 브라우저 자동화·앱 밖 전역 변수 저장·응답 스트리밍 후처리는 이 텍스트 모듈의 범위가 아니다.
 
 ```sh
-npm ci --prefix scripts/sillytavern/text-runtime --ignore-scripts
-node scripts/sillytavern/text-runtime/build.mjs
-TZ=UTC node scripts/sillytavern/text-runtime/fixtures.mjs
 swift test --package-path ios/EdgeLLM
 ```
 
-개발용 번들은 `_workspace`에만 생성한다. 원본 해시 목록은 생성기 `upstream/manifest.json`에
-기록한다. 비교 사례 통과는 해당 입력과 상태 전이의 증거이며 전체 문법 호환이나 모델 품질의 증거가 아니다.
+원본 버전과 이식 범위는 [출처 공지](../../third_party/sillytavern/NOTICE.md)에 기록한다.
 
 ### 외부 반응풀 리소스
 
-`DialogueContent.retrieval`의 `reactions`와 `worldLore`로 독립적으로 활성화합니다. `dialogue-content.json`과 같은 디렉터리에 `reaction-frames.json`, `reaction-vectors.f32`, `dialogue-lore.json`을 둡니다. `scripts/dialogue/compile-content.py --retrieval`이 두 기능을 켜는 콘텐츠 파일을 만듭니다. Unity iOS 내보내기와 랩 빌드는 `PETAI_DIALOGUE_CONTENT` 파일의 동반 자료를 함께 복사합니다. 캐릭터 자료는 저장소에 포함하지 않습니다.
+`DialogueContent.retrieval`의 `reactions`와 `worldLore`로 독립적으로 활성화합니다. `dialogue-content.json`과 같은 디렉터리에 `reaction-frames.json`, `reaction-vectors.f32`, `dialogue-lore.json`을 둡니다. 랩 빌드는 `PETAI_DIALOGUE_CONTENT` 파일의 동반 자료를 함께 복사합니다. 캐릭터 자료는 호출 측에서 준비합니다.
 
 `ReactionFrameIndex`는 예시 벡터를 한 번 로드하고 매 발화마다 최근 3개 메시지의 질의 벡터로 최상위 반응 하나를 선택합니다. `DialogueRetrievalResources`는 선택한 목표·응답 형태·대화 예시 한 쌍을 World Info의 깊이 0 배치로 전달합니다. 세계관은 키워드 검색과 별도 예산을 유지합니다. 앱의 도구 라우팅 이후 일반 대화 경로에서만 호출하며 EdgeMem 회수 경로와 독립적입니다. 인덱스 누락·벡터 손상·임베딩 식별자 불일치는 오류로 노출합니다.

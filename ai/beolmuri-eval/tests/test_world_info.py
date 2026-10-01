@@ -49,7 +49,10 @@ class WorldInfoTests(unittest.TestCase):
             trace=result['prompt_trace']['worldInfo']
             selected=[e['id'] for e in trace['entries'] if e['reason']=='selected']
             self.assertEqual(selected,['before','top'])
-            self.assertTrue(result['system_prompt'].startswith('지식앞\n\n'))
+            sections = result['prompt_trace']['systemSections']
+            self.assertLess(sections.index('persona'), sections.index('worldInfo.beforeCharacter'))
+            self.assertLess(sections.index('responseContract'), sections.index('worldInfo.beforeCharacter'))
+            self.assertIn('지식앞', result['system_prompt'])
             self.assertIn('노트앞\n상기',result['user_prompt'])
             self.assertIn('비밀기억',result['user_prompt'])
             self.assertNotIn('검색하면안됨',result['system_prompt'])

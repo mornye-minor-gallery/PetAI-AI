@@ -1,9 +1,11 @@
 import Foundation
+import EdgeLLM
 import ProductAdapterCore
 
 enum AdapterError: Error, CustomStringConvertible {
     case usage
     case invalidUTF8
+    case contentRequired
 
     var description: String {
         switch self {
@@ -11,6 +13,8 @@ enum AdapterError: Error, CustomStringConvertible {
             return "usage: product-prompt-adapter prompt|normalize"
         case .invalidUTF8:
             return "stdin contains invalid UTF-8"
+        case .contentRequired:
+            return "Set PETAI_DIALOGUE_CONTENT to the authored dialogue-content.json file."
         }
     }
 }
@@ -45,7 +49,10 @@ do {
     }
     switch CommandLine.arguments[1] {
     case "prompt":
-        try printJSON(ProductPromptSnapshot())
+        guard let path = ProcessInfo.processInfo.environment["PETAI_DIALOGUE_CONTENT"], !path.isEmpty else {
+            throw AdapterError.contentRequired
+        }
+        try printJSON(ProductPromptSnapshot(content: DialogueContent.load(url: URL(fileURLWithPath: path))))
     case "normalize":
         try runNormalize()
     default:

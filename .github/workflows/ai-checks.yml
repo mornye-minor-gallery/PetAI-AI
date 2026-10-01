@@ -43,7 +43,7 @@ jobs:
   lab:
     name: Unsigned standalone Lab build
     runs-on: macos-26
-    timeout-minutes: 20
+    timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
     steps:
@@ -52,6 +52,8 @@ jobs:
         run: |
           bash scripts/prepare-ios-native-dependencies.sh
           bash scripts/prepare-ios-embedding-dependencies.sh
+      - name: Test native adapter ownership and checkpoints
+        run: bash scripts/test-litertlm-cached-session.sh
       - name: Build standalone simulator app
         run: |
           xcodebuild \
@@ -60,4 +62,5 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath .artifacts/lab-build \
-            CODE_SIGNING_ALLOWED=NO build
+            CODE_SIGNING_ALLOWED=NO \
+            PETAI_DIALOGUE_CONTENT="$GITHUB_WORKSPACE/examples/dialogue-content.json" build

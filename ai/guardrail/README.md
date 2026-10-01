@@ -14,6 +14,11 @@ Qwen3Guard와 Garak은 평가 대상 모델이 아니라 자동 채점기와 공
 
 ## 명령
 
+`PETAI_DIALOGUE_CONTENT`에 평가할 캐릭터의 `dialogue-content.json` 경로를 지정합니다.
+어댑터는 해당 내용과 현재 Swift의 출력 예산·메모리 헤더 처리를 사용합니다.
+콘텐츠가 없으면 실행을 중단합니다. 프롬프트나 출력 예산을 바꾼 뒤에는 같은 조건으로
+기준선을 새로 생성해야 합니다. `RESULTS.md`의 수치는 당시 실행 조건에 해당합니다.
+
 ```bash
 uv sync --project ai/guardrail --extra judge --group dev
 

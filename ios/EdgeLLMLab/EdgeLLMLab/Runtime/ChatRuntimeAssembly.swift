@@ -10,12 +10,14 @@ public enum ChatRuntimeAssembly {
         cacheDirectory: URL,
         supportDirectory: URL,
         eventSink: @escaping @Sendable (NativeChatEvent) -> Void,
-        log: @escaping @Sendable (String) -> Void
+        log: @escaping @Sendable (String) -> Void,
+        toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil
     ) -> ChatSessionController {
         ChatSessionController(
             configuration: configuration,
             runtime: LiteRTLMRuntime(configuration: configuration, cacheDirectory: cacheDirectory),
             memory: MemoryService(supportDirectory: supportDirectory),
-            platform: platform, eventSink: eventSink, log: log)
+            platform: platform, eventSink: eventSink, log: log,
+            toolRouterArtifacts: toolRouterArtifacts)
     }
 }

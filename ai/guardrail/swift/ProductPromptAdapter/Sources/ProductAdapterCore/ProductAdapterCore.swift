@@ -10,16 +10,15 @@ public struct ProductPromptSnapshot: Codable, Equatable, Sendable {
     public let maxOutputTokens: Int
     public let thinkingEnabled: Bool
 
-    public init() throws {
+    public init(content: DialogueContent) throws {
         let configuration = SLMConfiguration.production
         configurationID = configuration.id
-        systemPrompt = try RoutedPersonaPromptRegistry()
-            .load()
-            .responseSystemPrompt(activeCard: nil)
+        systemPrompt = content.promptSet.responseSystemPrompt(
+            activeCard: nil, userProfileContext: UserProfileContext(characterName: content.name))
         temperature = configuration.generation.responseSampling.temperature
         topK = configuration.generation.responseSampling.samplerTopK
         topP = configuration.generation.responseSampling.topP
-        maxOutputTokens = configuration.generation.maxOutputTokens
+        maxOutputTokens = configuration.dialogueBudget.outputTokens
         thinkingEnabled = configuration.generation.responseThinkingDefault
     }
 }

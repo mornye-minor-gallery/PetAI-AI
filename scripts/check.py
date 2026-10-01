@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SUITES = (
     "memory-classifier", "edgemembench", "profile-memory-kv",
     "mrbench-custom", "facetroutebench", "toolroutebench",
+    "guardrail",
 )
 
 
@@ -25,7 +26,8 @@ def main() -> int:
     output.mkdir(parents=True, exist_ok=True)
     environment = os.environ.copy()
     environment["PYTHONPATH"] = os.pathsep.join(
-        str(ROOT / "ai" / name) for name in SUITES
+        [str(ROOT)] + [str(ROOT / "ai" / name) for name in (*SUITES, "beolmuri-eval")]
+        + [str(ROOT / "ai" / name / "tests") for name in ("guardrail", "beolmuri-eval")]
     )
     commands = [
         (name, [sys.executable, "-m", "pytest", "-q", "--import-mode=importlib", "tests"], ROOT / "ai" / name)
@@ -35,9 +37,18 @@ def main() -> int:
         ("facet-contracts", [sys.executable, "-m", "facetroutebench.cli", "validate-contracts"], ROOT),
         ("tool-contracts", [sys.executable, "-m", "toolroutebench.cli", "validate-contracts"], ROOT),
         ("model-registry", ["bash", "scripts/prepare-runtime-models.sh", "--validate-registry-only"], ROOT),
+        ("input-filter-generator", [sys.executable, "-m", "unittest", "discover", "-s", "ai/guardrails/input_filter_generator/tests"], ROOT),
+        ("publication-contracts", [sys.executable, "-m", "unittest", "discover", "-s", "scripts/tests"], ROOT),
     ]
     if args.swift:
-        commands.append(("swift", ["swift", "test", "--package-path", "ios/EdgeLLM"], ROOT))
+        commands += [
+            ("swift", ["swift", "test", "--package-path", "ios/EdgeLLM"], ROOT),
+            ("resource-bench", ["swift", "test", "--package-path", "ios/ResourceBench"], ROOT),
+            ("guardrail-adapter", ["swift", "test", "--package-path", "ai/guardrail/swift/ProductPromptAdapter"], ROOT),
+            ("eval-worker-build", ["swift", "build", "--package-path", "ai/beolmuri-eval/swift"], ROOT),
+            ("beolmuri-eval", [sys.executable, "-m", "pytest", "-q", "--import-mode=importlib", "tests"], ROOT / "ai/beolmuri-eval"),
+            ("native-tokenization", ["bash", "scripts/test-litertlm-tokenization.sh"], ROOT),
+        ]
     results = []
     for index, (name, command, directory) in enumerate(commands, start=1):
         print(f"[{index}/{len(commands)}] {name}: running", flush=True)

@@ -530,7 +530,7 @@ retrieval:
 
 실행 시작 시 인덱스와 로어북을 `inputs/`에 복사합니다. 재개 시에는 복사본을 사용하며, 외부 임베딩 모델·토크나이저는 인덱스에 기록한 해시 기반 식별자와 일치해야 합니다. 추론용 Python 환경에도 `numpy`, `sentencepiece==0.2.1`, `ai-edge-litert==2.1.3`이 필요합니다. 생성 원문과 런타임 자료는 Git 밖에 둡니다.
 
-## 외부 코퍼스 주석과 BST 제작
+## 외부 코퍼스 주석
 
 `beolmuri-eval annotate --manifest batch.json --output <new-run-directory>`는
 요청별 프롬프트와 JSON 스키마를 사용해 Codex CLI 응답을 저장한다. 결과에는
@@ -539,6 +539,5 @@ retrieval:
 폴더를 사용한다.
 스키마 검증은 의미 정확도나 원문 사용 권한을 보장하지 않는다.
 
-BST 대화에서 엘레나 반응 초안을 만든 실행 절차와 보존된 결과의 식별 정보는
-[BST 반응 초안 제작](BST_AUTHORING.md)에 있다. 주석 실행기와 BST 묶음 실행기는
-Gemma 추론이나 앱의 대화 경로를 실행하지 않는다.
+주석 작업에는 사용 권한을 확인한 입력과 직접 작성한 프롬프트를 준비합니다.
+`annotate`는 Gemma 추론이나 앱의 대화 경로와 독립적으로 실행됩니다.

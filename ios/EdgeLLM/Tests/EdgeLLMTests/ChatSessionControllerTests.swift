@@ -3,6 +3,34 @@ import XCTest
 @testable import EdgeLLM
 
 final class ChatSessionControllerTests: XCTestCase {
+    func testPublicCheckoutDoesNotRequireLearnedRouterWeights() async throws {
+        let fixture = try ChatControllerFixture()
+        defer { fixture.remove() }
+        await fixture.controller.initialize()
+        let router = await fixture.controller.nativeToolRouter
+        XCTAssertNil(router)
+        XCTAssertTrue(fixture.events.snapshot().contains { $0.type == "ready" })
+    }
+
+    func testControllerLoadsExplicitlySuppliedRouterArtifacts() async throws {
+        let artifacts = try makeOwnedRouterFixture()
+        let registry = NativeToolRouterArtifactRegistry(manifestSHA256: artifacts.digest) { artifacts.files[$0] }
+        let fixture = try ChatControllerFixture(toolRouterArtifacts: registry)
+        defer { fixture.remove() }
+        await fixture.controller.initialize()
+        let router = await fixture.controller.nativeToolRouter
+        XCTAssertNotNil(router)
+    }
+
+    func testInvalidRouterArtifactsAreNotInstalled() async throws {
+        let registry = NativeToolRouterArtifactRegistry(manifestSHA256: "missing") { _ in nil }
+        let fixture = try ChatControllerFixture(toolRouterArtifacts: registry)
+        defer { fixture.remove() }
+        await fixture.controller.initialize()
+        let router = await fixture.controller.nativeToolRouter
+        XCTAssertNil(router)
+    }
+
     func testCancelledPartialReplyIsDurableAndNextRequestCompletes() async throws {
         let fixture = try ChatControllerFixture()
         defer { fixture.remove() }
@@ -60,7 +88,9 @@ final class ChatSessionControllerTests: XCTestCase {
     }
 
     func testUnsupportedToolsDoNotRunInferenceOrReportSuccess() async throws {
-        let fixture = try ChatControllerFixture()
+        let artifacts = try makeOwnedRouterFixture()
+        let registry = NativeToolRouterArtifactRegistry(manifestSHA256: artifacts.digest) { artifacts.files[$0] }
+        let fixture = try ChatControllerFixture(toolRouterArtifacts: registry)
         defer { fixture.remove() }
         await fixture.controller.initialize()
         await fixture.controller.send(json: fixture.request("tool-1", "내일 아침 7시에 알람 맞춰 줘"))

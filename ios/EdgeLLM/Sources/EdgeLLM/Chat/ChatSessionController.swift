@@ -22,6 +22,7 @@ public actor ChatSessionController {
     let nativeToolCoordinator: NativeToolProposalCoordinator
     let platform: any ChatPlatformServices
     let memoryService: any ChatMemoryService
+    let toolRouterArtifacts: NativeToolRouterArtifactRegistry?
     let eventSink: @Sendable (NativeChatEvent) -> Void
     let memoryCommitGuard = MemoryTaggedChatCommitGuard()
     var memoryScope: MemoryScope {
@@ -59,11 +60,13 @@ public actor ChatSessionController {
                 platform: any ChatPlatformServices,
                 eventSink: @escaping @Sendable (NativeChatEvent) -> Void,
                 log: @escaping @Sendable (String) -> Void = { _ in },
-                diagnostics: ChatDiagnostics? = nil) {
+                diagnostics: ChatDiagnostics? = nil,
+                toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) {
         slmConfiguration = configuration
         dialoguePromptPolicy = DialoguePromptPolicy(memoryByteBudget: configuration.memory.promptByteBudget)
         self.runtime = runtime
         self.memoryService = memory
+        self.toolRouterArtifacts = toolRouterArtifacts
         self.platform = platform
         self.eventSink = eventSink
         logger = ChatLogger(write: log)

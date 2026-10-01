@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Resource benchmark config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "target": {
+      "enum": [
+        "unity",
+        "inference"
+      ]
+    },
+    "profile": {
+      "enum": [
+        "basic",
+        "memory",
+        "cpu",
+        "gpu",
+        "unity-memory"
+      ]
+    },
+    "scenario": {
+      "enum": [
+        "paced",
+        "sustained",
+        "fixed"
+      ]
+    },
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fixture": {
+      "type": "string",
+      "minLength": 1
+    },
+    "initial_state": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_manifest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generation_config": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pair_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "power_window_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reply_gap_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "brightness": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "required_initial_thermal_state": {
+      "enum": [
+        "nominal",
+        "fair",
+        "serious",
+        "critical"
+      ]
+    },
+    "ram_sample_period_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ram_max_gap_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "recorder_pre_roll_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "recorder_post_roll_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "prepare_timeout_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "turn_timeout_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "finalize_timeout_ms": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "target",
+    "profile",
+    "scenario",
+    "bundle_id",
+    "fixture",
+    "initial_state",
+    "model_manifest",
+    "generation_config",
+    "pair_count",
+    "power_window_ms",
+    "reply_gap_ms",
+    "brightness",
+    "required_initial_thermal_state",
+    "ram_sample_period_ms",
+    "ram_max_gap_ms",
+    "recorder_pre_roll_ms",
+    "recorder_post_roll_ms",
+    "prepare_timeout_ms",
+    "turn_timeout_ms",
+    "finalize_timeout_ms"
+  ]
+}

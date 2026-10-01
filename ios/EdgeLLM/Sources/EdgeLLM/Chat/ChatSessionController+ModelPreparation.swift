@@ -195,16 +195,21 @@ extension ChatSessionController {
         }
 
         do {
-            let pipeline = try NativeToolRouterArtifactRegistry().load()
-            nativeToolRouter = KoreanLexicalFirstNativeToolRouter(
-                fallback: EmbeddingMLPNativeToolRouter(
-                    embedder: memoryService,
-                    pipeline: pipeline
+            // Learned artifacts are supplied by the host after checking their data rights.
+            // A public checkout intentionally has no bundled Tool Router weights.
+            if let toolRouterArtifacts {
+                let pipeline = try toolRouterArtifacts.load()
+                nativeToolRouter = KoreanLexicalFirstNativeToolRouter(
+                    fallback: EmbeddingMLPNativeToolRouter(
+                        embedder: memoryService,
+                        pipeline: pipeline
+                    )
                 )
-            )
-            logger.notice(
-                "Native Tool Router ready artifact=\(pipeline.artifactID)"
-            )
+                logger.notice("Native Tool Router ready artifact=\(pipeline.artifactID)")
+            } else {
+                nativeToolRouter = nil
+                logger.notice("Native Tool Router not configured; supply approved artifacts to enable routing.")
+            }
         } catch {
             nativeToolRouter = nil
             logger.error(
