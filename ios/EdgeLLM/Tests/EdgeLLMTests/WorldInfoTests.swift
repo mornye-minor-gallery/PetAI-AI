@@ -72,8 +72,8 @@ private struct FixtureTokenMeasurer: DialogueTokenMeasuring {
         authorsNote: .init(defaults: .init(text: "상기문", depth: 1)), worldInfo: settings),
         tokenBudget: .init(memoryTokens: 0, contextTokens: 100_000, outputTokens: 1000), measurer: FixtureTokenMeasurer())
     #expect(prepared.trace.worldInfo?.entries.filter { $0.reason == .selected }.count == 3)
-    #expect(prepared.trace.systemSections.prefix(3) == ["persona", "responseContract", "nameRule"])
-    #expect(prepared.trace.systemSections.dropFirst(3).prefix(3) == ["worldInfo.beforeCharacter", "worldInfo.afterCharacter", "profile"])
+    #expect(prepared.trace.systemSections == ["persona", "responseContract", "nameRule"])
+    #expect(prepared.trace.userSections == ["history", "worldInfo.beforeCharacter", "worldInfo.afterCharacter", "profile", "authorsNote", "currentMessage"])
     #expect(prepared.userPrompt.hasSuffix("노트앞\n상기문\n\n현재질문"))
     #expect(prepared.trace.tokenBudget?.sections.contains { $0.id == "worldInfo.beforeCharacter" } == true)
     #expect(context.turns.count == 2)
@@ -93,10 +93,41 @@ private struct FixtureTokenMeasurer: DialogueTokenMeasuring {
         tokenBudget: .init(memoryTokens: 0, contextTokens: 100_000, outputTokens: 100),
         measurer: FixtureTokenMeasurer())
 
-    #expect(prepared.trace.systemSections == [
-        "persona", "responseContract", "nameRule", "dialogue.examples",
-        "worldInfo.beforeCharacter", "scene", "profile"
+    #expect(prepared.trace.systemSections == ["persona", "responseContract", "nameRule", "dialogue.examples"])
+    #expect(prepared.trace.userSections == ["worldInfo.beforeCharacter", "scene", "profile", "currentMessage"])
+}
+
+@Test func worldInfoAndNoteChangesRetainTheHistoryPrefix() async throws {
+    let prompts = try testPersona()
+    let session = RoutedPersonaSessionContext(turns: [
+        .init(role: .user, text: "과거 질문"), .init(role: .assistant, text: "과거 답변")
     ])
+    let snapshot = try session.snapshot(requestID: "context-prefix")
+    let settings = WorldInfoSettings(tokenBudget: 100, entries: [
+        .init(id: "travel", keys: ["여행"], content: "여행 문맥", position: .beforeCharacter),
+        .init(id: "reading", keys: ["독서"], content: "독서 문맥", position: .beforeCharacter)
+    ], scanDepth: 1, includeNames: false)
+    func prepare(_ message: String, note: String) async throws -> PreparedDialogue {
+        try await DialoguePromptComposer.prepare(input: .init(
+            persona: prompts, history: snapshot.history, currentMessage: message, session: snapshot,
+            authorsNote: .init(defaults: .init(text: note, position: .afterSystem)), worldInfo: settings),
+            tokenBudget: .init(memoryTokens: 0, contextTokens: 100_000, outputTokens: 100),
+            measurer: FixtureTokenMeasurer())
+    }
+    let travel = try await prepare("여행 계획", note: "첫 상기문")
+    let reading = try await prepare("독서 계획", note: "둘째 상기문")
+    let prefix = "## 최근 대화\n사용자: 과거 질문\n캐릭터: 과거 답변"
+
+    #expect(travel.systemPrompt == reading.systemPrompt)
+    for prepared in [travel, reading] {
+        #expect(prepared.userPrompt.hasPrefix(prefix))
+        #expect(prepared.trace.userSections == ["history", "worldInfo.beforeCharacter", "profile", "authorsNote", "currentMessage"])
+        #expect(prepared.trace.tokenBudget?.sections.filter { $0.role == .user }.map(\.id) == prepared.trace.userSections)
+    }
+    #expect(travel.userPrompt.contains("여행 문맥"))
+    #expect(travel.userPrompt.contains("첫 상기문"))
+    #expect(reading.userPrompt.contains("독서 문맥"))
+    #expect(reading.userPrompt.contains("둘째 상기문"))
 }
 
 @Test func worldInfoNoteInactiveIsSelectedButNotInserted() async throws {
@@ -122,6 +153,7 @@ private struct FixtureTokenMeasurer: DialogueTokenMeasuring {
         measurer: FixtureTokenMeasurer())
     #expect(result.userPrompt.contains("연쇄키"))
     #expect(!result.systemPrompt.contains("재귀결과"))
+    #expect(!result.userPrompt.contains("재귀결과"))
     #expect(result.trace.worldInfo?.entries.last?.reason == .noPrimaryMatch)
 }
 
@@ -134,6 +166,6 @@ private struct FixtureTokenMeasurer: DialogueTokenMeasuring {
             history: context.turns, currentMessage: "질문", session: context.snapshot(requestID: "names"),
             worldInfo: .init(tokenBudget: 100, entries: [entry], includeNames: names)),
             tokenBudget: .init(memoryTokens: 0, contextTokens: 100_000, outputTokens: 100), measurer: FixtureTokenMeasurer())
-        #expect(result.systemPrompt.contains("이름검색결과") == names)
+        #expect(result.userPrompt.contains("이름검색결과") == names)
     }
 }

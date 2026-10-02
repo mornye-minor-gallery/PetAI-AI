@@ -80,19 +80,19 @@ private struct NoteFixtures: Decodable {
     }
 }
 
-@Test func authorsNoteSystemPlacementsAndAbsentNotePreserveContract() throws {
+@Test func authorsNoteMainPromptPlacementsAndAbsentNotePreserveContract() throws {
     let prompts = try testPersona()
     let snapshot = try RoutedPersonaSessionContext().snapshot(requestID: "system")
     let baseline = try DialoguePromptComposer.prepare(input: .init(persona: prompts, currentMessage: "질문"))
     for position in [AuthorsNotePosition.beforeSystem, .afterSystem] {
         let result = try DialoguePromptComposer.prepare(input: .init(persona: prompts, currentMessage: "질문", session: snapshot, authorsNote: .init(defaults: .init(text: "상기문", position: position))))
-        #expect(result.trace.systemSections.prefix(3) == baseline.trace.systemSections.prefix(3))
-        #expect(result.trace.systemSections == (position == .beforeSystem
-            ? ["persona", "responseContract", "nameRule", "authorsNote", "profile"]
-            : ["persona", "responseContract", "nameRule", "profile", "authorsNote"]))
-        #expect(result.systemPrompt.contains("상기문"))
-        #expect(result.userPrompt == baseline.userPrompt)
-        #expect(result.trace.insertions.first?.deliveredRole == .system)
+        #expect(result.systemPrompt == baseline.systemPrompt)
+        #expect(result.trace.userSections == (position == .beforeSystem
+            ? ["authorsNote", "profile", "currentMessage"]
+            : ["profile", "authorsNote", "currentMessage"]))
+        #expect(result.userPrompt.contains("상기문"))
+        #expect(result.trace.insertions.first?.requestedRole == .system)
+        #expect(result.trace.insertions.first?.deliveredRole == .user)
     }
     let empty = try DialoguePromptComposer.prepare(input: .init(persona: prompts, currentMessage: "질문", session: snapshot, authorsNote: .init()))
     #expect(empty.modelInput == baseline.modelInput)

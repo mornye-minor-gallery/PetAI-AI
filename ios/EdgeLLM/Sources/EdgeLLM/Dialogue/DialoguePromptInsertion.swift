@@ -4,9 +4,9 @@ public enum DialoguePromptRole: String, Codable, Sendable {
     case system, user, assistant
 }
 
-/// Logical content, not a native role message. The current renderer explicitly
-/// folds in-chat blocks into the user text, and main-prompt blocks into the single
-/// system text. Requested roles remain metadata; no extra native turns are synthesized.
+/// Logical content, not a native role message. Main-prompt anchors order the request
+/// context after history; in-chat blocks retain their requested depth. Both are folded
+/// into user text. Requested roles remain metadata; no extra native turns are synthesized.
 public struct DialoguePromptInsertion: Codable, Equatable, Sendable {
     public enum Source: String, Codable, Sendable { case authorsNote, worldInfo, nameRule }
     public enum Placement: String, Codable, Sendable { case beforeCurrent, afterCurrent, beforeSystem, afterSystem, inChat, beforePersona, afterPersona }
@@ -92,13 +92,12 @@ struct DialogueInsertionLayout {
                     throw DialoguePromptError.invalidInsertionDepth(item.id)
                 }
             }
-            let deliveredRole: DialoguePromptRole = [.beforeSystem, .afterSystem, .beforePersona, .afterPersona].contains(item.placement) ? .system : .user
             let empty = item.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             trace.append(.init(id: item.id, source: item.source, placement: item.placement,
-                requestedRole: item.role, deliveredRole: empty ? nil : deliveredRole, depth: item.depth, order: item.order,
+                requestedRole: item.role, deliveredRole: empty ? nil : .user, depth: item.depth, order: item.order,
                 reason: empty ? .empty : .included))
             guard !empty else { continue }
-            let section = DialoguePromptSection(id: item.id, text: item.text, role: deliveredRole)
+            let section = DialoguePromptSection(id: item.id, text: item.text)
             switch item.placement {
             case .beforeCurrent: before.append(section)
             case .afterCurrent: after.append(section)

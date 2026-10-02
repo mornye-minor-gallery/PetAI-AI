@@ -66,22 +66,22 @@ public enum DialoguePromptComposer {
                     text: try (["persona", "scene"].contains(section.id) ? authored(section.text) : section.text),
                     role: section.role, cacheStability: section.cacheStability)
             }
-        // Lore anchors retain their relative order inside the request-dynamic tail. The stable
-        // persona and output contracts must stay contiguous at the front: native KV reuse stops
-        // at the first changed token, so inserting request data between them defeats prefix caching.
+        // Native KV reuse stops at the first changed token. Keep fixed instructions in
+        // system text and request context after history, retaining the lore anchor order.
         let characterEnd = baseParts.prefix { $0.id == "persona" || $0.id == "scene" }.count
         let exampleParts: [DialoguePromptSection] = exampleText.isEmpty ? [] : [
             .init(id: "dialogue.examples", text: exampleText, role: .system, cacheStability: .sessionStable)
         ]
-        let stableParts = baseParts.filter { $0.cacheStability == .sessionStable } + exampleParts
+        let systemParts = baseParts.filter { $0.cacheStability == .sessionStable } + exampleParts
         let dynamicCharacterParts = baseParts.prefix(characterEnd).filter { $0.cacheStability == .requestDynamic }
         let dynamicRemainingParts = baseParts.dropFirst(characterEnd).filter { $0.cacheStability == .requestDynamic }
-        let systemParts = stableParts + layout.beforeSystem + layout.beforePersona + dynamicCharacterParts
+        let contextParts = layout.beforeSystem + layout.beforePersona + dynamicCharacterParts
             + layout.afterPersona + dynamicRemainingParts + layout.afterSystem
         let systemPrompt = systemParts.map(\.text).joined(separator: "\n\n")
         let historyParts = DialoguePromptRenderer.historySections(input.history, insertions: layout.history)
-        let currentText = positionedParts.map(\.text).joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        let userPrompt = (historyParts.map(\.text) + ["## 현재 사용자 입력과 회수 기억\n" + currentText]).joined(separator: "\n\n")
+        let currentParts = contextParts + positionedParts
+        let currentText = currentParts.map(\.text).joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        let userPrompt = (historyParts.map(\.text) + ["## 이번 응답의 문맥과 사용자 입력\n" + currentText]).joined(separator: "\n\n")
         // Random rolls are request-local evidence, not session memory. Stable pick
         // choices and explicit variables are the persistent part of macro state.
         macroContext.randomRolls = []; macroContext.randomIndex = 0
@@ -93,7 +93,7 @@ public enum DialoguePromptComposer {
             nameInstruction: instruction,
             responseConfiguration: policy.persona,
             trace: .init(systemSections: systemParts.map(\.id),
-                         userSections: historyParts.map(\.id) + positionedParts.map(\.id),
+                         userSections: historyParts.map(\.id) + currentParts.map(\.id),
                          systemBytes: systemPrompt.utf8.count, userBytes: userPrompt.utf8.count,
                          nameRulePlacement: policy.nameRulePlacement,
                          nameRuleIncluded: policy.persona.enforceCharacterName,
@@ -102,6 +102,6 @@ public enum DialoguePromptComposer {
             worldInfoTransaction: .init(state: worldInfo?.selection.nextState ?? input.session?.worldInfoState ?? .init(),
                 text: macroContext, automationIDs: worldInfo?.selection.automationIDs ?? [], outlets: worldInfo?.outlets ?? [:]),
             tokenSections: systemParts.map { .init(id: $0.id, text: $0.text, role: .system) }
-                + historyParts + positionedParts)
+                + historyParts + currentParts)
     }
 }
