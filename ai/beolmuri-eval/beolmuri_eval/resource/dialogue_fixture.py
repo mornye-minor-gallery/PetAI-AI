@@ -64,8 +64,11 @@ def compose_dialogue_fixture(content_path, turns_path, worker):
             history=turn["history"],
             memories=[],
         )
-        system = result["system_prompt"]
-        user = result["user_prompt"]
+        messages = result["model_input"]["messages"]
+        if len(messages) < 2 or messages[0]['role'] != 'system' or messages[-1]['role'] != 'user':
+            raise ValueError("ResourceBench dialogue requires a fixed system prefix and final user message")
+        system = messages[0]['text']
+        user = messages[-1]['text']
         if not isinstance(system, str) or not isinstance(user, str) or not user:
             raise ValueError("Swift composer returned an invalid prepared input")
         current_hash = sha256(system.encode())
@@ -73,7 +76,8 @@ def compose_dialogue_fixture(content_path, turns_path, worker):
             prefix_hash = current_hash
         elif current_hash != prefix_hash:
             raise ValueError("system prefix changed between turns; invariant cache comparison is invalid")
-        rows.append({"id": turn["id"], "system_prompt": system, "user_prompt": user})
+        rows.append({"id": turn["id"], "system_prompt": system, "user_prompt": user,
+                     "initial_messages": messages[1:-1]})
         sections = result.get("prompt_trace", {}).get("sections", [])
         traces.append({
             "id": turn["id"],

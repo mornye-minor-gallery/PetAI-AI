@@ -32,7 +32,7 @@ class NativeRuntime:
         self.conversation = None
         self.reserved_output_tokens = None
 
-    def _create_conversation(self, system_prompt, sampling, seed):
+    def _create_conversation(self, system_prompt, sampling, seed, initial_messages=None):
         from litert_lm.utils import _sampler_config_to_params
         from litert_lm.conversation import Conversation
         lib = self.engine._lib
@@ -47,10 +47,16 @@ class NativeRuntime:
             lib.litert_lm_session_config_set_sampler_params(session, ctypes.byref(params))
             lib.litert_lm_session_config_set_max_output_tokens(session, sampling["max_output_tokens"])
             lib.litert_lm_conversation_config_set_session_config(config, session)
-            messages = [{"role": "system", "content": system_prompt}]
-            # Match the Swift adapter's systemMessage content representation.
-            lib.litert_lm_conversation_config_set_system_message(
-                config, json.dumps([{"type": "text", "text": system_prompt}]))
+            if initial_messages is None:
+                messages = [{"role": "system", "content": system_prompt}]
+                # Match the Swift adapter's systemMessage content representation.
+                lib.litert_lm_conversation_config_set_system_message(
+                    config, json.dumps([{"type": "text", "text": system_prompt}]))
+            else:
+                messages = [{"role": "model" if item['role'] == 'assistant' else item['role'],
+                             "content": [{"type": "text", "text": item['text']}]}
+                            for item in initial_messages]
+                lib.litert_lm_conversation_config_set_messages(config, json.dumps(messages))
             lib.litert_lm_conversation_config_set_extra_context(config, json.dumps({"enable_thinking": sampling["thinking"]}))
             lib.litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(
                 config, sampling["filter_channel_content_from_kv_cache"])
@@ -64,12 +70,31 @@ class NativeRuntime:
             lib.litert_lm_conversation_config_delete(config)
             lib.litert_lm_session_config_delete(session)
 
-    def start(self, system_prompt, sampling, seed, reserve_output=False):
+    def start(self, system_prompt, sampling, seed, reserve_output=False, initial_messages=None):
         if self.conversation:
             self.conversation.close()
             self.conversation = None
         self.reserved_output_tokens = sampling['max_output_tokens'] if reserve_output else None
-        self.conversation = self._create_conversation(system_prompt, sampling, seed)
+        if initial_messages is None:
+            self.conversation = self._create_conversation(system_prompt, sampling, seed)
+        else:
+            self.conversation = self._create_conversation(system_prompt, sampling, seed, initial_messages=initial_messages)
+
+    @staticmethod
+    def _split_input(model_input):
+        messages = model_input['messages']
+        if not isinstance(messages, list) or not messages or messages[-1].get('role') != 'user':
+            raise ValueError('ordered input must end with a user message')
+        for item in messages:
+            if (item.get('role') not in ('system', 'user', 'assistant')
+                    or not isinstance(item.get('text'), str) or '\0' in item['text']):
+                raise ValueError('invalid ordered text message')
+        return messages[:-1], messages[-1]['text']
+
+    def start_input(self, model_input, sampling, seed, reserve_output=False):
+        prefix, current = self._split_input(model_input)
+        self.start(None, sampling, seed, reserve_output=reserve_output, initial_messages=prefix)
+        return current
 
     def count_tokens(self, text):
         if not isinstance(text, str) or "\0" in text:
@@ -98,6 +123,14 @@ class NativeRuntime:
         probe = self._create_conversation(system_prompt, sampling, seed=0)
         try:
             return self._measure(probe, message)
+        finally:
+            probe.close()
+
+    def measure_input(self, model_input, sampling):
+        prefix, current = self._split_input(model_input)
+        probe = self._create_conversation(None, sampling, seed=0, initial_messages=prefix)
+        try:
+            return self._measure(probe, current)
         finally:
             probe.close()
 
@@ -179,11 +212,18 @@ def main():
                     runtime.start(request["system_prompt"], request["sampling"], request["seed"],
                                   reserve_output=request.get("reserve_output", False))
                     result = {"status": "started"}
+                elif operation == "start_input":
+                    current = runtime.start_input(request["model_input"], request["sampling"], request["seed"],
+                                                  reserve_output=request.get("reserve_output", False))
+                    result = {"status": "started", "message": current}
                 elif operation == "count_tokens":
                     result = {"status": "measured", "tokens": runtime.count_tokens(request["text"])}
                 elif operation == "measure_prompt":
                     result = {"status": "measured", **runtime.measure_prompt(
                         request["system_prompt"], request["message"], request["sampling"])}
+                elif operation == "measure_input":
+                    result = {"status": "measured", **runtime.measure_input(
+                        request["model_input"], request["sampling"])}
                 elif operation == "measure":
                     result = {"status": "measured", **runtime.measure(request["message"])}
                 elif operation == "generate":

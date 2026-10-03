@@ -22,7 +22,7 @@ class TokenBudgetBridgeTests(unittest.TestCase):
                 self.calls.append((operation, payload))
                 if operation == 'count_tokens':
                     return {'tokens': 3}
-                if operation == 'measure_prompt':
+                if operation == 'measure_input':
                     return {'input_tokens': 70, 'max_num_tokens': 100}
                 raise AssertionError(operation)
         native = Native()
@@ -32,9 +32,8 @@ class TokenBudgetBridgeTests(unittest.TestCase):
                 case={'character_name': '엘레나', 'user_message': '질문'}, history=[], memories=['기억'],
                 max_num_tokens=100, prompt_budget={'memory_tokens': 7, 'output_tokens': 30})
             self.assertEqual(result['prompt_trace']['tokenBudget']['inputTokens'], 70)
-            measured = next(payload for op, payload in native.calls if op == 'measure_prompt')
-            self.assertEqual(measured['system_prompt'], result['system_prompt'])
-            self.assertEqual(measured['message'], result['user_prompt'])
+            measured = next(payload for op, payload in native.calls if op == 'measure_input')
+            self.assertEqual(measured['model_input'], result['model_input'])
             self.assertEqual(measured['sampling'], result['sampling'])
 
     def test_swift_selects_memories_and_checks_full_input_using_native_answers(self):
@@ -50,8 +49,9 @@ class TokenBudgetBridgeTests(unittest.TestCase):
             self.assertEqual(request['measurement'], 'measure_input')
             self.assertTrue(request['sampling']['thinking'])
             self.assertEqual(request['sampling']['max_output_tokens'], 30)
-            self.assertIn('첫째', request['input']['userPrompt'])
-            self.assertNotIn('둘째', request['input']['userPrompt'])
+            self.assertIn('첫째', request['input']['messages'][-1]['text'])
+            self.assertNotIn('둘째', request['input']['messages'][-1]['text'])
+            self.assertEqual([m['role'] for m in request['input']['messages']], ['system', 'user', 'system', 'user'])
             return 70
 
         with tempfile.TemporaryDirectory() as tmp, Worker(

@@ -42,7 +42,7 @@ class AuthorsNoteTests(unittest.TestCase):
             self.assertEqual(note['state'], 'active')
             self.assertTrue(result['user_prompt'].endswith('상기문\n\n[Current user message]\n현재질문'))
             measured_input = next(r['input'] for r in measured if r['measurement'] == 'measure_input')
-            self.assertEqual(measured_input['userPrompt'], result['user_prompt'])
+            self.assertEqual(measured_input, result['model_input'])
             self.assertTrue(any(s['id'] == 'authorsNote' for s in result['prompt_trace']['tokenBudget']['sections']))
             result = worker.call('prepare', configuration={**CONFIG, 'authorsNote':settings}, userMessage='현재질문',
                 history=[{'user':'과거', 'assistant':'답변'} for _ in range(12)])

@@ -156,10 +156,10 @@ def run(directory, resume=False):
                                     record["input"] = prepared
                                     record["status"] = "prepared"
                                     atomic_json(path, record)
-                                    native.call("start", system_prompt=prepared["system_prompt"],
+                                    started = native.call("start_input", model_input=prepared["model_input"],
                                                 sampling=prepared["sampling"], seed=seeds["generation"],
                                                 reserve_output=manifest.get("prompt_budget") is not None)
-                                    primary = native.call("generate", message=prepared["user_prompt"], timeout=timeout)
+                                    primary = native.call("generate", message=started["message"], timeout=timeout)
                                     # Save raw generation before parsing or requesting any retry.
                                     record["primary"] = primary
                                     atomic_json(path, record)

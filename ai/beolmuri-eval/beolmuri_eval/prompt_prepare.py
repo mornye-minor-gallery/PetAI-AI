@@ -40,10 +40,8 @@ def prepare_prompt(swift, native, *, configuration, case, history, memories,
             return native.call('count_tokens', text=request['text'], timeout=remaining)['tokens']
         if request['measurement'] == 'measure_input':
             model_input = request['input']
-            if model_input['format'] != 'systemAndUserText':
-                raise ValueError('unsupported model input format')
-            result = native.call('measure_prompt', system_prompt=model_input['systemPrompt'],
-                                 message=model_input['userPrompt'], sampling=request['sampling'], timeout=remaining)
+            result = native.call('measure_input', model_input=model_input,
+                                 sampling=request['sampling'], timeout=remaining)
             if result['max_num_tokens'] != max_num_tokens:
                 raise ValueError('loaded engine capacity differs from prompt budget')
             return result['input_tokens']

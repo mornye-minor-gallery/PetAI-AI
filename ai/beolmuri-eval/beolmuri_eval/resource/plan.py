@@ -33,9 +33,14 @@ def inputs_from_config(path):
         generation['context_tokens']<=generation['max_output_tokens'] or generation['temperature']<0 or
         not 0<=generation['top_p']<=1): raise ValueError('invalid generation bounds')
     rows=[json.loads(line) for line in paths['fixture'].read_text().splitlines() if line.strip()]
-    if not rows or any(set(r)!={'id','system_prompt','user_prompt'} or
-        any(not isinstance(v,str) for v in r.values()) or not r['id'] or not r['user_prompt'] for r in rows):
-        raise ValueError('prepared inputs require id, system_prompt and user_prompt strings')
+    if not rows:
+        raise ValueError('prepared inputs must not be empty')
+    input_schema = json.loads((Path(__file__).resolve().parents[4] /
+        'contracts/resource-benchmark/manifest.schema.json').read_text())['properties']['inputs']
+    from jsonschema import Draft202012Validator
+    errors = list(Draft202012Validator(input_schema).iter_errors(rows))
+    if errors:
+        raise ValueError('invalid prepared inputs: ' + errors[0].message)
     if len({r['id'] for r in rows})!=len(rows): raise ValueError('duplicate input id')
     return config,paths,model,source,generation,rows
 
