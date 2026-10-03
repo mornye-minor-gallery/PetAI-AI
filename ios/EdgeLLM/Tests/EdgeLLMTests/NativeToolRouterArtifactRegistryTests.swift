@@ -13,7 +13,7 @@ func externalArtifactLoadsAndMatchesAnalyticalProbabilities() throws {
     ).load()
     #expect(pipeline.artifactID == "synthetic-contract-test")
     #expect(pipeline.actionability.inputDimension == 768)
-    #expect(pipeline.selector.prototypeCount == 84)
+    #expect(pipeline.selector.prototypeCount == NativeToolKind.allCases.count * 12)
     // Hand-authored weights implement sigmoid(10 * relu(x[0]) - 5).
     // No learned weights, source utterances or model embeddings are required.
     for (first, expected) in [(Float(1), Float(0.9933071491)), (0, 0.0066928509)] {

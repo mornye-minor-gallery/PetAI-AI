@@ -32,6 +32,18 @@ public struct NativeToolResultFormatter: Sendable {
         }
 
         switch envelope.tool {
+        case .getCurrentTime:
+            let identifier = try requiredString("timeZoneIdentifier", in: envelope.data)
+            guard let zone = TimeZone(identifier: identifier) else {
+                throw NativeToolResultFormattingError.invalidField("timeZoneIdentifier")
+            }
+            var calendar = dateTime.calendar
+            calendar.timeZone = zone
+            let clock = try NativeToolDateTimeFormatter(now: dateTime.now, calendar: calendar)
+                .clockString(from: requiredString("currentDateTime", in: envelope.data), field: "currentDateTime")
+            let ending = clock.hasSuffix("분") ? "이야" : "야"
+            return "지금은 \(clock)\(ending)."
+
         case .createAlarm:
             let time = try formattedDate("scheduledAt", in: envelope.data)
             return "알겠어. \(time)에 알람 맞춰뒀어."

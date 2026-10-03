@@ -73,7 +73,7 @@ public actor NativeToolProposalCoordinator {
         requestID: String
     ) throws -> UnityToolStateEvent {
         let current = try requireRequest(requestID)
-        guard current.state == .proposalReady else {
+        guard current.state == .proposalReady, current.proposal.tool.requiresConfirmation else {
             throw NativeToolCoordinatorError.invalidTransition
         }
         let updated = NativeToolRequestSnapshot(
@@ -100,49 +100,71 @@ public actor NativeToolProposalCoordinator {
             throw NativeToolCoordinatorError.confirmedProposalMismatch
         }
 
+        return await execute(confirmedProposal)
+    }
+
+    public func executeWithoutConfirmation(
+        requestID: String
+    ) async throws -> NativeToolExecutionEnvelope {
+        let current = try requireRequest(requestID)
+        guard !current.hasExecuted else {
+            throw NativeToolCoordinatorError.requestAlreadyExecuted
+        }
+        guard current.state == .proposalReady, !current.proposal.tool.requiresConfirmation else {
+            throw NativeToolCoordinatorError.invalidTransition
+        }
+        try Task.checkCancellation()
+        return await execute(current.proposal)
+    }
+
+    private func execute(
+        _ proposal: ValidatedToolProposal
+    ) async -> NativeToolExecutionEnvelope {
+        let requestID = proposal.requestID
+
         requests[requestID] = NativeToolRequestSnapshot(
-            proposal: confirmedProposal,
+            proposal: proposal,
             state: .running,
             hasExecuted: true
         )
 
         do {
-            let data = try await executor(confirmedProposal)
+            let data = try await executor(proposal)
             let completed = NativeToolRequestSnapshot(
-                proposal: confirmedProposal,
+                proposal: proposal,
                 state: .completed,
                 hasExecuted: true
             )
             requests[requestID] = completed
             return NativeToolExecutionEnvelope(
                 requestID: requestID,
-                tool: confirmedProposal.tool,
+                tool: proposal.tool,
                 status: .success,
                 data: data
             )
         } catch let code as NativeToolErrorCode {
             requests[requestID] = NativeToolRequestSnapshot(
-                proposal: confirmedProposal,
+                proposal: proposal,
                 state: .failed,
                 hasExecuted: true,
                 errorCode: code
             )
             return NativeToolExecutionEnvelope(
                 requestID: requestID,
-                tool: confirmedProposal.tool,
+                tool: proposal.tool,
                 status: .failure,
                 errorCode: code
             )
         } catch {
             requests[requestID] = NativeToolRequestSnapshot(
-                proposal: confirmedProposal,
+                proposal: proposal,
                 state: .failed,
                 hasExecuted: true,
                 errorCode: .nativeFailure
             )
             return NativeToolExecutionEnvelope(
                 requestID: requestID,
-                tool: confirmedProposal.tool,
+                tool: proposal.tool,
                 status: .failure,
                 errorCode: .nativeFailure
             )

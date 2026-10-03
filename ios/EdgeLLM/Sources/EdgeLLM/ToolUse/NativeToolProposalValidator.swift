@@ -33,6 +33,9 @@ public struct NativeToolProposalValidator: Sendable {
 
         let arguments: ValidatedToolArguments
         switch proposal.arguments {
+        case .getCurrentTime:
+            arguments = .getCurrentTime
+
         case .getStepCount(let value):
             let start = try date(value.startDate, field: "startDate")
             let end = try date(value.endDate, field: "endDate")

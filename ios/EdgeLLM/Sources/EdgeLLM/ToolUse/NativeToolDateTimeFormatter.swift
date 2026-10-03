@@ -5,13 +5,7 @@ struct NativeToolDateTimeFormatter: Sendable {
     let calendar: Calendar
 
     func string(from timestamp: String, field: String) throws -> String {
-        let parser = ISO8601DateFormatter()
-        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let fractionalDate = parser.date(from: timestamp)
-        parser.formatOptions = [.withInternetDateTime]
-        guard let date = fractionalDate ?? parser.date(from: timestamp) else {
-            throw NativeToolResultFormattingError.invalidField(field)
-        }
+        let date = try parse(timestamp, field: field)
 
         let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
         guard let year = parts.year, let month = parts.month, let day = parts.day,
@@ -30,9 +24,33 @@ struct NativeToolDateTimeFormatter: Sendable {
             let yearText = year == calendar.component(.year, from: now) ? "" : "\(year)년 "
             dayText = "\(yearText)\(month)월 \(day)일"
         }
+        return "\(dayText) \(Self.clockString(hour: hour, minute: minute))"
+    }
+
+    func clockString(from timestamp: String, field: String) throws -> String {
+        let parts = calendar.dateComponents([.hour, .minute], from: try parse(timestamp, field: field))
+        guard let hour = parts.hour, let minute = parts.minute else {
+            throw NativeToolResultFormattingError.invalidField(field)
+        }
+        return Self.clockString(hour: hour, minute: minute)
+    }
+
+    private func parse(_ timestamp: String, field: String) throws -> Date {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fractionalDate = parser.date(from: timestamp)
+        parser.formatOptions = [.withInternetDateTime]
+        guard let date = fractionalDate ?? parser.date(from: timestamp) else {
+            throw NativeToolResultFormattingError.invalidField(field)
+        }
+
+        return date
+    }
+
+    private static func clockString(hour: Int, minute: Int) -> String {
         let period = hour < 12 ? "오전" : "오후"
         let clockHour = hour % 12 == 0 ? 12 : hour % 12
         let minuteText = minute == 0 ? "" : " \(minute)분"
-        return "\(dayText) \(period) \(clockHour)시\(minuteText)"
+        return "\(period) \(clockHour)시\(minuteText)"
     }
 }

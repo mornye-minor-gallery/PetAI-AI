@@ -6,7 +6,7 @@ import Testing
 func productPromptRegistryLoadsAndVerifiesEveryToolPrompt() throws {
     let registry = NativeToolPromptRegistry()
 
-    for tool in NativeToolKind.allCases {
+    for tool in NativeToolKind.allCases where tool != .getCurrentTime {
         let prompt = try registry.prompt(for: tool)
         #expect(prompt.tool == tool)
         #expect(prompt.source.contains(tool.rawValue))
@@ -55,9 +55,10 @@ func renderedProductPromptAddsOnlyDeviceOwnedTimeContext() throws {
 }
 
 @Test
-func proposalParserAcceptsAllSevenCanonicalToolCalls() throws {
+func proposalParserAcceptsCanonicalToolCalls() throws {
     let parser = NativeToolProposalParser()
     let cases: [(NativeToolKind, String, NativeToolArguments)] = [
+        (.getCurrentTime, "{}", .getCurrentTime),
         (
             .getStepCount,
             #"{"startDate":"2026-08-03","endDate":"2026-08-03","aggregation":"total"}"#,

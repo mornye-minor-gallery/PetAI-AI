@@ -111,6 +111,9 @@ public struct NativeToolPromptRegistry: Sendable {
     }
 
     public func prompt(for tool: NativeToolKind) throws -> NativeToolPrompt {
+        guard let expected = Self.expectedSHA256[tool] else {
+            throw NativeToolPromptRegistryError.resourceMissing(tool: tool)
+        }
         let fileName = tool.rawValue + ".md"
         guard let data = loader(fileName) else {
             throw NativeToolPromptRegistryError.resourceMissing(tool: tool)
@@ -119,7 +122,6 @@ public struct NativeToolPromptRegistry: Sendable {
             throw NativeToolPromptRegistryError.invalidUTF8(tool: tool)
         }
         let actual = Self.sha256(data)
-        let expected = Self.expectedSHA256[tool]!
         guard actual == expected else {
             throw NativeToolPromptRegistryError.checksumMismatch(
                 tool: tool,
@@ -134,8 +136,8 @@ public struct NativeToolPromptRegistry: Sendable {
         )
     }
 
-    public static func expectedChecksum(for tool: NativeToolKind) -> String {
-        expectedSHA256[tool]!
+    public static func expectedChecksum(for tool: NativeToolKind) -> String? {
+        expectedSHA256[tool]
     }
 
     private static func sha256(_ data: Data) -> String {

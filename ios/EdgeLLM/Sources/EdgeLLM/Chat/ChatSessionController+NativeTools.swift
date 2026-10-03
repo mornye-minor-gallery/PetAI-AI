@@ -65,19 +65,24 @@ extension ChatSessionController {
                 )
                 return true
 
-            case .proposal(let draft, _, _):
-                _ = try await nativeToolCoordinator.beginConfirmation(
-                    requestID: requestID
-                )
-                let editedDraft = try await
-                    nativeToolAdapterHub.confirm(draft)
-                guard activeRequestId == requestID, !cancelRequested else {
-                    throw NativeToolConfirmationError.cancelled
+            case .proposal(let draft, let proposal, _):
+                let confirmed: ValidatedToolProposal
+                let envelope: NativeToolExecutionEnvelope
+                if draft.tool.requiresConfirmation {
+                    _ = try await nativeToolCoordinator.beginConfirmation(requestID: requestID)
+                    let editedDraft = try await nativeToolAdapterHub.confirm(draft)
+                    guard activeRequestId == requestID, !cancelRequested else {
+                        throw NativeToolConfirmationError.cancelled
+                    }
+                    confirmed = try NativeToolProposalValidator().validate(editedDraft)
+                    envelope = try await nativeToolCoordinator.approveAndExecute(confirmed)
+                } else {
+                    guard activeRequestId == requestID, !cancelRequested else {
+                        throw NativeToolConfirmationError.cancelled
+                    }
+                    confirmed = proposal
+                    envelope = try await nativeToolCoordinator.executeWithoutConfirmation(requestID: requestID)
                 }
-                let confirmed = try NativeToolProposalValidator()
-                    .validate(editedDraft)
-                let envelope = try await nativeToolCoordinator
-                    .approveAndExecute(confirmed)
 
                 if envelope.status == .success {
                     let formatter = NativeToolResultFormatter()
@@ -85,9 +90,9 @@ extension ChatSessionController {
                     do {
                         visibleText = try formatter.visibleText(for: envelope)
                     } catch {
-                        // The OS side effect is committed. A display error must not turn
-                        // it into an execution failure or invite a duplicate retry.
                         logger.error("native_tool_result_format_failed tool=\(envelope.tool.rawValue) error=\(error)")
+                        // Only a committed OS side effect needs a success fallback to avoid duplicate retries.
+                        guard draft.tool.requiresConfirmation else { throw error }
                         visibleText = formatter.unformattedSuccessText(for: envelope.tool)
                     }
                     await finishNativeToolRequest(
@@ -96,7 +101,7 @@ extension ChatSessionController {
                         homeSteps: HomeStepObservation.make(
                             envelope: envelope, proposal: confirmed
                         ),
-                        committedTool: true
+                        committedTool: draft.tool.requiresConfirmation
                     )
                 } else {
                     await finishNativeToolFailure(

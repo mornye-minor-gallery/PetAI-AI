@@ -72,9 +72,10 @@ public actor ChatSessionController {
         self.eventSink = eventSink
         logger = ChatLogger(write: log)
         self.diagnostics = diagnostics
-        nativeToolAdapterHub = platform.tools
+        let tools = CommonChatPlatformTools(platform: platform.tools)
+        nativeToolAdapterHub = tools
         routedPersonaSession = RoutedPersonaSessionContext(maximumTurnCount: configuration.persona.recentTurnLimit)
-        nativeToolCoordinator = NativeToolProposalCoordinator { try await platform.tools.execute($0) }
+        nativeToolCoordinator = NativeToolProposalCoordinator { try await tools.execute($0) }
     }
 
     var preparationTask: Task<Void, Never>?

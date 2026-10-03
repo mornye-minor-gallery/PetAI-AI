@@ -102,21 +102,24 @@ public struct NativeToolProposalHarness: Sendable {
             {
                 return .clarification(message: message)
             }
-            let prompt = try promptRegistry.prompt(for: selectedTool)
-            let call = try await generator.generateFunctionCall(
-                NativeToolGenerationRequest(
-                    selectedTool: selectedTool,
-                    systemPrompt: prompt.rendered(with: promptContext),
-                    userMessage: userMessage,
-                    reasoningEnabled: configuration.generation
-                        .toolReasoningEnabled
+            let proposal: NativeToolProposal
+            if selectedTool == .getCurrentTime {
+                // The clock has no user-supplied arguments to infer.
+                proposal = NativeToolProposal(requestID: requestID, tool: selectedTool,
+                    arguments: .getCurrentTime)
+            } else {
+                let prompt = try promptRegistry.prompt(for: selectedTool)
+                let call = try await generator.generateFunctionCall(
+                    NativeToolGenerationRequest(
+                        selectedTool: selectedTool,
+                        systemPrompt: prompt.rendered(with: promptContext),
+                        userMessage: userMessage,
+                        reasoningEnabled: configuration.generation
+                            .toolReasoningEnabled
+                    )
                 )
-            )
-            let proposal = try parser.parse(
-                call,
-                selectedTool: selectedTool,
-                requestID: requestID
-            )
+                proposal = try parser.parse(call, selectedTool: selectedTool, requestID: requestID)
+            }
             let validated = try validator.validate(proposal)
             let event = try await coordinator.register(validated)
             return .proposal(

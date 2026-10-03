@@ -51,6 +51,10 @@ public struct NativeToolProposalParser: Sendable {
 
         let arguments: NativeToolArguments
         switch selectedTool {
+        case .getCurrentTime:
+            try requireFields(fields, required: [])
+            arguments = .getCurrentTime
+
         case .getStepCount:
             try requireFields(
                 fields,
