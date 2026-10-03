@@ -25,7 +25,7 @@ import LiteRTLM
                 routerThinkingEnabled: false,
                 toolReasoningEnabled: false
             ),
-            persona: .init(recentMessageLimit: 0),
+            persona: .init(recentTurnLimit: 0),
             runtimeSafety: .init(cancellationTimeoutSeconds: 15),
             dialogueBudget: .init(memoryTokens: 0, contextTokens: plan.generation.context_tokens,
                                  outputTokens: plan.generation.max_output_tokens)
@@ -100,7 +100,17 @@ extension LiteRTLMRuntime {
         guard let engine else { throw RuntimeError.modelNotPrepared }
         isPreparingInput = true
         defer { isPreparingInput = false }
+        let initialMessages = input.initial_messages.map { item -> Message in
+            let role: Role
+            switch item.role {
+            case .system: role = .system
+            case .user: role = .user
+            case .assistant: role = .model
+            }
+            return Message(item.text, role: role)
+        }
         let size = try await engine.measureTextPrompt(systemPrompt: input.system_prompt,
+            initialMessages: initialMessages,
             userPrompt: input.user_prompt, thinkingEnabled: generation.thinking_enabled)
         guard size.totalTokens <= generation.context_tokens - generation.max_output_tokens else {
             throw BenchFailure.invalid("prepared_input_exceeds_context")
@@ -110,7 +120,18 @@ extension LiteRTLMRuntime {
             temperature: generation.temperature, topK: generation.top_k, topP: generation.top_p,
             maxOutputTokens: generation.max_output_tokens, thinkingEnabled: generation.thinking_enabled)
         if generation.conversation_mode == "cached_full_prompt" {
-            try await reuseCachedConversation(configuration: configuration)
+            try await reuseCachedConversation(configuration: configuration, initialMessages: initialMessages)
+        } else if !initialMessages.isEmpty {
+            // A fresh raw session renders the same ordered input without retaining KV.
+            // Ordinary Conversation's Swift API only accepts one initial system turn.
+            conversation = nil
+            let session = try await engine.createCachedSession(sampler: .init(topK: configuration.topK,
+                topP: configuration.topP, temperature: configuration.temperature),
+                maxOutputTokens: configuration.maxOutputTokens)
+            try session.replaceInput(systemPrompt: configuration.systemPrompt, initialMessages: initialMessages)
+            conversation = session
+            conversationConfiguration = configuration
+            currentState = .ready
         } else {
             try await replaceConversation(configuration: configuration)
         }

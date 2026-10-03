@@ -5,7 +5,7 @@ import Testing
 private struct AdvancedMeter: DialogueTokenMeasuring {
     let identifier = "utf16"
     func countTokens(_ text: String) async throws -> Int { text.utf16.count }
-    func measureInput(_ input: DialogueModelInput) async throws -> Int { input.systemPrompt.utf16.count + input.userPrompt.utf16.count }
+    func measureInput(_ input: DialogueModelInput) async throws -> Int { input.messages.reduce(0) { $0 + $1.text.utf16.count } }
 }
 @Test func worldInfoRecursionAndDepthExpansion() async throws {
     var scan = WorldInfoScanRules(); scan.recursive = true
@@ -68,8 +68,8 @@ private struct AdvancedMeter: DialogueTokenMeasuring {
         currentMessage: "{{setvar::x::bad}}", session: session,
         authorsNote: .init(defaults: .init(text: "날씨: {{outlet::weather}}", depth: 0)), worldInfo: settings),
         tokenBudget: .init(memoryTokens: 0, contextTokens: 100_000, outputTokens: 1000), measurer: AdvancedMeter())
-    #expect(prepared.userPrompt.contains("날씨: 맑음"))
-    #expect(prepared.userPrompt.contains("{{setvar::x::bad}}"))
+    #expect(prepared.userText.contains("날씨: 맑음"))
+    #expect(prepared.userText.contains("{{setvar::x::bad}}"))
     #expect(prepared.worldInfoTransaction?.text.localVariables["x"] == nil)
     #expect(prepared.worldInfoTransaction?.text.outlets["weather"] == "맑음")
 }

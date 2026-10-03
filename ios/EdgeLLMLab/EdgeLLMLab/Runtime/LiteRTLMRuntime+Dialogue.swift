@@ -6,6 +6,18 @@ import EdgeLLM
 import LiteRTLM
 #endif
 
+private extension DialoguePromptMessage {
+    var nativeMessage: Message {
+        let nativeRole: Role
+        switch role {
+        case .system: nativeRole = .system
+        case .user: nativeRole = .user
+        case .assistant: nativeRole = .model
+        }
+        return Message(text, role: nativeRole)
+    }
+}
+
 private struct LiteRTLMDialogueMeasurer: DialogueTokenMeasuring {
     let identifier = "litert-lm-native-text"
     let engine: Engine
@@ -18,8 +30,9 @@ private struct LiteRTLMDialogueMeasurer: DialogueTokenMeasuring {
 
     func measureInput(_ input: DialogueModelInput) async throws -> Int {
         try Task.checkCancellation()
-        return try await engine.measureTextPrompt(systemPrompt: input.systemPrompt,
-            userPrompt: input.userPrompt, thinkingEnabled: thinkingEnabled).totalTokens
+        return try await engine.measureTextPrompt(systemPrompt: nil,
+            initialMessages: input.initialMessages.map(\.nativeMessage),
+            userPrompt: input.currentUserMessage, thinkingEnabled: thinkingEnabled).totalTokens
     }
 }
 
@@ -55,9 +68,10 @@ extension LiteRTLMRuntime {
             "output_tokens": String(budget.outputTokens)
         ])
 #endif
-        try await reuseCachedConversation(configuration: .init(systemPrompt: prepared.systemPrompt,
+        try await reuseCachedConversation(configuration: .init(
             temperature: sampling.temperature, topK: sampling.samplerTopK, topP: sampling.topP,
-            maxOutputTokens: budget.outputTokens, thinkingEnabled: thinkingEnabled))
+            maxOutputTokens: budget.outputTokens, thinkingEnabled: thinkingEnabled),
+            initialMessages: prepared.modelInput.initialMessages.map(\.nativeMessage))
         try Task.checkCancellation()
         guard !cancelRequested else { throw RuntimeError.generationCancelled }
         conversationDialogueBudget = budget
@@ -66,7 +80,7 @@ extension LiteRTLMRuntime {
 
     /// The authoritative app history replaces each turn's dynamic input. Sampling
     /// changes require a new native session; changing text does not.
-    func reuseCachedConversation(configuration: ConversationConfiguration) async throws {
+    func reuseCachedConversation(configuration: ConversationConfiguration, initialMessages: [Message] = []) async throws {
         guard let engine else { throw RuntimeError.modelNotPrepared }
         let previous = conversationConfiguration
         let compatible = previous?.temperature == configuration.temperature
@@ -83,7 +97,7 @@ extension LiteRTLMRuntime {
             }
         }
         guard let cached = conversation as? CachedSession else { throw RuntimeError.conversationNotStarted }
-        try cached.replaceInput(systemPrompt: configuration.systemPrompt)
+        try cached.replaceInput(systemPrompt: configuration.systemPrompt, initialMessages: initialMessages)
         conversationConfiguration = configuration
         currentState = .ready
     }

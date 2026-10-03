@@ -4,9 +4,8 @@ public enum DialoguePromptRole: String, Codable, Sendable {
     case system, user, assistant
 }
 
-/// Logical content, not a native role message. Main-prompt anchors order the request
-/// context after history; in-chat blocks retain their requested depth. Both are folded
-/// into user text. Requested roles remain metadata; no extra native turns are synthesized.
+/// Main-prompt anchors retain system delivery after history. In-chat blocks retain
+/// their existing user-text delivery and depth; requested roles remain metadata.
 public struct DialoguePromptInsertion: Codable, Equatable, Sendable {
     public enum Source: String, Codable, Sendable { case authorsNote, worldInfo, nameRule }
     public enum Placement: String, Codable, Sendable { case beforeCurrent, afterCurrent, beforeSystem, afterSystem, inChat, beforePersona, afterPersona }
@@ -43,16 +42,45 @@ public struct DialogueInsertionTrace: Codable, Equatable, Sendable {
     public let reason: Reason
 }
 
-public struct DialogueModelInput: Codable, Equatable, Sendable {
-    public enum Format: String, Codable, Sendable { case systemAndUserText }
-    public let format: Format
-    public let systemPrompt: String
-    public let userPrompt: String
+public struct DialoguePromptMessage: Codable, Equatable, Sendable {
+    public let role: DialoguePromptRole
+    public let text: String
 
-    public init(systemPrompt: String, userPrompt: String) {
-        format = .systemAndUserText
-        self.systemPrompt = systemPrompt
-        self.userPrompt = userPrompt
+    public init(role: DialoguePromptRole, text: String) {
+        self.role = role
+        self.text = text
+    }
+}
+
+/// Ordered native input. The final user message is submitted after the prefix;
+/// history and request context must not be regrouped by role by an adapter.
+public struct DialogueModelInput: Codable, Equatable, Sendable {
+    public let initialMessages: [DialoguePromptMessage]
+    public let currentUserMessage: String
+    public var messages: [DialoguePromptMessage] {
+        initialMessages + [.init(role: .user, text: currentUserMessage)]
+    }
+
+    public init(initialMessages: [DialoguePromptMessage], currentUserMessage: String) {
+        self.initialMessages = initialMessages
+        self.currentUserMessage = currentUserMessage
+    }
+
+    private enum CodingKeys: CodingKey { case messages }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let messages = try container.decode([DialoguePromptMessage].self, forKey: .messages)
+        guard let current = messages.last, current.role == .user else {
+            throw DecodingError.dataCorruptedError(forKey: .messages, in: container,
+                debugDescription: "Dialogue input must end with a user message.")
+        }
+        self.init(initialMessages: Array(messages.dropLast()), currentUserMessage: current.text)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(messages, forKey: .messages)
     }
 }
 
@@ -93,11 +121,16 @@ struct DialogueInsertionLayout {
                 }
             }
             let empty = item.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let deliveredRole: DialoguePromptRole
+            switch item.placement {
+            case .beforeSystem, .afterSystem, .beforePersona, .afterPersona: deliveredRole = .system
+            case .beforeCurrent, .afterCurrent, .inChat: deliveredRole = .user
+            }
             trace.append(.init(id: item.id, source: item.source, placement: item.placement,
-                requestedRole: item.role, deliveredRole: empty ? nil : .user, depth: item.depth, order: item.order,
+                requestedRole: item.role, deliveredRole: empty ? nil : deliveredRole, depth: item.depth, order: item.order,
                 reason: empty ? .empty : .included))
             guard !empty else { continue }
-            let section = DialoguePromptSection(id: item.id, text: item.text)
+            let section = DialoguePromptSection(id: item.id, text: item.text, role: deliveredRole)
             switch item.placement {
             case .beforeCurrent: before.append(section)
             case .afterCurrent: after.append(section)

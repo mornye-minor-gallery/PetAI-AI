@@ -25,7 +25,7 @@ import CLiteRTLM
         _ = try await run(session, "기억 B")
         precondition(test_rewinds() == 3, "identical input still rewinds past old output")
         _ = try await run(session, "retry")
-        precondition(String(cString: test_input()).contains("기억 B안녕<|turn>user\nretry"))
+        precondition(String(cString: test_input()).contains("기억 B<turn|>\n<|turn>model\n안녕<turn|>\n<|turn>user\nretry"))
         try session.replaceInput(systemPrompt: "fixed")
         _ = try await run(session, "짧음")
         precondition(!String(cString: test_input()).contains("retry"))
@@ -51,6 +51,20 @@ import CLiteRTLM
         try session.replaceInput(systemPrompt: "fixed")
         _ = try await run(session, "after cancel")
         precondition(test_created() == 1)
+        let orderedPrefix = [Message("fixed", role: .system), Message("history", role: .user),
+            Message("scene A", role: .system)]
+        try session.replaceInput(systemPrompt: nil, initialMessages: orderedPrefix)
+        let measured = try await session.measureInput("current A", thinkingEnabled: false)
+        _ = try await run(session, "current A")
+        let rendered = String(cString: test_input())
+        precondition(rendered.hasPrefix("<|turn>system\nfixed<turn|>\n<|turn>user\nhistory<turn|>\n<|turn>system\nscene A<turn|>\n<|turn>user\ncurrent A"))
+        precondition(measured == rendered.utf8.count + "BOS".utf8.count)
+        try session.replaceInput(systemPrompt: nil, initialMessages: [
+            orderedPrefix[0], orderedPrefix[1], Message("scene B", role: .system)])
+        _ = try await run(session, "current B")
+        precondition(!String(cString: test_input()).contains("scene A"))
+        precondition(!String(cString: test_input()).contains("current A"))
+        precondition(session.latestCacheTrace()!.matchingInputPrefixTokens > 0)
         print("cached session native boundary tests passed")
         try await checkpointTests()
     }

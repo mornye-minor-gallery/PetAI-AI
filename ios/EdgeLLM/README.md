@@ -38,14 +38,21 @@ EdgeLLMLab 빌드는 같은 이름의 Xcode 빌드 설정을 받는다. 원본 Y
 ## 배치와 모델 전달 형식
 
 `DialoguePromptInput.insertions`로 본문·출처·위치·역할·순서를 전달한다.
-현재 위치는 `beforeCurrent`, `afterCurrent`이며, 각 위치에서 `order` 오름차순,
+각 위치에서 `order` 오름차순,
 동률이면 공급 순서를 따른다. ID는 비어 있지 않고 고유해야 하며 `nameRule`,
 `currentMessage` 등 기본 구역 ID와 겹칠 수 없다. 빈 본문은 제외 이유를 기록한다.
 
-`PreparedDialogue.modelInput`의 형식은 `systemAndUserText`이다. 삽입 항목의 역할은
-원본 설정을 보존하는 메타데이터이며 모든 삽입 항목은 실제로 사용자 입력 문자열
-안에 들어간다. `prompt_trace.insertions`의 `requestedRole`과 `deliveredRole`로
-이 차이를 확인한다. 별도의 네이티브 system 메시지를 추가하는 기능이 아니다.
+`PreparedDialogue.modelInput.messages`는 역할과 순서를 보존하는 모델 입력이다.
+고정 지시·페르소나·예시는 `system`, 기존 대화 이력은 `user`, 요청마다 달라지는
+장면·프로필·로어는 `system`, 현재 질문·회수 기억은 마지막 `user` 메시지로 전달한다.
+빈 구역은 생략한다. 네이티브 연결과 토큰 측정은 이 배열을 그대로 사용한다.
+`initialMessages`는 마지막 질문 앞의 메시지이고, `currentUserMessage`는 생성 호출에
+보내는 마지막 메시지다. `systemText`와 `userText`는 역할별 진단용 문자열이다.
+
+`beforeSystem`·`afterSystem`·`beforePersona`·`afterPersona` 삽입은 동적 `system`
+구역에 배치한다. `beforeCurrent`·`afterCurrent`·`inChat` 삽입은 기존처럼 `user`
+본문에 배치하며, `inChat`은 지정한 이력 깊이를 따른다. 설정의 요청 역할과 실제
+전달 역할은 `prompt_trace.insertions`의 `requestedRole`·`deliveredRole`로 확인한다.
 
 기존 이름 규칙도 같은 배치 코드를 사용한다. 일반 삽입은 기존 규칙을 제거하지
 않으므로, 규칙 이동과 추가 재상기는 서로 다른 설정이다. 노트·기억·예시는 실제
@@ -131,7 +138,7 @@ let prepared = try await DialoguePromptComposer.prepare(
 토큰 경로의 `memoryByteBudget`은 없으며 바이트 숫자를 토큰으로 재해석하지 않는다.
 
 네이티브 측정은 `LiteRTLM.Engine.countTokens`와
-`measureTextPrompt(systemPrompt:userPrompt:thinkingEnabled:)`를 사용한다. 측정과
+`measureTextPrompt(systemPrompt:initialMessages:userPrompt:thinkingEnabled:)`를 사용한다. 측정과
 실제 대화 생성이 같은 thinking 문맥과 필터 설정을 사용하며, 도구 템플릿과 임의
 추가 문맥은 이 텍스트 경로에 포함하지 않는다. 임시 conversation의 초기화 비용은
 발생할 수 있지만 활성 conversation은 변경하지 않는다.

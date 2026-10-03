@@ -72,7 +72,7 @@ extension ChatSessionController {
         logger.debug(
             "Dialogue composition placement=\(prepared.trace.nameRulePlacement.rawValue) historyMessages=\(prepared.trace.historyMessages) insertedMemories=\(prepared.trace.insertedMemoryCount) memoryBytes=\(prepared.trace.insertedMemoryBytes) userBytes=\(prepared.trace.userBytes)"
         )
-        return (prepared.userPrompt, prepared.worldInfoTransaction)
+        return (prepared.modelInput.currentUserMessage, prepared.worldInfoTransaction)
     }
 
     func routeSceneWithEmbedding(

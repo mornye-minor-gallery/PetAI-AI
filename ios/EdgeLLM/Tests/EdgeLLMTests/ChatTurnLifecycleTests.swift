@@ -21,8 +21,8 @@ import Testing
     let prepared = try DialoguePromptComposer.prepare(input: .init(
         persona: try testPersona(), history: next.history,
         currentMessage: "어떻게 알았어?", session: next))
-    #expect(prepared.userPrompt.components(separatedBy: "밤에 안 잤구나?").count == 2)
-    #expect(prepared.userPrompt.contains("캐릭터: 밤에 안 잤구나?"))
+    #expect(prepared.userText.components(separatedBy: "밤에 안 잤구나?").count == 2)
+    #expect(prepared.userText.contains("캐릭터: 밤에 안 잤구나?"))
 }
 
 @Test func homeLineUsesOneRecentSlotAndSurvivesCheckpoint() throws {
@@ -162,7 +162,7 @@ import Testing
     let prepared = try DialoguePromptComposer.prepare(input: input)
     #expect(prepared.trace.authorsNote?.userMessageNumber == 2)
     #expect(prepared.trace.authorsNote?.active == true)
-    #expect(prepared.userPrompt.contains("두 번째 발화 노트"))
+    #expect(prepared.userText.contains("두 번째 발화 노트"))
 }
 
 @Test func checkpointConvertsPendingOwnershipIntoInterruptedTurn() throws {

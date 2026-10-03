@@ -64,10 +64,11 @@ public enum DialoguePromptComposer {
             userProfileContext: input.profile, configuration: systemPolicy).map { section in
                 DialoguePromptSection(id: section.id,
                     text: try (["persona", "scene"].contains(section.id) ? authored(section.text) : section.text),
-                    role: section.role, cacheStability: section.cacheStability)
+                    role: .system, cacheStability: section.cacheStability)
             }
         // Native KV reuse stops at the first changed token. Keep fixed instructions in
-        // system text and request context after history, retaining the lore anchor order.
+        // the first system turn and request context after history, retaining system
+        // delivery and the lore anchor order. Rendering must preserve these turns.
         let characterEnd = baseParts.prefix { $0.id == "persona" || $0.id == "scene" }.count
         let exampleParts: [DialoguePromptSection] = exampleText.isEmpty ? [] : [
             .init(id: "dialogue.examples", text: exampleText, role: .system, cacheStability: .sessionStable)
@@ -77,31 +78,37 @@ public enum DialoguePromptComposer {
         let dynamicRemainingParts = baseParts.dropFirst(characterEnd).filter { $0.cacheStability == .requestDynamic }
         let contextParts = layout.beforeSystem + layout.beforePersona + dynamicCharacterParts
             + layout.afterPersona + dynamicRemainingParts + layout.afterSystem
-        let systemPrompt = systemParts.map(\.text).joined(separator: "\n\n")
         let historyParts = DialoguePromptRenderer.historySections(input.history, insertions: layout.history)
-        let currentParts = contextParts + positionedParts
-        let currentText = currentParts.map(\.text).joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        let userPrompt = (historyParts.map(\.text) + ["## 이번 응답의 문맥과 사용자 입력\n" + currentText]).joined(separator: "\n\n")
+        let groups: [(DialoguePromptRole, [DialoguePromptSection])] = [
+            (.system, systemParts), (.user, historyParts), (.system, contextParts)
+        ]
+        let initialMessages = groups.compactMap { role, parts -> DialoguePromptMessage? in
+            guard !parts.isEmpty else { return nil }
+            return .init(role: role, text: parts.map(\.text).joined(separator: "\n\n"))
+        }
+        let currentText = positionedParts.map(\.text).joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        let modelInput = DialogueModelInput(initialMessages: initialMessages,
+            currentUserMessage: "## 현재 사용자 입력과 회수 기억\n" + currentText)
+        let systemText = modelInput.messages.filter { $0.role == .system }.map(\.text).joined(separator: "\n\n")
+        let userText = modelInput.messages.filter { $0.role == .user }.map(\.text).joined(separator: "\n\n")
         // Random rolls are request-local evidence, not session memory. Stable pick
         // choices and explicit variables are the persistent part of macro state.
         macroContext.randomRolls = []; macroContext.randomIndex = 0
         return PreparedDialogue(
-            systemPrompt: systemPrompt,
-            userPrompt: userPrompt,
+            modelInput: modelInput,
             unpositionedUserPrompt: DialoguePromptRenderer.historyInput(history: input.history, currentText: unpositioned),
             memoryAugmentedInput: unpositioned,
             nameInstruction: instruction,
             responseConfiguration: policy.persona,
-            trace: .init(systemSections: systemParts.map(\.id),
-                         userSections: historyParts.map(\.id) + currentParts.map(\.id),
-                         systemBytes: systemPrompt.utf8.count, userBytes: userPrompt.utf8.count,
+            trace: .init(systemSections: (systemParts + contextParts).map(\.id),
+                         userSections: (historyParts + positionedParts).map(\.id),
+                         systemBytes: systemText.utf8.count, userBytes: userText.utf8.count,
                          nameRulePlacement: policy.nameRulePlacement,
                          nameRuleIncluded: policy.persona.enforceCharacterName,
                          historyMessages: input.history.count, memoryByteBudget: memoryByteBudget,
                          memories: memory.trace, insertions: layout.trace, authorsNote: expandedNote, worldInfo: worldInfo?.trace, tokenBudget: nil),
             worldInfoTransaction: .init(state: worldInfo?.selection.nextState ?? input.session?.worldInfoState ?? .init(),
                 text: macroContext, automationIDs: worldInfo?.selection.automationIDs ?? [], outlets: worldInfo?.outlets ?? [:]),
-            tokenSections: systemParts.map { .init(id: $0.id, text: $0.text, role: .system) }
-                + historyParts + currentParts)
+            tokenSections: systemParts + historyParts + contextParts + positionedParts)
     }
 }
