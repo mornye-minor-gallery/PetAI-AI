@@ -80,10 +80,19 @@ extension ChatSessionController {
                     .approveAndExecute(confirmed)
 
                 if envelope.status == .success {
+                    let formatter = NativeToolResultFormatter()
+                    let visibleText: String
+                    do {
+                        visibleText = try formatter.visibleText(for: envelope)
+                    } catch {
+                        // The OS side effect is committed. A display error must not turn
+                        // it into an execution failure or invite a duplicate retry.
+                        logger.error("native_tool_result_format_failed tool=\(envelope.tool.rawValue) error=\(error)")
+                        visibleText = formatter.unformattedSuccessText(for: envelope.tool)
+                    }
                     await finishNativeToolRequest(
                         requestID: requestID,
-                        visibleText: NativeToolResultFormatter()
-                            .visibleText(for: envelope),
+                        visibleText: visibleText,
                         homeSteps: HomeStepObservation.make(
                             envelope: envelope, proposal: confirmed
                         ),
@@ -93,7 +102,7 @@ extension ChatSessionController {
                     await finishNativeToolFailure(
                         requestID: requestID,
                         code: envelope.errorCode ?? .nativeFailure,
-                        message: NativeToolResultFormatter()
+                        message: try NativeToolResultFormatter()
                             .visibleText(for: envelope)
                     )
                 }

@@ -23,11 +23,13 @@ struct ChatControllerFixture {
     let events = ChatEventRecorder()
     let controller: ChatSessionController
 
-    init(automaticallyFinalize: Bool = true, toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) throws {
+    init(automaticallyFinalize: Bool = true, tools: (any ChatPlatformTools)? = nil,
+         log: @escaping @Sendable (String) -> Void = { _ in },
+         toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("chat-controller-\(UUID())")
         store = .init(fileURL: directory.appendingPathComponent("recent.json"))
         controller = ChatSessionController(runtime: runtime, memory: memory,
-            platform: ChatTestPlatform(store: store), eventSink: events.receive,
+            platform: ChatTestPlatform(store: store, toolAdapter: tools), eventSink: events.receive, log: log,
             toolRouterArtifacts: toolRouterArtifacts)
         if automaticallyFinalize {
             let controller = controller
@@ -43,10 +45,11 @@ struct ChatControllerFixture {
         }
     }
     func remove() { try? FileManager.default.removeItem(at: directory) }
-    func request(_ id: String, _ text: String) -> String {
+    func request(_ id: String, _ text: String, allowedTools: [NativeToolKind] = []) -> String {
+        let access = allowedTools.map { ["tool": $0.rawValue, "unlockSource": "test", "unlocked": true] as [String: Any] }
         let payload: [String: Any] = ["requestId": id, "prompt": text, "thinkingEnabled": false,
             "userProfileContext": ["characterId": "test", "userName": "", "rhythmGamePlayCount": 0,
-                "rhythmGameBestScore": 0, "toolAccess": []]]
+                "rhythmGameBestScore": 0, "toolAccess": access]]
         return String(decoding: try! JSONSerialization.data(withJSONObject: payload), as: UTF8.self)
     }
 }
@@ -54,6 +57,8 @@ struct ChatControllerFixture {
 actor ChatTestRuntime: ChatInferenceRuntime {
     var state: RuntimeState = .ready
     var generationCount = 0
+    var functionCallCount = 0
+    var functionCall: NativeToolFunctionCall?
     var diaryGenerationCount = 0
     var diaryFailure: Error?
     var checkpointCount = 0
@@ -62,6 +67,7 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     var continuation: AsyncThrowingStream<String, Error>.Continuation?
     func setHolding(_ value: Bool) { holdStream = value }
     func setResponse(_ value: String) { response = value }
+    func setFunctionCall(_ value: NativeToolFunctionCall) { functionCall = value }
     func failDiary(with error: Error) { diaryFailure = error }
     func prepare(modelURL: URL) {}
     func startConversation(configuration: ConversationConfiguration) {}
@@ -88,7 +94,9 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     }
     func countDiaryInputTokens(systemPrompt: String, userMessage: String) -> Int { 100 }
     func generateFunctionCall(_ request: NativeToolGenerationRequest) throws -> NativeToolFunctionCall {
-        throw RuntimeError.runtimeBusy
+        functionCallCount += 1
+        guard let functionCall else { throw RuntimeError.runtimeBusy }
+        return functionCall
     }
     func cancel() { continuation?.finish(throwing: CancellationError()); continuation = nil }
     func resetConversation() {}
@@ -149,8 +157,9 @@ actor ChatTestMemory: ChatMemoryService {
 
 struct ChatTestPlatform: ChatPlatformServices, ChatPlatformTools {
     let store: DialogueSessionFileStore
+    var toolAdapter: (any ChatPlatformTools)? = nil
     var personaEnabled: Bool { true }
-    var tools: any ChatPlatformTools { self }
+    var tools: any ChatPlatformTools { toolAdapter ?? self }
     var supportedTools: Set<NativeToolKind> { [] }
     var unsupportedMessage: String { "Android에서는 준비 중인 기능입니다." }
     func enrich(_ base: UserProfileContext, allowedTools: Set<NativeToolKind>) -> UserProfileContext { base }
