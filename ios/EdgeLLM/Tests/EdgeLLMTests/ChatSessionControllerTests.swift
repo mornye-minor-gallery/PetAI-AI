@@ -92,11 +92,54 @@ final class ChatSessionControllerTests: XCTestCase {
         let registry = NativeToolRouterArtifactRegistry(manifestSHA256: artifacts.digest) { artifacts.files[$0] }
         let fixture = try ChatControllerFixture(toolRouterArtifacts: registry)
         defer { fixture.remove() }
+        var embedding = [Float](repeating: 0, count: fixture.memory.dimension)
+        embedding[0] = 1
+        await fixture.memory.setClassificationEmbedding(embedding)
         await fixture.controller.initialize()
         await fixture.controller.send(json: fixture.request("tool-1", "내일 아침 7시에 알람 맞춰 줘"))
         let events = fixture.events.snapshot()
         XCTAssertTrue(events.contains { $0.requestId == "tool-1" && $0.code == "platform_unsupported" })
         XCTAssertFalse(events.contains { $0.requestId == "tool-1" && $0.type == "completed" })
+        let calls = await fixture.runtime.generationCount
+        XCTAssertEqual(calls, 0)
+        let classifications = await fixture.memory.classificationCount
+        XCTAssertEqual(classifications, 1)
+    }
+
+    func testToolInquiryRemainsInConversationOnAnUnsupportedPlatform() async throws {
+        let artifacts = try makeOwnedRouterFixture()
+        let registry = NativeToolRouterArtifactRegistry(manifestSHA256: artifacts.digest) { artifacts.files[$0] }
+        let fixture = try ChatControllerFixture(toolRouterArtifacts: registry)
+        defer { fixture.remove() }
+        await fixture.controller.initialize()
+        await fixture.controller.send(json: fixture.request(
+            "tool-inquiry", "내가 만든 알람 목록을 확인하는 기능도 지원해?"
+        ))
+
+        let events = fixture.events.snapshot()
+        XCTAssertTrue(events.contains { $0.requestId == "tool-inquiry" && $0.type == "completed" })
+        XCTAssertFalse(events.contains { $0.requestId == "tool-inquiry" && $0.code == "platform_unsupported" })
+        let calls = await fixture.runtime.generationCount
+        let classifications = await fixture.memory.classificationCount
+        XCTAssertEqual(calls, 1)
+        XCTAssertEqual(classifications, 1)
+    }
+
+    func testToolClassificationCancellationKeepsTheTurnCancelled() async throws {
+        let artifacts = try makeOwnedRouterFixture()
+        let registry = NativeToolRouterArtifactRegistry(manifestSHA256: artifacts.digest) { artifacts.files[$0] }
+        let fixture = try ChatControllerFixture(toolRouterArtifacts: registry)
+        defer { fixture.remove() }
+        await fixture.controller.initialize()
+        await fixture.memory.failClassification(with: CancellationError())
+        await fixture.controller.send(json: fixture.request(
+            "tool-cancel", "내일 아침 7시에 알람 맞춰 줘"
+        ))
+
+        XCTAssertEqual(try fixture.store.load()?.chatTurns.last?.status, .cancelled)
+        XCTAssertTrue(fixture.events.snapshot().contains {
+            $0.requestId == "tool-cancel" && $0.type == "cancelled"
+        })
         let calls = await fixture.runtime.generationCount
         XCTAssertEqual(calls, 0)
     }

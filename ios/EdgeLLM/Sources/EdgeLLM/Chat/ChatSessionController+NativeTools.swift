@@ -116,7 +116,7 @@ extension ChatSessionController {
                 "Native Tool routing failed closed to chat request=\(requestID) error=\(error.localizedDescription)"
             )
             return false
-        } catch NativeToolConfirmationError.cancelled, RuntimeError.generationCancelled {
+        } catch is CancellationError, NativeToolConfirmationError.cancelled, RuntimeError.generationCancelled {
             _ = try? await nativeToolCoordinator.cancel(
                 requestID: requestID
             )

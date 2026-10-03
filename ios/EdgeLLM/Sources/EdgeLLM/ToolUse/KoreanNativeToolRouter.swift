@@ -80,21 +80,3 @@ public struct KoreanNativeToolRouter: Sendable {
         text.range(of: pattern, options: .regularExpression) != nil
     }
 }
-
-/// 명확한 한국어 도구 명령은 결정적으로 처리하고, 규칙에 걸리지 않는 표현만
-/// 임베딩 라우터에 맡긴다. 학습 분류기의 false negative가 알람 같은 실행 요청을
-/// 평범한 대화로 흘려보내지 않게 하면서 일상 대화의 기존 경로는 유지한다.
-public struct KoreanLexicalFirstNativeToolRouter: NativeToolRouting {
-    private let lexical = KoreanNativeToolRouter()
-    private let fallback: any NativeToolRouting
-
-    public init(fallback: any NativeToolRouting) {
-        self.fallback = fallback
-    }
-
-    public func route(_ utterance: String) async throws -> NativeToolRoute {
-        let lexicalRoute = lexical.route(utterance)
-        guard lexicalRoute == .normal else { return lexicalRoute }
-        return try await fallback.route(utterance)
-    }
-}

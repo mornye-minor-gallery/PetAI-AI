@@ -267,11 +267,16 @@ public struct NativeToolRoutingPipeline: Sendable {
         self.selector = selector
     }
 
-    public func route(_ embedding: [Float]) throws -> NativeToolRoute {
+    public func route(
+        _ embedding: [Float],
+        lexicalCandidate: NativeToolRoute = .normal
+    ) throws -> NativeToolRoute {
         switch try actionability.classify(embedding) {
         case .noCall:
             return .normal
         case .call:
+            // 규칙에 일치하는 기능 문의도 있으므로 실행 의도 판정을 먼저 통과해야 한다.
+            guard lexicalCandidate == .normal else { return lexicalCandidate }
             return try selector.route(embedding)
         }
     }
@@ -303,6 +308,9 @@ public struct EmbeddingMLPNativeToolRouter: NativeToolRouting {
         } catch {
             throw NativeToolRoutingError.embeddingUnavailable
         }
-        return try pipeline.route(embedding)
+        return try pipeline.route(
+            embedding,
+            lexicalCandidate: KoreanNativeToolRouter().route(utterance)
+        )
     }
 }

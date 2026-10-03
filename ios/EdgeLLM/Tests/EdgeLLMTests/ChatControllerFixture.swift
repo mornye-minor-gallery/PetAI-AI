@@ -116,6 +116,11 @@ actor ChatTestMemory: ChatMemoryService {
     var pendingWrite: CheckedContinuation<Void, Never>?
     var diaryObservations: [MemoryObservation] = []
     var savedDiaries: [String: DailyDiary] = [:]
+    var classificationEmbedding = Array(repeating: Float(0), count: 768)
+    var classificationCount = 0
+    var classificationError: Error?
+    func setClassificationEmbedding(_ value: [Float]) { classificationEmbedding = value }
+    func failClassification(with error: Error) { classificationError = error }
     func setDiaryObservations(_ values: [MemoryObservation]) { diaryObservations = values }
     func holdWrites() { holdWrite = true }
     func finishWrite() { pendingWrite?.resume(); pendingWrite = nil }
@@ -134,7 +139,11 @@ actor ChatTestMemory: ChatMemoryService {
         return .ignoredEmpty
     }
     func searchEmbeddingIdentity() -> String { "test" }
-    func embedClassification(_ text: String) -> [Float] { Array(repeating: 0, count: dimension) }
+    func embedClassification(_ text: String) throws -> [Float] {
+        classificationCount += 1
+        if let classificationError { throw classificationError }
+        return classificationEmbedding
+    }
     func embedWorldInfoQuery(_ text: String) -> [Float] { Array(repeating: 0, count: dimension) }
     func searchWorldInfo(entries: [WorldInfoEntry], newestMessages: [String],
                          settings: WorldInfoVectorSettings) -> [WorldInfoVectorMatch] { [] }
