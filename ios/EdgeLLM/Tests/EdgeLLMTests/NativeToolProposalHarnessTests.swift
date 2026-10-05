@@ -6,7 +6,7 @@ import Testing
 func productPromptRegistryLoadsAndVerifiesEveryToolPrompt() throws {
     let registry = NativeToolPromptRegistry()
 
-    for tool in NativeToolKind.allCases where tool != .getCurrentTime {
+    for tool in NativeToolGenerationKind.allCases {
         let prompt = try registry.prompt(for: tool)
         #expect(prompt.tool == tool)
         #expect(prompt.source.contains(tool.rawValue))

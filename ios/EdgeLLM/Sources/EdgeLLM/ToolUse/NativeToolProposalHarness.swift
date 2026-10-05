@@ -1,13 +1,13 @@
 import Foundation
 
 public struct NativeToolGenerationRequest: Equatable, Sendable {
-    public let selectedTool: NativeToolKind
+    public let selectedTool: NativeToolGenerationKind
     public let systemPrompt: String
     public let userMessage: String
     public let reasoningEnabled: Bool
 
     public init(
-        selectedTool: NativeToolKind,
+        selectedTool: NativeToolGenerationKind,
         systemPrompt: String,
         userMessage: String,
         reasoningEnabled: Bool = SLMConfiguration.production.generation
@@ -103,15 +103,15 @@ public struct NativeToolProposalHarness: Sendable {
                 return .clarification(message: message)
             }
             let proposal: NativeToolProposal
-            if selectedTool == .getCurrentTime {
-                // The clock has no user-supplied arguments to infer.
+            switch selectedTool.argumentSource {
+            case .fixed(let arguments):
                 proposal = NativeToolProposal(requestID: requestID, tool: selectedTool,
-                    arguments: .getCurrentTime)
-            } else {
-                let prompt = try promptRegistry.prompt(for: selectedTool)
+                    arguments: arguments)
+            case .model(let generationKind):
+                let prompt = try promptRegistry.prompt(for: generationKind)
                 let call = try await generator.generateFunctionCall(
                     NativeToolGenerationRequest(
-                        selectedTool: selectedTool,
+                        selectedTool: generationKind,
                         systemPrompt: prompt.rendered(with: promptContext),
                         userMessage: userMessage,
                         reasoningEnabled: configuration.generation

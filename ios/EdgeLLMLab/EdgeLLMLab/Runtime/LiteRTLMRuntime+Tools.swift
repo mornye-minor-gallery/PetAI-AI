@@ -29,7 +29,7 @@ extension LiteRTLMRuntime: NativeToolProposalGenerating {
         var failure: Error?
         do {
             try await LiteRTLMNativeToolCallCapture.shared.begin(
-                expectedTool: request.selectedTool
+                expectedTool: request.selectedTool.nativeTool
             )
             let sampling = slmConfiguration.generation
                 .deterministicSampling
