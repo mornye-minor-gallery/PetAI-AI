@@ -18,6 +18,22 @@ func productPromptRegistryLoadsAndVerifiesEveryToolPrompt() throws {
 }
 
 @Test
+func productPromptRegistryRejectsMissingPromptForEveryGenerationTool() {
+    let registry = NativeToolPromptRegistry { _ in nil }
+
+    for tool in NativeToolGenerationKind.allCases {
+        do {
+            _ = try registry.prompt(for: tool)
+            Issue.record("Expected missing prompt for \(tool.rawValue)")
+        } catch let error as NativeToolPromptRegistryError {
+            #expect(error == .resourceMissing(tool: tool))
+        } catch {
+            Issue.record("Unexpected error for \(tool.rawValue): \(error)")
+        }
+    }
+}
+
+@Test
 func productPromptRegistryRejectsModifiedPromptBytes() {
     let registry = NativeToolPromptRegistry { _ in
         Data("modified".utf8)
