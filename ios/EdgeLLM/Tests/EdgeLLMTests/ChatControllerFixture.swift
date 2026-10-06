@@ -62,6 +62,7 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     var diaryGenerationCount = 0
     var diaryFailure: Error?
     var checkpointCount = 0
+    var lastPreparedHistory: [RoutedPersonaSessionContext.Turn] = []
     var holdStream = false
     var response = "save(P=0,E=0)\n반가워."
     var continuation: AsyncThrowingStream<String, Error>.Continuation?
@@ -73,7 +74,8 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     func startConversation(configuration: ConversationConfiguration) {}
     func prepareDialogue(input: DialoguePromptInput, policy: DialoguePromptPolicy,
                          thinkingEnabled: Bool) throws -> PreparedDialogue {
-        try DialoguePromptComposer.prepare(input: input, policy: policy)
+        lastPreparedHistory = input.history
+        return try DialoguePromptComposer.prepare(input: input, policy: policy)
     }
     func generateStream(prompt: String) -> AsyncThrowingStream<String, Error> {
         generationCount += 1
