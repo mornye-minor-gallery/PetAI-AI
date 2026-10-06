@@ -48,6 +48,7 @@ def main() -> int:
             ("eval-worker-build", ["swift", "build", "--package-path", "ai/beolmuri-eval/swift"], ROOT),
             ("beolmuri-eval", [sys.executable, "-m", "pytest", "-q", "--import-mode=importlib", "tests"], ROOT / "ai/beolmuri-eval"),
             ("native-tokenization", ["bash", "scripts/test-litertlm-tokenization.sh"], ROOT),
+            ("native-tool-factory", ["bash", "scripts/test-native-tool-factory.sh"], ROOT),
         ]
     results = []
     for index, (name, command, directory) in enumerate(commands, start=1):

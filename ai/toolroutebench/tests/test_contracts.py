@@ -40,7 +40,7 @@ class ContractTests(unittest.TestCase):
         ]
         validate_expression_family_partition(records)
 
-    def test_contract_validation_reads_actual_swift_tool_enum(self) -> None:
+    def test_contract_validation_reads_frozen_swift_tool_enum(self) -> None:
         validate_contracts()
 
     def test_dataset_rejects_split_track_mismatch_before_counting(self) -> None:

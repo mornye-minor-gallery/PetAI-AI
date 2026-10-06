@@ -50,6 +50,10 @@ SQLite 준비 스크립트는 공식 소스 배포 파일의 SHA3-256을 확인�
 4. `petai_set_event_callback`으로 이벤트 수신부를 등록한 뒤 `petai_initialize`를
    호출하고 `ready` 이벤트를 기다립니다. 요청과 이벤트 형식은
    [ChatBridgeContract.swift](../ios/EdgeLLM/Sources/EdgeLLM/Chat/ChatBridgeContract.swift)에 있습니다.
+5. `completion_pending` 또는 `cancellation_pending` 이벤트를 받으면 화면에 반영한 결과를
+   `petai_finalize_turn`으로 전달합니다. JSON에는 같은 `requestId`, `cancelled`, `text`를 넣습니다.
+   정상 완료는 이벤트의 답변 전체를, 취소는 실제 표시한 부분 답변을 전달합니다.
+   이 확인을 받은 뒤 런타임이 턴 저장을 확정하고 `completed` 또는 `cancelled`를 보냅니다.
 
 저장 경로와 기기 기능은 `AndroidChatPlatform`이 공급합니다. 걸음·알람·일정 등의
 OS 도구는 현재 지원 목록이 비어 있으며 준비 중 안내를 반환합니다.
