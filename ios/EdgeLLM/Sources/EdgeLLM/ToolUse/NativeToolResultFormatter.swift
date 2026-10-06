@@ -1,11 +1,19 @@
 import Foundation
 
+public enum NativeToolResultFormattingError: Error, Equatable, Sendable {
+    case invalidField(String)
+}
+
 public struct NativeToolResultFormatter: Sendable {
-    public init() {}
+    private let dateTime: NativeToolDateTimeFormatter
+
+    public init(now: Date = Date(), calendar: Calendar = .current) {
+        dateTime = NativeToolDateTimeFormatter(now: now, calendar: calendar)
+    }
 
     public func visibleText(
         for envelope: NativeToolExecutionEnvelope
-    ) -> String {
+    ) throws -> String {
         guard envelope.status == .success else {
             if envelope.errorCode == .permissionDenied {
                 return "권한이 허용되지 않아 요청을 실행하지 못했어요. 설정에서 권한을 확인해 주세요."
@@ -24,21 +32,32 @@ public struct NativeToolResultFormatter: Sendable {
         }
 
         switch envelope.tool {
-        case .createAlarm:
-            if case .object(let object)? = envelope.data,
-               case .string(let label)? = object["label"],
-               case .string(let scheduledAt)? = object["scheduledAt"]
-            {
-                return "\(label) 알람을 \(scheduledAt)에 설정했어요."
+        case .getCurrentTime:
+            let identifier = try requiredString("timeZoneIdentifier", in: envelope.data)
+            guard let zone = TimeZone(identifier: identifier) else {
+                throw NativeToolResultFormattingError.invalidField("timeZoneIdentifier")
             }
+            var calendar = dateTime.calendar
+            calendar.timeZone = zone
+            let clock = try NativeToolDateTimeFormatter(now: dateTime.now, calendar: calendar)
+                .clockString(from: requiredString("currentDateTime", in: envelope.data), field: "currentDateTime")
+            let ending = clock.hasSuffix("분") ? "이야" : "야"
+            return "지금은 \(clock)\(ending)."
+
+        case .createAlarm:
+            let time = try formattedDate("scheduledAt", in: envelope.data)
+            return "알겠어. \(time)에 알람 맞춰뒀어."
 
         case .createTimer:
-            if case .object(let object)? = envelope.data,
-               case .string(let label)? = object["label"],
-               case .number(let seconds)? = object["durationSeconds"]
-            {
-                return "\(label) 타이머를 \(Int(seconds.rounded()))초로 시작했어요."
+            guard case .object(let object)? = envelope.data,
+                  case .number(let seconds)? = object["durationSeconds"],
+                  seconds.isFinite, (1...86_400).contains(seconds), seconds.rounded() == seconds else {
+                throw NativeToolResultFormattingError.invalidField("durationSeconds")
             }
+            let duration = Int(seconds)
+            let parts = [(duration / 3_600, "시간"), (duration % 3_600 / 60, "분"), (duration % 60, "초")]
+                .filter { $0.0 > 0 }.map { "\($0.0)\($0.1)" }
+            return "\(parts.joined(separator: " ")) 타이머 시작했어."
 
         case .listAlarms:
             if case .object(let object)? = envelope.data,
@@ -64,42 +83,25 @@ public struct NativeToolResultFormatter: Sendable {
             }
 
         case .createCalendarEvent:
-            if case .object(let object)? = envelope.data,
-               case .string(let title)? = object["title"],
-               case .string(let startDateTime)? = object["startDateTime"]
-            {
-                return "\(title) 일정을 \(startDateTime)에 추가했어요."
-            }
+            let title = try requiredString("title", in: envelope.data)
+            let time = try formattedDate("startDateTime", in: envelope.data)
+            return "\(time)에 ‘\(title)’ 일정 넣어뒀어."
 
         case .scheduleLocalNotification:
-            if case .object(let object)? = envelope.data,
-               case .string(let scheduledAt)? = object["scheduledAt"]
-            {
-                return "알림을 \(scheduledAt)에 예약했어요."
-            }
+            let time = try formattedDate("scheduledAt", in: envelope.data)
+            return "\(time)에 알려줄게."
 
         case .getCalendarEvents:
-            if case .object(let object)? = envelope.data,
-               case .array(let events)? = object["events"]
-            {
-                guard !events.isEmpty else {
-                    return "해당 기간에 등록된 일정이 없어요."
-                }
-                let lines = events.compactMap { value -> String? in
-                    guard
-                        case .object(let event) = value,
-                        case .string(let title)? = event["title"],
-                        case .string(let startDateTime)? =
-                            event["startDateTime"]
-                    else {
-                        return nil
-                    }
-                    return "• \(startDateTime) \(title)"
-                }
-                if !lines.isEmpty {
-                    return lines.joined(separator: "\n")
-                }
+            guard case .object(let object)? = envelope.data,
+                  case .array(let events)? = object["events"] else {
+                throw NativeToolResultFormattingError.invalidField("events")
             }
+            guard !events.isEmpty else { return "해당 기간에 등록된 일정이 없어요." }
+            return try events.map { event in
+                let title = try requiredString("title", in: event)
+                let time = try formattedDate("startDateTime", in: event)
+                return "• \(time) \(title)"
+            }.joined(separator: "\n")
 
         default:
             break
@@ -138,6 +140,29 @@ public struct NativeToolResultFormatter: Sendable {
         }
 
         return "걸음 수 조회를 완료했어요."
+    }
+
+    public func unformattedSuccessText(for tool: NativeToolKind) -> String {
+        switch tool {
+        case .createAlarm: "알람은 맞춰뒀는데, 예약 시각을 표시하지 못했어."
+        case .createTimer: "타이머는 시작했는데, 설정 내용을 표시하지 못했어."
+        case .createCalendarEvent: "일정은 넣어뒀는데, 내용을 표시하지 못했어."
+        case .scheduleLocalNotification: "알림은 예약했는데, 예약 시각을 표시하지 못했어."
+        case .getCalendarEvents: "일정은 조회했는데, 내용을 표시하지 못했어."
+        default: "요청은 완료했는데, 결과를 표시하지 못했어."
+        }
+    }
+
+    private func formattedDate(_ field: String, in data: JSONValue?) throws -> String {
+        try dateTime.string(from: requiredString(field, in: data), field: field)
+    }
+
+    private func requiredString(_ field: String, in data: JSONValue?) throws -> String {
+        guard case .object(let object)? = data, case .string(let value)? = object[field],
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw NativeToolResultFormattingError.invalidField(field)
+        }
+        return value
     }
 }
 

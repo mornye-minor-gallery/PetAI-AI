@@ -21,7 +21,8 @@ class SharedPromptComposerTests(unittest.TestCase):
                                  history=[{'user': f'질문 {i}', 'assistant': f'답변 {i}'} for i in range(40)],
                                  insertions=[{'id': 'note', 'source': 'authorsNote', 'text': '짧은 참고',
                                               'placement': 'afterCurrent', 'role': 'system', 'order': 100}])
-            self.assertEqual(result['input_format'], 'systemAndUserText')
+            self.assertEqual(result['input_format'], 'messages')
+            self.assertEqual([m['role'] for m in result['model_input']['messages']], ['system', 'user', 'system', 'user'])
             self.assertTrue(result['user_prompt'].endswith('현재 질문\n\n짧은 참고'))
             self.assertEqual(len(result['history']), 38)
             self.assertEqual(result['history'][0]['text'], '질문 21')

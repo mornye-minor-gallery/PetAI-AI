@@ -15,6 +15,12 @@ class FakeWorker:
         self.calls.append((operation, payload))
         history = payload["history"]
         return {
+            "model_input": {"messages": [
+                {"role": "system", "text": "constant production prefix"},
+                *([{"role": "user", "text": "\n".join(row['user'] + row['assistant'] for row in history)}] if history else []),
+                {"role": "system", "text": "request context"},
+                {"role": "user", "text": payload['userMessage']},
+            ]},
             "system_prompt": "constant production prefix",
             "user_prompt": "\n".join([row["user"] + row["assistant"] for row in history]
                                       + [payload["userMessage"]]),
@@ -45,6 +51,9 @@ class DialogueFixtureTests(unittest.TestCase):
             rows, provenance = compose_dialogue_fixture(content, turns, worker)
         self.assertEqual([row["id"] for row in rows], ["one", "two"])
         self.assertEqual({row["system_prompt"] for row in rows}, {"constant production prefix"})
+        self.assertEqual([m['role'] for m in rows[1]['initial_messages']], ['user', 'system'])
+        self.assertEqual(rows[1]['initial_messages'][-1]['text'], 'request context')
+        self.assertEqual(rows[1]['user_prompt'], '오늘 뭐 할까?')
         sent = worker.calls[0][1]["configuration"]
         self.assertNotIn("retrieval", sent["dialogueContent"])
         self.assertEqual(sent["nameRuleStyle"], "response-action")
@@ -56,7 +65,7 @@ class DialogueFixtureTests(unittest.TestCase):
         class Changing(FakeWorker):
             def call(self, operation, **payload):
                 result = super().call(operation, **payload)
-                result["system_prompt"] += payload["userMessage"]
+                result["model_input"]["messages"][0]["text"] += payload["userMessage"]
                 return result
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

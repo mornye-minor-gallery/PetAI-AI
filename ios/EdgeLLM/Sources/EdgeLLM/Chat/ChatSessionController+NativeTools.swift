@@ -30,12 +30,12 @@ extension ChatSessionController {
             )
             switch outcome {
             case .unsupported:
-                finishFailedRequest(requestID, code: "platform_unsupported",
+                await finishFailedRequest(requestID, code: "platform_unsupported",
                     message: nativeToolAdapterHub.unsupportedMessage)
                 return true
             case .normal:
                 if cancelRequested {
-                    finishCancelledRequest(requestID)
+                    await finishCancelledRequest(requestID)
                     return true
                 }
                 return false
@@ -65,35 +65,49 @@ extension ChatSessionController {
                 )
                 return true
 
-            case .proposal(let draft, _, _):
-                _ = try await nativeToolCoordinator.beginConfirmation(
-                    requestID: requestID
-                )
-                let editedDraft = try await
-                    nativeToolAdapterHub.confirm(draft)
-                guard activeRequestId == requestID, !cancelRequested else {
-                    throw NativeToolConfirmationError.cancelled
+            case .proposal(let draft, let proposal, _):
+                let confirmed: ValidatedToolProposal
+                let envelope: NativeToolExecutionEnvelope
+                if draft.tool.requiresConfirmation {
+                    _ = try await nativeToolCoordinator.beginConfirmation(requestID: requestID)
+                    let editedDraft = try await nativeToolAdapterHub.confirm(draft)
+                    guard activeRequestId == requestID, !cancelRequested else {
+                        throw NativeToolConfirmationError.cancelled
+                    }
+                    confirmed = try NativeToolProposalValidator().validate(editedDraft)
+                    envelope = try await nativeToolCoordinator.approveAndExecute(confirmed)
+                } else {
+                    guard activeRequestId == requestID, !cancelRequested else {
+                        throw NativeToolConfirmationError.cancelled
+                    }
+                    confirmed = proposal
+                    envelope = try await nativeToolCoordinator.executeWithoutConfirmation(requestID: requestID)
                 }
-                let confirmed = try NativeToolProposalValidator()
-                    .validate(editedDraft)
-                let envelope = try await nativeToolCoordinator
-                    .approveAndExecute(confirmed)
 
                 if envelope.status == .success {
+                    let formatter = NativeToolResultFormatter()
+                    let visibleText: String
+                    do {
+                        visibleText = try formatter.visibleText(for: envelope)
+                    } catch {
+                        logger.error("native_tool_result_format_failed tool=\(envelope.tool.rawValue) error=\(error)")
+                        // Only a committed OS side effect needs a success fallback to avoid duplicate retries.
+                        guard draft.tool.requiresConfirmation else { throw error }
+                        visibleText = formatter.unformattedSuccessText(for: envelope.tool)
+                    }
                     await finishNativeToolRequest(
                         requestID: requestID,
-                        visibleText: NativeToolResultFormatter()
-                            .visibleText(for: envelope),
+                        visibleText: visibleText,
                         homeSteps: HomeStepObservation.make(
                             envelope: envelope, proposal: confirmed
                         ),
-                        committedTool: true
+                        committedTool: draft.tool.requiresConfirmation
                     )
                 } else {
-                    finishNativeToolFailure(
+                    await finishNativeToolFailure(
                         requestID: requestID,
                         code: envelope.errorCode ?? .nativeFailure,
-                        message: NativeToolResultFormatter()
+                        message: try NativeToolResultFormatter()
                             .visibleText(for: envelope)
                     )
                 }
@@ -107,14 +121,14 @@ extension ChatSessionController {
                 "Native Tool routing failed closed to chat request=\(requestID) error=\(error.localizedDescription)"
             )
             return false
-        } catch NativeToolConfirmationError.cancelled, RuntimeError.generationCancelled {
+        } catch is CancellationError, NativeToolConfirmationError.cancelled, RuntimeError.generationCancelled {
             _ = try? await nativeToolCoordinator.cancel(
                 requestID: requestID
             )
             try? await nativeToolCoordinator.removeFinished(
                 requestID: requestID
             )
-            finishCancelledRequest(requestID)
+            await finishCancelledRequest(requestID)
             return true
         } catch let error as NativeToolValidationError {
             _ = try? await nativeToolCoordinator.cancel(
@@ -123,7 +137,7 @@ extension ChatSessionController {
             try? await nativeToolCoordinator.removeFinished(
                 requestID: requestID
             )
-            finishNativeToolFailure(
+            await finishNativeToolFailure(
                 requestID: requestID,
                 code: error.code
             )
@@ -135,7 +149,7 @@ extension ChatSessionController {
             try? await nativeToolCoordinator.removeFinished(
                 requestID: requestID
             )
-            finishNativeToolFailure(
+            await finishNativeToolFailure(
                 requestID: requestID,
                 code: .nativeFailure
             )
@@ -153,7 +167,7 @@ extension ChatSessionController {
         committedTool: Bool = false
     ) async {
         guard activeRequestId == requestID else { return }
-        guard committedTool || !cancelRequested else { finishCancelledRequest(requestID); return }
+        guard committedTool || !cancelRequested else { await finishCancelledRequest(requestID); return }
         // Once a tool has executed successfully, a late cancel cannot undo its side effect.
         emitVisibleAnswer(visibleText, requestID: requestID, allowAfterCancel: committedTool)
         do {
@@ -161,7 +175,7 @@ extension ChatSessionController {
                 homeSteps: homeSteps, allowAfterCancel: committedTool, presentation: .tool)
         } catch {
             logger.error("Could not complete native tool chat turn request=\(requestID) error=\(error.localizedDescription)")
-            finishFailedRequest(requestID, code: "chat_turn_state_failed", message: "대화 상태를 기록하지 못했습니다.")
+            await finishFailedRequest(requestID, code: "chat_turn_state_failed", message: "대화 상태를 기록하지 못했습니다.")
         }
     }
 
@@ -169,9 +183,9 @@ extension ChatSessionController {
         requestID: String,
         code: NativeToolErrorCode,
         message: String = "요청을 처리하지 못했어요. 다시 시도해 주세요."
-    ) {
+    ) async {
         guard activeRequestId == requestID else { return }
-        finishFailedRequest(requestID,
+        await finishFailedRequest(requestID,
             code: code.rawValue,
             message: message)
     }

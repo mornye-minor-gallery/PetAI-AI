@@ -105,7 +105,17 @@ public func android_home_line(_ pointer: UnsafePointer<CChar>?) {
     AndroidChatHost.shared.use { await $0.recordHomeLine(json: json) }
 }
 @_cdecl("petai_cancel")
-public func android_cancel() { AndroidChatHost.shared.use { await $0.cancel() } }
+public func android_cancel(_ pointer: UnsafePointer<CChar>?) {
+    guard let pointer else { return }
+    let requestID = String(cString: pointer)
+    AndroidChatHost.shared.use { await $0.cancel(requestID: requestID) }
+}
+@_cdecl("petai_finalize_turn")
+public func android_finalize_turn(_ pointer: UnsafePointer<CChar>?) {
+    guard let pointer else { return }
+    let json = String(cString: pointer)
+    AndroidChatHost.shared.use { await $0.finalizeTurn(json: json) }
+}
 @_cdecl("petai_unload")
 public func android_unload() { AndroidChatHost.shared.use { await $0.unload() } }
 @_cdecl("petai_request_memory")

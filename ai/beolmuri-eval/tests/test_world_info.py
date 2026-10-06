@@ -52,13 +52,13 @@ class WorldInfoTests(unittest.TestCase):
             sections = result['prompt_trace']['systemSections']
             self.assertLess(sections.index('persona'), sections.index('worldInfo.beforeCharacter'))
             self.assertLess(sections.index('responseContract'), sections.index('worldInfo.beforeCharacter'))
-            self.assertIn('지식앞', result['system_prompt'])
+            self.assertIn('지식앞', result['model_input']['messages'][-2]['text'])
+            self.assertEqual(result['model_input']['messages'][-2]['role'], 'system')
             self.assertIn('노트앞\n상기',result['user_prompt'])
             self.assertIn('비밀기억',result['user_prompt'])
-            self.assertNotIn('검색하면안됨',result['system_prompt'])
+            self.assertNotIn('검색하면안됨', '\n'.join(m['text'] for m in result['model_input']['messages']))
             final=next(r['input'] for r in seen if r['measurement']=='measure_input')
-            self.assertEqual(final['systemPrompt'],result['system_prompt'])
-            self.assertEqual(final['userPrompt'],result['user_prompt'])
+            self.assertEqual(final,result['model_input'])
 
     def test_no_byte_fallback_and_unsupported_fields_are_not_silently_ignored(self):
         with tempfile.TemporaryDirectory() as tmp, Worker([str(swift_binary(repository()))],Path(tmp)/'swift.log') as worker:
@@ -78,4 +78,5 @@ class WorldInfoTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'exceeded'):
                 worker.call('prepare',configuration={**CONFIG,'worldInfo':settings},userMessage='질문',
                     tokenBudget={'memoryTokens':0,'contextTokens':200,'outputTokens':100},measurerID='synthetic',measurement_handler=measure)
-            self.assertTrue(any('지식' in r['input']['systemPrompt'] for r in seen if r['measurement']=='measure_input'))
+            self.assertTrue(any('지식' in m['text'] and m['role']=='system'
+                                for r in seen if r['measurement']=='measure_input' for m in r['input']['messages']))

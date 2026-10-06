@@ -21,12 +21,14 @@ class SessionWorker:
         if operation == 'prepare':
             before = kw.get('sessionCheckpoint', {'clock':0})
             self.prepares.append((kw['userMessage'],before))
-            return {'session_checkpoint':before,'system_prompt':'system','user_prompt':kw['userMessage'],
+            return {'session_checkpoint':before,'model_input':{'messages':[
+                        {'role':'system','text':'system'}, {'role':'user','text':kw['userMessage']}]},
                     'sampling':{},'world_info_seed':kw['worldInfoContext']['randomSeed']+before['clock']}
         if operation == 'generate':
             type(self).generated += 1
             if self.generated == self.fail_at: raise RuntimeError('interrupted generation')
             return {'chunks':['엘레나야']}
+        if operation == 'start_input': return {'status':'started','message':kw['model_input']['messages'][-1]['text']}
         if operation == 'process': return {'visible_text':'엘레나야','status':'processed'}
         if operation == 'commit': return {'session_checkpoint':{'clock':kw['sessionCheckpoint']['clock']+2}}
         return {}

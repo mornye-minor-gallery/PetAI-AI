@@ -104,7 +104,7 @@ struct NativeToolAccessPolicy: Sendable {
     public var allowedTools: Set<NativeToolKind> {
         Set(accessByTool.compactMap { tool, value in
             value.unlocked ? tool : nil
-        })
+        }).union([.getCurrentTime])
     }
 
     public var unlockedSources: [String] {

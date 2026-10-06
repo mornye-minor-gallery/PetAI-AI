@@ -25,7 +25,10 @@ class FakeWorker:
             return {"load_ms": 1}
         if operation == "prepare":
             assert kwargs["memories"] == ["산책을 좋아한다."]
-            return {"system_prompt": "system", "user_prompt": "user", "sampling": {}}
+            return {"model_input": {"messages": [{"role": "system", "text": "system"},
+                        {"role": "user", "text": "user"}]}, "sampling": {}}
+        if operation == "start_input":
+            return {"status": "started", "message": kwargs["model_input"]["messages"][-1]["text"]}
         if operation == "generate":
             self.__class__.generations += 1
             return {"chunks": ["나는 엘레나야."]}

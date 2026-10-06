@@ -23,8 +23,7 @@ actor NativeTokenMeasurer: DialogueTokenMeasuring {
     func measureInput(_ input: DialogueModelInput) throws -> Int {
         let generation = SLMConfiguration.production.generation
         return try ask(["measurement": "measure_input",
-                 "input": ["format": input.format.rawValue, "systemPrompt": input.systemPrompt,
-                           "userPrompt": input.userPrompt],
+                 "input": try JSONSerialization.jsonObject(with: JSONEncoder().encode(input)),
                  "sampling": ["thinking": thinking, "max_output_tokens": outputTokens,
                               "temperature": generation.responseSampling.temperature,
                               "top_k": generation.responseSampling.samplerTopK,

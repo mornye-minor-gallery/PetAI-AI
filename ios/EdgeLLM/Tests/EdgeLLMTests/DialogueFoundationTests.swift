@@ -18,9 +18,9 @@ private func foundationInput(insertions: [DialoguePromptInsertion] = [],
     ]
     let prepared = try DialoguePromptComposer.prepare(input: foundationInput(insertions: insertions))
     #expect(prepared.trace.userSections == ["history", "before", "currentMessage", "after-1", "after-tie", "after-2"])
-    #expect(prepared.userPrompt.contains("앞쪽 참고\n\n[응답 참고]라는 표현은 무슨 뜻이야?\n\n뒤쪽 참고\n\n동률 참고\n\n마지막 참고"))
-    #expect(prepared.modelInput.format == .systemAndUserText)
-    #expect(prepared.modelInput.userPrompt == prepared.userPrompt)
+    #expect(prepared.userText.contains("앞쪽 참고\n\n[응답 참고]라는 표현은 무슨 뜻이야?\n\n뒤쪽 참고\n\n동률 참고\n\n마지막 참고"))
+    #expect(prepared.modelInput.messages.last?.role == .user)
+    #expect(prepared.modelInput.currentUserMessage.hasSuffix("마지막 참고"))
     #expect(prepared.trace.insertions.allSatisfy { $0.deliveredRole == .user })
     #expect(prepared.trace.insertions.first?.requestedRole == .system)
 }

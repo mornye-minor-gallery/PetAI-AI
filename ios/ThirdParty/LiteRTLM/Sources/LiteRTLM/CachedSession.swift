@@ -22,6 +22,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
     private let lifetime = NativeStreamLifetime()
     private let lock = NSLock()
     private var systemPrompt: String?
+    private var initialMessages: [Message] = []
     private var history: [Message] = [] // Only retries within the current request.
     private var prefix = InputPrefixTrace()
     private var trace: CachedSessionTrace?
@@ -65,11 +66,12 @@ public final class CachedSession: TextSession, @unchecked Sendable {
 
     /// Prepare a new complete app turn. Do not reset native KV or carry old
     /// dynamic messages forward: the app supplies its authoritative history.
-    public func replaceInput(systemPrompt: String?) throws {
+    public func replaceInput(systemPrompt: String?, initialMessages: [Message] = []) throws {
         try lock.withLock {
             guard !lifetime.isActive else { throw CachedSessionError.busy }
             guard !requiresEngineRecreation else { throw CachedSessionError.checkpoint(10) }
-            self.systemPrompt = systemPrompt; history = []; trace = nil
+            self.systemPrompt = systemPrompt; self.initialMessages = initialMessages
+            history = []; trace = nil
         }
     }
 
@@ -138,7 +140,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
     }
 
     func render(_ prompt: String, thinkingEnabled: Bool) async throws -> String {
-        let (system, messages) = lock.withLock { (systemPrompt, history) }
+        let (system, messages) = lock.withLock { (systemPrompt, initialMessages + history) }
         return try await engine.renderTextRequest(systemPrompt: system, history: messages,
             userPrompt: prompt, thinkingEnabled: thinkingEnabled)
     }

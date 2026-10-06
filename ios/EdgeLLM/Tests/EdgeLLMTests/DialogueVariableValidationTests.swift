@@ -68,8 +68,8 @@ import Testing
     let prepared = try DialoguePromptComposer.prepare(input: .init(persona: prompts,
         history: retry.history, currentMessage: "다음 질문", session: retry,
         authorsNote: .init(defaults: .init(text: "{{incvar::visits}}", depth: 0))))
-    #expect(prepared.userPrompt.contains("질문 11"))
-    #expect(prepared.userPrompt.contains("답변 11"))
+    #expect(prepared.userText.contains("질문 11"))
+    #expect(prepared.userText.contains("답변 11"))
     #expect(try session.commit(retry, userMessage: "다음 질문", assistantMessage: "다음 답변",
         worldInfo: prepared.worldInfoTransaction) == .committed)
     #expect(try session.commit(retry, userMessage: "다음 질문", assistantMessage: "다음 답변",

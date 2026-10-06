@@ -33,7 +33,7 @@ private struct NoteFixtures: Decodable {
     let session = RoutedPersonaSessionContext(turns: turns)
     for fixture in try NoteFixtures.load().depths {
         let result = try DialoguePromptComposer.prepare(input: .init(persona: prompts, history: session.turns, currentMessage: "현재질문", session: session.snapshot(requestID: "depth"), authorsNote: .init(defaults: .init(text: "노트", depth: fixture.depth))))
-        var remaining = result.userPrompt[...]
+        var remaining = result.userText[...]
         for text in fixture.order {
             let range = try #require(remaining.range(of: text), "depth \(fixture.depth): \(text)")
             remaining = remaining[range.upperBound...]
@@ -53,7 +53,7 @@ private struct NoteFixtures: Decodable {
     let first = try DialoguePromptComposer.prepare(input: input)
     #expect(first.trace.authorsNote?.active == true)
     #expect(first.trace.authorsNote?.userMessageNumber == 12)
-    #expect(try DialoguePromptComposer.prepare(input: input).userPrompt == first.userPrompt)
+    #expect(try DialoguePromptComposer.prepare(input: input).userText == first.userText)
     #expect(session.completedUserMessages == 11)
     try session.commit(snapshot, userMessage: "질문", assistantMessage: "답변")
     #expect(try session.commit(snapshot, userMessage: "질문", assistantMessage: "답변") == .alreadyCommitted)
@@ -80,18 +80,18 @@ private struct NoteFixtures: Decodable {
     }
 }
 
-@Test func authorsNoteSystemPlacementsAndAbsentNotePreserveContract() throws {
+@Test func authorsNoteMainPromptPlacementsAndAbsentNotePreserveContract() throws {
     let prompts = try testPersona()
     let snapshot = try RoutedPersonaSessionContext().snapshot(requestID: "system")
     let baseline = try DialoguePromptComposer.prepare(input: .init(persona: prompts, currentMessage: "질문"))
     for position in [AuthorsNotePosition.beforeSystem, .afterSystem] {
         let result = try DialoguePromptComposer.prepare(input: .init(persona: prompts, currentMessage: "질문", session: snapshot, authorsNote: .init(defaults: .init(text: "상기문", position: position))))
-        #expect(result.trace.systemSections.prefix(3) == baseline.trace.systemSections.prefix(3))
-        #expect(result.trace.systemSections == (position == .beforeSystem
-            ? ["persona", "responseContract", "nameRule", "authorsNote", "profile"]
-            : ["persona", "responseContract", "nameRule", "profile", "authorsNote"]))
-        #expect(result.systemPrompt.contains("상기문"))
-        #expect(result.userPrompt == baseline.userPrompt)
+        #expect(result.modelInput.initialMessages.first == baseline.modelInput.initialMessages.first)
+        #expect(result.trace.systemSections.suffix(2) == (position == .beforeSystem
+            ? ["authorsNote", "profile"] : ["profile", "authorsNote"]))
+        #expect(result.trace.userSections == ["currentMessage"])
+        #expect(result.systemText.contains("상기문"))
+        #expect(result.trace.insertions.first?.requestedRole == .system)
         #expect(result.trace.insertions.first?.deliveredRole == .system)
     }
     let empty = try DialoguePromptComposer.prepare(input: .init(persona: prompts, currentMessage: "질문", session: snapshot, authorsNote: .init()))

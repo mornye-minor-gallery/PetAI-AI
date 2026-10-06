@@ -6,7 +6,7 @@ import Testing
 func productPromptRegistryLoadsAndVerifiesEveryToolPrompt() throws {
     let registry = NativeToolPromptRegistry()
 
-    for tool in NativeToolKind.allCases {
+    for tool in NativeToolGenerationKind.allCases {
         let prompt = try registry.prompt(for: tool)
         #expect(prompt.tool == tool)
         #expect(prompt.source.contains(tool.rawValue))
@@ -14,6 +14,22 @@ func productPromptRegistryLoadsAndVerifiesEveryToolPrompt() throws {
             prompt.sourceSHA256
                 == NativeToolPromptRegistry.expectedChecksum(for: tool)
         )
+    }
+}
+
+@Test
+func productPromptRegistryRejectsMissingPromptForEveryGenerationTool() {
+    let registry = NativeToolPromptRegistry { _ in nil }
+
+    for tool in NativeToolGenerationKind.allCases {
+        do {
+            _ = try registry.prompt(for: tool)
+            Issue.record("Expected missing prompt for \(tool.rawValue)")
+        } catch let error as NativeToolPromptRegistryError {
+            #expect(error == .resourceMissing(tool: tool))
+        } catch {
+            Issue.record("Unexpected error for \(tool.rawValue): \(error)")
+        }
     }
 }
 
@@ -55,9 +71,10 @@ func renderedProductPromptAddsOnlyDeviceOwnedTimeContext() throws {
 }
 
 @Test
-func proposalParserAcceptsAllSevenCanonicalToolCalls() throws {
+func proposalParserAcceptsCanonicalToolCalls() throws {
     let parser = NativeToolProposalParser()
     let cases: [(NativeToolKind, String, NativeToolArguments)] = [
+        (.getCurrentTime, "{}", .getCurrentTime),
         (
             .getStepCount,
             #"{"startDate":"2026-08-03","endDate":"2026-08-03","aggregation":"total"}"#,

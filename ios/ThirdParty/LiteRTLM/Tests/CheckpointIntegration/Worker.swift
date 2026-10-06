@@ -3,7 +3,7 @@ import EdgeLLM
 import LiteRTLM
 import Fixtures
 
-struct Request: Codable { let system: String; let user: String }
+typealias Request = DialogueModelInput
 struct Result: Codable {
     let mode: String; let scenario: String; let output: String; let finish: String
     let inputTokens: Int; let seconds: Double; let firstVisibleSeconds: Double?
@@ -17,11 +17,20 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
     }
     static func generate(_ session: CachedSession, _ request: Request, cancel: Bool = false,
                          busyPath: String? = nil) async throws -> (String, Double, Double?) {
-        try session.replaceInput(systemPrompt: request.system)
+        let messages = request.initialMessages.map { message -> Message in
+            let role: Role
+            switch message.role {
+            case .system: role = .system
+            case .user: role = .user
+            case .assistant: role = .model
+            }
+            return Message(message.text, role: role)
+        }
+        try session.replaceInput(systemPrompt: nil, initialMessages: messages)
         let start = Date(); var first: Double?; var text = ""; var cancelled = false
         var gate = MemoryHeaderGate()
         do {
-            for try await chunk in session.streamText(request.user, thinkingEnabled: false, maxOutputTokens: 64) {
+            for try await chunk in session.streamText(request.currentUserMessage, thinkingEnabled: false, maxOutputTokens: 64) {
                 let visible = gate.consume(chunk).joined()
                 if first == nil && !visible.isEmpty { first = Date().timeIntervalSince(start) }
                 text += visible
@@ -59,7 +68,7 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
             let question = "엘레나야, 안녕! 한 문장으로 인사해줘."
             let prepared = try AppFixtures.prepare(context, id: "seed", message: question, dynamic: false)
             _ = try context.beginRequest(requestID: "seed", userMessage: question)
-            let (reply, seconds, first) = try await generate(session, .init(system: prepared.systemPrompt, user: prepared.userPrompt))
+            let (reply, seconds, first) = try await generate(session, prepared.modelInput)
             guard !reply.isEmpty else { throw WorkerError.empty }
             try context.finishRequest(requestID: "seed", status: .completed, assistantMessage: reply)
             let saveStart = Date()
@@ -73,7 +82,7 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
                 let prompt = try AppFixtures.prepare(context, id: "interrupted", message: interrupted, dynamic: false)
                 _ = try context.beginRequest(requestID: "interrupted", userMessage: interrupted)
                 if scenario == "cancelled" {
-                    let (partial, _, _) = try await generate(session, .init(system: prompt.systemPrompt, user: prompt.userPrompt),
+                    let (partial, _, _) = try await generate(session, prompt.modelInput,
                         cancel: true, busyPath: dir + "/must-not-exist.bin")
                     try context.appendAssistantText(requestID: "interrupted", text: partial)
                     try context.finishRequest(requestID: "interrupted", status: .cancelled)
@@ -85,8 +94,8 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
             try write(context.checkpoint(), dir + "/context.json")
             let restored = try RoutedPersonaSessionContext(checkpoint: context.checkpoint())
             let next = try AppFixtures.prepare(restored, id: "next", message: "우리 이제 뭘 하면 좋을까? 한 문장으로 말해줘.", dynamic: scenario == "dynamic")
-            try write(Request(system: next.systemPrompt, user: next.userPrompt), dir + "/request.json")
-            let (warm, warmSeconds, warmFirst) = try await generate(session, .init(system: next.systemPrompt, user: next.userPrompt))
+            try write(next.modelInput, dir + "/request.json")
+            let (warm, warmSeconds, warmFirst) = try await generate(session, next.modelInput)
             try write(Result(mode: "warm", scenario: scenario, output: warm,
                 finish: session.latestCacheTrace()?.finishReason ?? "unknown", inputTokens: session.latestCacheTrace()?.inputTokens ?? -1,
                 seconds: warmSeconds, firstVisibleSeconds: warmFirst), dir + "/warm.json")
@@ -97,7 +106,7 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
                 // warm-after-cancel, this is a valid serialization control for old KV.
                 let context = try AppFixtures.context(count: scenario == "boundary" ? 19 : 2)
                 let seed = try AppFixtures.prepare(context, id: "seed", message: "엘레나야, 안녕! 한 문장으로 인사해줘.", dynamic: false)
-                _ = try await generate(session, .init(system: seed.systemPrompt, user: seed.userPrompt))
+                _ = try await generate(session, seed.modelInput)
             }
             if mode == "restore" {
                 let start = Date(); try store.restore(identity: "integration-model-settings") { try session.transferState(reading: true, transfer: $0) }

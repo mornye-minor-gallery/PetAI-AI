@@ -36,13 +36,14 @@ def measure_context(config, model=None, litert_python=None, codex="codex"):
                                               case=case, history=plan.history, memories=plan.memories,
                                               max_num_tokens=plan.max_num_tokens, prompt_budget=plan.prompt_budget,
                                               timeout=plan.timeout_seconds, world_info_seed=seeds["world_info_base"])
-                    native.call('start', system_prompt=prepared['system_prompt'], sampling=prepared['sampling'], seed=seeds["generation"], reserve_output=plan.prompt_budget is not None)
-                    measured = native.call('measure', message=prepared['user_prompt'])
+                    started = native.call('start_input', model_input=prepared['model_input'], sampling=prepared['sampling'], seed=seeds["generation"], reserve_output=plan.prompt_budget is not None)
+                    measured = native.call('measure', message=started['message'])
                     rows.append({'case_id': case['id'], **measured,
                                  'effective_output_ceiling': min(measured['available_output_tokens'], prepared['sampling']['max_output_tokens']),
                                  'history_stats': prepared['history_stats'], 'memory_stats': prepared['memory_stats'],
                                  'prompt_trace': prepared.get('prompt_trace'),
                                  'retrieval_trace': prepared.get('retrieval_trace'),
+                                 'model_input_sha256': digest(prepared['model_input']),
                                  'system_prompt_sha256': digest(prepared['system_prompt']),
                                  'user_prompt_sha256': digest(prepared['user_prompt'])})
                 variants[plan.variant] = {

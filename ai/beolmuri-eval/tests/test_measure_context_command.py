@@ -19,8 +19,10 @@ class MeasureContextCommandTests(TestCase):
                 calls.append(operation)
                 if operation in ('load','start'): return {}
                 if operation=='prepare': return {'system_prompt':'system','user_prompt':'user',
+                    'model_input':{'messages':[{'role':'system','text':'system'}, {'role':'user','text':'user'}]},
                     'sampling':{'max_output_tokens':1024},'history_stats':{},'memory_stats':{},'prompt_trace':{}}
                 if operation=='measure': return {'input_tokens':2000,'available_output_tokens':6096}
+                if operation=='start_input': return {'message':payload['model_input']['messages'][-1]['text']}
                 raise AssertionError('Unexpected operation: '+operation)
         detail={'litert_python':'python','deployment_model':{'path':'model','sha256':'hash'},
                 'litert_native_library':{'version':'test'}}
@@ -31,7 +33,7 @@ class MeasureContextCommandTests(TestCase):
              patch('beolmuri_eval.context_measure.Worker', Worker), \
              patch('beolmuri_eval.context_measure.heartbeat'):
             result=measure_context(Path('synthetic.yaml'))
-        self.assertEqual(calls,['load','prepare','start','measure'])
+        self.assertEqual(calls,['load','prepare','start_input','measure'])
         self.assertEqual(result['variants']['test']['input_tokens'],
                          {'measured':1,'min':2000,'max':2000,'mean':2000})
         self.assertFalse(result['generation_verified'])

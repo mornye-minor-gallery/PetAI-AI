@@ -71,11 +71,10 @@ actor LiteRTLMNativeToolCallCapture {
 }
 
 enum LiteRTLMNativeToolFactory {
-    static func makeTool(for kind: NativeToolKind) -> any Tool {
+    static func makeTool(for kind: NativeToolGenerationKind) -> any Tool {
         switch kind {
         case .getStepCount: GetStepCountProposalTool()
         case .createAlarm: CreateAlarmProposalTool()
-        case .listAlarms: ListAlarmsProposalTool()
         case .createTimer: CreateTimerProposalTool()
         case .scheduleLocalNotification:
             ScheduleLocalNotificationProposalTool()
@@ -141,13 +140,6 @@ private struct CreateAlarmProposalTool: ProposalCaptureTool {
             "label": label,
         ]
     }
-}
-
-private struct ListAlarmsProposalTool: ProposalCaptureTool {
-    static let name = NativeToolKind.listAlarms.rawValue
-    static let description = "PetAI 알람 목록 조회를 제안한다."
-
-    var arguments: [String: Any] { [:] }
 }
 
 private struct CreateTimerProposalTool: ProposalCaptureTool {

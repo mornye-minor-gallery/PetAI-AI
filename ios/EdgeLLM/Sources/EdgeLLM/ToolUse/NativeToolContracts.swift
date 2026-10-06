@@ -8,6 +8,9 @@ public enum NativeToolKind: String, CaseIterable, Codable, Sendable {
     case scheduleLocalNotification = "schedule_local_notification"
     case getCalendarEvents = "get_calendar_events"
     case createCalendarEvent = "create_calendar_event"
+    case getCurrentTime = "get_current_time"
+
+    public var requiresConfirmation: Bool { self != .getCurrentTime }
 }
 
 public enum NativeToolRoute: Equatable, Sendable {
@@ -103,6 +106,7 @@ public struct CalendarEventArguments: Codable, Equatable, Sendable {
 }
 
 public enum NativeToolArguments: Codable, Equatable, Sendable {
+    case getCurrentTime
     case getStepCount(StepCountArguments)
     case createAlarm(CreateAlarmArguments)
     case listAlarms
@@ -113,6 +117,7 @@ public enum NativeToolArguments: Codable, Equatable, Sendable {
 
     public var tool: NativeToolKind {
         switch self {
+        case .getCurrentTime: .getCurrentTime
         case .getStepCount: .getStepCount
         case .createAlarm: .createAlarm
         case .listAlarms: .listAlarms
@@ -141,6 +146,7 @@ public struct NativeToolProposal: Codable, Equatable, Sendable {
 }
 
 public enum ValidatedToolArguments: Equatable, Sendable {
+    case getCurrentTime
     case getStepCount(
         startDate: Date,
         inclusiveEndDate: Date,

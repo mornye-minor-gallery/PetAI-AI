@@ -249,6 +249,9 @@ public struct RoutedPersonaSessionContext: Equatable, Sendable {
         if activeTurn.assistantMessage.isEmpty && !finalText.isEmpty {
             guard visibleMessages < Int.max else { throw DialogueSessionError.counterOverflow }
             visibleMessages += 1
+        } else if !activeTurn.assistantMessage.isEmpty && finalText.isEmpty {
+            // Emitted tokens may still be queued when the display owner stops the turn.
+            visibleMessages -= 1
         }
         if status == .completed {
             guard completedMessages <= Int.max - 2, completedUserMessages < Int.max else {

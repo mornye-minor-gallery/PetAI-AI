@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source_base": "27b742513543a3e5b8cda8e34107117e468fd9ee",
-  "source_head": "27d2d6450fbf377a228f85f2fabe5247dc00a94d",
+  "source_head": "dd05224a15cff3937bd2bb929b4d10a0feae90fa",
   "public_base": "316d252582e543bf401591c7808db5d9ea6f409d",
   "method": "Curated path patches; source author and author date retained. Public integration changes follow the replayed commits.",
   "commits": [
@@ -100,6 +100,61 @@
     {
       "source": "27d2d6450fbf377a228f85f2fabe5247dc00a94d",
       "public": "41c042aca42fc07f9097b366078343e69252c8ce"
+    },
+    {
+      "source": "7783df7549ed6f16a39332e2f1ddd4f679f8453f",
+      "public": "170f12ce75a7aae219b7e708a6e62a399450c00b"
+    },
+    {
+      "source": "5728aff28cce3448d6cde5ef6018bd06a751f079",
+      "public": "044ac4ee343f03c7323753172a823da595677c09"
+    },
+    {
+      "source": "dfc93ae7a9d5a7020581b4355a9478a112d736bf",
+      "public": "e85304a825fcf491630436af3eeb72f8a3bd34e5"
+    },
+    {
+      "source": "186122bd3c33f4f07c047e13b023f63c44fc6049",
+      "public": "c06e42164e72ceb9a1278451a9d62288640d48a4"
+    },
+    {
+      "source": "48a425a303a66cf9e5708a3fab23b6129a2f6959",
+      "public": "ad6a33ab109b4bb60266c38518722adcd6b9e5e8"
+    },
+    {
+      "source": "2ca9d110b882eb502af829f3c9a2a2cbcbb2c76b",
+      "public": "10dafe9d0d8850d14e8923be00532f1ea7902de3"
+    },
+    {
+      "source": "fcfd4c8272529d8f21684b7c205183b54cee2fc5",
+      "public": "c374c2186e31b755e2803ea551f8a79b9811ab82"
+    },
+    {
+      "source": "d2d248e6350b27a7f55ce163c151ca7a718c6299",
+      "public": "b26d11326d0763b715a95b53f4d82991e6d1e988"
+    },
+    {
+      "source": "dd05224a15cff3937bd2bb929b4d10a0feae90fa",
+      "public": "b36f8112f12408a775ada2f3a5b8b4b67eac0a87"
+    },
+    {
+      "source": "186122bd3c33f4f07c047e13b023f63c44fc6049",
+      "public": "f364d69970774a08bdad402f0c911e8cd4b6455d"
     }
-  ]
+  ],
+  "distribution": {
+    "scope": "ai-runtime",
+    "public_runtime_commit": "b36f8112f12408a775ada2f3a5b8b4b67eac0a87",
+    "build_guides": {
+      "ios": "docs/quickstart.md",
+      "android": "android/README.md"
+    },
+    "dependency_sources": [
+      "scripts/prepare-ios-native-dependencies.sh",
+      "scripts/prepare-ios-embedding-dependencies.sh",
+      "android/Package.resolved",
+      "ai/models/runtime-models.json"
+    ],
+    "app_releases": []
+  }
 }

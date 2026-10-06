@@ -17,7 +17,7 @@ import Testing
         persona: testPersona(), profile: .init(characterName: "엘레나"),
         currentMessage: "안녕", session: snapshot,
         authorsNote: .init(defaults: .init(text: "{{char}} {{incvar::visits}}", depth: 0))))
-    #expect(prepared.userPrompt.contains("엘레나 1"))
+    #expect(prepared.userText.contains("엘레나 1"))
     try session.commit(snapshot, userMessage: "안녕", assistantMessage: "반가워", worldInfo: prepared.worldInfoTransaction)
     #expect(session.worldInfoText.localVariables["visits"] == "1")
 }

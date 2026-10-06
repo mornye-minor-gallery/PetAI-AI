@@ -169,6 +169,12 @@ public actor Engine {
       throw LiteRTLMError.config(.multipleSystemMessages)
     }
 
+    return try makeConversation(conversationConfig, engineHandle: engineHandle)
+  }
+
+  private func makeConversation(_ conversationConfig: ConversationConfig,
+                                engineHandle: OpaquePointer) throws -> Conversation {
+
     let toolManager = ToolManager(tools: conversationConfig.tools)
 
     let systemMessageJsonStr = (try? conversationConfig.systemMessage?.contents.jsonString) ?? ""
@@ -313,9 +319,12 @@ public actor Engine {
   /// decode, or context switch. Never maintain its KV alongside the raw session.
   func renderTextRequest(systemPrompt: String?, history: [Message], userPrompt: String,
                          thinkingEnabled: Bool) throws -> String {
-    let renderer = try createConversation(with: .init(
+    guard let handle else { throw LiteRTLMError.engine(.notInitialized) }
+    // Ordered rendering may include request-local system turns after history.
+    // Keep createConversation's public single-system validation unchanged.
+    let renderer = try makeConversation(.init(
       systemMessage: systemPrompt.map { Message($0, role: .system) },
-      initialMessages: history, thinkingConfig: .init(enableThinking: thinkingEnabled)))
+      initialMessages: history, thinkingConfig: .init(enableThinking: thinkingEnabled)), engineHandle: handle)
     return try renderer.renderMessageIntoString(Message(userPrompt))
   }
 
@@ -327,7 +336,8 @@ public actor Engine {
   /// Measures a fresh text request without mutating a live conversation.
   /// Tool templates and arbitrary extra context are intentionally excluded.
   public func measureTextPrompt(
-    systemPrompt: String,
+    systemPrompt: String?,
+    initialMessages: [Message] = [],
     userPrompt: String,
     thinkingEnabled: Bool
   ) throws -> PromptTokenCount {
@@ -338,7 +348,7 @@ public actor Engine {
     // Never query a temporary renderer's token count: GetCurrentStep acquires
     // its executor context and can copy/switch away from the live cached session.
     // This request has no prefilled state; only tokenize the rendered full input.
-    let rendered = try renderTextRequest(systemPrompt: systemPrompt, history: [],
+    let rendered = try renderTextRequest(systemPrompt: systemPrompt, history: initialMessages,
         userPrompt: userPrompt, thinkingEnabled: thinkingEnabled)
     guard !rendered.isEmpty else { throw LiteRTLMError.engine(.tokenizationFailed) }
     return .init(cachedTokens: 0, submittedTokens: try countTokens(rendered))

@@ -199,11 +199,9 @@ extension ChatSessionController {
             // A public checkout intentionally has no bundled Tool Router weights.
             if let toolRouterArtifacts {
                 let pipeline = try toolRouterArtifacts.load()
-                nativeToolRouter = KoreanLexicalFirstNativeToolRouter(
-                    fallback: EmbeddingMLPNativeToolRouter(
-                        embedder: memoryService,
-                        pipeline: pipeline
-                    )
+                nativeToolRouter = EmbeddingMLPNativeToolRouter(
+                    embedder: memoryService,
+                    pipeline: pipeline
                 )
                 logger.notice("Native Tool Router ready artifact=\(pipeline.artifactID)")
             } else {

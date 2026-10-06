@@ -1,13 +1,13 @@
 import Foundation
 
 public struct NativeToolGenerationRequest: Equatable, Sendable {
-    public let selectedTool: NativeToolKind
+    public let selectedTool: NativeToolGenerationKind
     public let systemPrompt: String
     public let userMessage: String
     public let reasoningEnabled: Bool
 
     public init(
-        selectedTool: NativeToolKind,
+        selectedTool: NativeToolGenerationKind,
         systemPrompt: String,
         userMessage: String,
         reasoningEnabled: Bool = SLMConfiguration.production.generation
@@ -102,21 +102,24 @@ public struct NativeToolProposalHarness: Sendable {
             {
                 return .clarification(message: message)
             }
-            let prompt = try promptRegistry.prompt(for: selectedTool)
-            let call = try await generator.generateFunctionCall(
-                NativeToolGenerationRequest(
-                    selectedTool: selectedTool,
-                    systemPrompt: prompt.rendered(with: promptContext),
-                    userMessage: userMessage,
-                    reasoningEnabled: configuration.generation
-                        .toolReasoningEnabled
+            let proposal: NativeToolProposal
+            switch selectedTool.argumentSource {
+            case .fixed(let arguments):
+                proposal = NativeToolProposal(requestID: requestID, tool: selectedTool,
+                    arguments: arguments)
+            case .model(let generationKind):
+                let prompt = try promptRegistry.prompt(for: generationKind)
+                let call = try await generator.generateFunctionCall(
+                    NativeToolGenerationRequest(
+                        selectedTool: generationKind,
+                        systemPrompt: prompt.rendered(with: promptContext),
+                        userMessage: userMessage,
+                        reasoningEnabled: configuration.generation
+                            .toolReasoningEnabled
+                    )
                 )
-            )
-            let proposal = try parser.parse(
-                call,
-                selectedTool: selectedTool,
-                requestID: requestID
-            )
+                proposal = try parser.parse(call, selectedTool: selectedTool, requestID: requestID)
+            }
             let validated = try validator.validate(proposal)
             let event = try await coordinator.register(validated)
             return .proposal(

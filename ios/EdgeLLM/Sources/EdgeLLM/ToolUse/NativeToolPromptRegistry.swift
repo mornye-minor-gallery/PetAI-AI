@@ -42,12 +42,12 @@ public struct NativeToolPromptContext: Equatable, Sendable {
 }
 
 public struct NativeToolPrompt: Equatable, Sendable {
-    public let tool: NativeToolKind
+    public let tool: NativeToolGenerationKind
     public let source: String
     public let sourceSHA256: String
 
     public init(
-        tool: NativeToolKind,
+        tool: NativeToolGenerationKind,
         source: String,
         sourceSHA256: String
     ) {
@@ -71,10 +71,10 @@ public struct NativeToolPrompt: Equatable, Sendable {
 }
 
 public enum NativeToolPromptRegistryError: Error, Equatable, Sendable {
-    case resourceMissing(tool: NativeToolKind)
-    case invalidUTF8(tool: NativeToolKind)
+    case resourceMissing(tool: NativeToolGenerationKind)
+    case invalidUTF8(tool: NativeToolGenerationKind)
     case checksumMismatch(
-        tool: NativeToolKind,
+        tool: NativeToolGenerationKind,
         expected: String,
         actual: String
     )
@@ -83,13 +83,11 @@ public enum NativeToolPromptRegistryError: Error, Equatable, Sendable {
 public struct NativeToolPromptRegistry: Sendable {
     public typealias Loader = @Sendable (_ fileName: String) -> Data?
 
-    private static let expectedSHA256: [NativeToolKind: String] = [
+    private static let expectedSHA256: [NativeToolGenerationKind: String] = [
         .getStepCount:
             "9098d2a37dc606b9c9ecd5503305e1273e08281eda3fa0095d025465ed513620",
         .createAlarm:
             "5671d712b66ebe12fa8b7a6baa76676d35672f36f1006ae141f71fb48cc06157",
-        .listAlarms:
-            "846e4107d334528b7061d9d178b9013979a94dca9a7927392e1bdf092fa395b7",
         .createTimer:
             "0599076626625116c648c0a27e68f97d24d80e6ff9ec406ca9e2e779a944f25a",
         .scheduleLocalNotification:
@@ -110,7 +108,10 @@ public struct NativeToolPromptRegistry: Sendable {
         self.loader = loader
     }
 
-    public func prompt(for tool: NativeToolKind) throws -> NativeToolPrompt {
+    public func prompt(for tool: NativeToolGenerationKind) throws -> NativeToolPrompt {
+        guard let expected = Self.expectedSHA256[tool] else {
+            throw NativeToolPromptRegistryError.resourceMissing(tool: tool)
+        }
         let fileName = tool.rawValue + ".md"
         guard let data = loader(fileName) else {
             throw NativeToolPromptRegistryError.resourceMissing(tool: tool)
@@ -119,7 +120,6 @@ public struct NativeToolPromptRegistry: Sendable {
             throw NativeToolPromptRegistryError.invalidUTF8(tool: tool)
         }
         let actual = Self.sha256(data)
-        let expected = Self.expectedSHA256[tool]!
         guard actual == expected else {
             throw NativeToolPromptRegistryError.checksumMismatch(
                 tool: tool,
@@ -134,8 +134,8 @@ public struct NativeToolPromptRegistry: Sendable {
         )
     }
 
-    public static func expectedChecksum(for tool: NativeToolKind) -> String {
-        expectedSHA256[tool]!
+    public static func expectedChecksum(for tool: NativeToolGenerationKind) -> String? {
+        expectedSHA256[tool]
     }
 
     private static func sha256(_ data: Data) -> String {

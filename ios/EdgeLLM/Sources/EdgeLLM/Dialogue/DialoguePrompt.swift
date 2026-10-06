@@ -100,8 +100,10 @@ public struct DialoguePromptTrace: Codable, Equatable, Sendable {
 }
 
 public struct PreparedDialogue: Sendable {
-    public let systemPrompt: String
-    public let userPrompt: String
+    public let modelInput: DialogueModelInput
+    /// Role-grouped diagnostic views. Native adapters must use modelInput order.
+    public var systemText: String { modelInput.messages.filter { $0.role == .system }.map(\.text).joined(separator: "\n\n") }
+    public var userText: String { modelInput.messages.filter { $0.role == .user }.map(\.text).joined(separator: "\n\n") }
     /// Diagnostic views used by evaluation; generated from the same structured input.
     public let unpositionedUserPrompt: String
     public let memoryAugmentedInput: String
@@ -112,14 +114,10 @@ public struct PreparedDialogue: Sendable {
     public internal(set) var worldInfoTransaction: WorldInfoTransaction? = nil
     let tokenSections: [DialoguePromptSection]
 
-    public var modelInput: DialogueModelInput {
-        .init(systemPrompt: systemPrompt, userPrompt: userPrompt)
-    }
-
     func withTokenTrace(_ tokenTrace: DialogueTokenBudgetTrace) -> Self {
         var updated = trace
         updated.tokenBudget = tokenTrace
-        return .init(systemPrompt: systemPrompt, userPrompt: userPrompt,
+        return .init(modelInput: modelInput,
             unpositionedUserPrompt: unpositionedUserPrompt, memoryAugmentedInput: memoryAugmentedInput,
             nameInstruction: nameInstruction, responseConfiguration: responseConfiguration, trace: updated, worldInfoTransaction: worldInfoTransaction, tokenSections: tokenSections)
     }

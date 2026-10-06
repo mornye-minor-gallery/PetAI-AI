@@ -56,3 +56,30 @@ class NativeTokenBudgetTests(unittest.TestCase):
         type(runtime.conversation).token_count = PropertyMock(side_effect=[10, 11])
         with self.assertRaisesRegex(RuntimeError, 'changed native token state'):
             runtime.measure('question')
+
+    def test_ordered_probe_preserves_later_system_and_live_state(self):
+        runtime = self.runtime()
+        active = runtime.conversation
+        probe = Mock(token_count=0)
+        probe.render_message_to_string.return_value = '<ordered template>'
+        runtime._create_conversation = Mock(return_value=probe)
+        prefix = [{'role': 'system', 'text': 'fixed'}, {'role': 'user', 'text': 'history'},
+                  {'role': 'system', 'text': 'dynamic'}]
+        model_input = {'messages': prefix + [{'role': 'user', 'text': 'current'}]}
+        settings = {'thinking': False, 'max_output_tokens': 30}
+        self.assertEqual(runtime.measure_input(model_input, settings)['input_tokens'], 60)
+        runtime._create_conversation.assert_called_once_with(None, settings, seed=0, initial_messages=prefix)
+        probe.render_message_to_string.assert_called_once_with('current')
+        probe.close.assert_called_once()
+        active.close.assert_not_called()
+        self.assertIs(runtime.conversation, active)
+
+    def test_invalid_ordered_input_is_rejected_before_replacing_live_state(self):
+        runtime = self.runtime()
+        runtime._create_conversation = Mock()
+        for messages in [[], [{'role': 'system', 'text': 'no current input'}],
+                         [{'role': 'tool', 'text': 'unsupported'}, {'role': 'user', 'text': 'current'}]]:
+            with self.subTest(messages=messages), self.assertRaises(ValueError):
+                runtime.start_input({'messages': messages}, {}, seed=1)
+        runtime._create_conversation.assert_not_called()
+        runtime.conversation.close.assert_not_called()

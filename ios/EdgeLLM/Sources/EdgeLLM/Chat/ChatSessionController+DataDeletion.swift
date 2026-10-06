@@ -9,6 +9,7 @@ extension ChatSessionController {
         }
         guard maintenanceTask == nil else { return }
         maintenanceRequestID = id // Remains locked across failure and Unity's local commit.
+        abandonPendingTurnDecision()
         maintenanceTask = Task {
             let heartbeat = Task {
                 var seconds = 0
