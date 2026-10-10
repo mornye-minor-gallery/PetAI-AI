@@ -2,6 +2,12 @@ import Foundation
 import Testing
 @testable import EdgeLLM
 
+@Test func chatExportIncludesTheRetainedSummary() throws {
+    let exported = try ChatDataExport(recentEntries: [], activeMemories: [], sessionSummary: "지난 대화의 요약")
+    let json = try JSONSerialization.jsonObject(with: exported.jsonData()) as! [String: Any]
+    #expect(json["sessionSummary"] as? String == "지난 대화의 요약")
+}
+
 @Test
 func chatDataExportKeepsOnlyRetainedTurnsAndActiveMemories() throws {
     var session = RoutedPersonaSessionContext(maximumTurnCount: 2)
@@ -28,7 +34,7 @@ func chatDataExportKeepsOnlyRetainedTurnsAndActiveMemories() throws {
     let turns = json["recentEntries"] as! [[String: Any]]
     let memories = json["longTermMemories"] as! [[String: Any]]
 
-    #expect(json["formatVersion"] as? Int == 3)
+    #expect(json["formatVersion"] as? Int == 4)
     #expect((json["diaries"] as? [[String: Any]])?.first?["title"] as? String == "산책한 날")
     #expect(turns.map { $0["id"] as! String } == ["turn-3", "turn-4"])
     #expect(turns[1]["assistantMessage"] as? String == "좋아")

@@ -15,7 +15,7 @@ extension ChatSessionController {
             emitState()
             return
         }
-        guard state != .generating else {
+        guard state != .generating, state != .admitting, state != .compacting else {
             emitError(code: "runtime_busy", message: RuntimeError.runtimeBusy.localizedDescription)
             return
         }
@@ -146,7 +146,7 @@ extension ChatSessionController {
         // Recovery and model replacement rebuild inference resources, not the conversation.
         // Keep the committed history, World Info state and clock for the next prompt snapshot.
         // Explicit session teardown (unload) and test data reset own dialogue erasure.
-        embeddingSceneRouter = nil
+        lastDialogueTemplate = nil
         nativeToolRouter = nil
         do {
             routedPersonaPrompts = try loadRoutedPersonaPromptsIfEnabled()
@@ -175,10 +175,50 @@ extension ChatSessionController {
                         : slmConfiguration.generation.responseSampling
                 )
             )
+            do {
+                // Validate authored fixed text before opening Send. This only
+                // renders and tokenizes input; it does not generate a reply.
+                let (prompts, policy) = configuredDialogue()
+                let prepared = try await runtime.prepareDialogue(input: .init(persona: prompts,
+                    profile: .init(characterName: dialogueContent?.name ?? UserProfileContext.defaultCharacterName),
+                    currentMessage: "", exampleDialogue: platform.personaEnabled ? dialogueContent?.exampleDialogue ?? "" : ""),
+                    policy: policy, thinkingEnabled: slmConfiguration.generation.responseThinkingDefault)
+                lastDialogueTemplate = prepared.contextTemplate
+                lastDialogueThinking = slmConfiguration.generation.responseThinkingDefault
+            }
         } catch {
             logger.error("Language model preparation failed: \(error.localizedDescription)")
+            if error is DialogueInputLimitError || error is DialogueTokenBudgetError || error is DialogueContextOverflow {
+                state = .failed
+                emitError(code: "prompt_configuration_invalid", message: "캐릭터 대화 설정이 입력 상한을 넘었어요.")
+                return
+            }
             forcedAssetSelections = [.languageModel]
             requireAsset(.languageModel)
+            return
+        }
+
+        do {
+            guard let store = recentTurnStore else { throw RecentTurnStorageError.notLoaded }
+            if routedPersonaSession.summary != nil &&
+                (!slmConfiguration.dialogueBudget.contextPolicy.summaryEnabled
+                    || routedPersonaSession.summaryModelIdentifier != modelURL.lastPathComponent) {
+                try store.compact(in: &routedPersonaSession, retaining: routedPersonaSession.contextEntries,
+                                  summary: nil, modelIdentifier: nil)
+                try await runtime.eraseCheckpoint()
+            } else if let summary = routedPersonaSession.summary {
+                let shortened = try await DialogueTokenTruncation.prefix(summary,
+                    maximumTokens: slmConfiguration.dialogueBudget.contextPolicy.summaryTokens, measurer: runtime)
+                if shortened != summary {
+                    try store.compact(in: &routedPersonaSession, retaining: routedPersonaSession.contextEntries,
+                        summary: shortened.isEmpty ? nil : shortened, modelIdentifier: modelURL.lastPathComponent)
+                    try await runtime.eraseCheckpoint()
+                }
+            }
+            dialogueModelIdentifier = modelURL.lastPathComponent
+        } catch {
+            state = .failed
+            emitError(code: "chat_turn_storage_failed", message: "대화 문맥을 저장하지 못했어요.")
             return
         }
 

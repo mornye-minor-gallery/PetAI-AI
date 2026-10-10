@@ -12,7 +12,9 @@ public actor ChatSessionController {
         case modelRequired
         case loading
         case ready
+        case admitting
         case generating
+        case compacting
         case failed
     }
 
@@ -47,7 +49,9 @@ public actor ChatSessionController {
     var dialogueContent: DialogueContent?
     var dialogueRetrieval: DialogueRetrievalResources?
     var routedPersonaPrompts: RoutedPersonaPromptSet?
-    var embeddingSceneRouter: EmbeddingSceneRouter?
+    var dialogueModelIdentifier: String?
+    var lastDialogueTemplate: DialogueContextTemplate?
+    var lastDialogueThinking = false
     var nativeToolRouter: (any NativeToolRouting)?
     var routedPersonaSession: RoutedPersonaSessionContext
     var recentTurnStore: DialogueSessionFileStore?
@@ -151,23 +155,45 @@ public actor ChatSessionController {
             return
         }
 
-        let dialogueSnapshot: DialogueSessionSnapshot
+        state = .admitting
+        activeRequestId = request.requestId
+        cancelRequested = false
+        do {
+            try await slmConfiguration.dialogueBudget.limits?.validateQuestion(request.prompt, measurer: runtime)
+        } catch let error as DialogueInputLimitError {
+            state = .ready
+            activeRequestId = nil
+            cancelRequested = false
+            emitError(code: "input_limit_exceeded", message: error.localizedDescription, requestId: request.requestId)
+            return
+        } catch {
+            state = .failed
+            activeRequestId = nil
+            cancelRequested = false
+            logger.error("Question token validation failed: \(error.localizedDescription)")
+            emitError(code: "input_validation_failed", message: "입력을 확인하지 못했어요. 대화를 다시 열어 주세요.", requestId: request.requestId)
+            return
+        }
+        var dialogueSnapshot: DialogueSessionSnapshot
         do {
             guard let recentTurnStore else { throw RecentTurnStorageError.notLoaded }
             dialogueSnapshot = try recentTurnStore.beginRequest(in: &routedPersonaSession,
                 requestID: request.requestId, userMessage: prompt)
         } catch let error as DialogueSessionError {
+            state = .ready
+            activeRequestId = nil
             logger.error("Could not begin chat turn: \(String(describing: error))")
             emitError(code: "chat_turn_state_failed", message: "대화 상태를 시작하지 못했습니다. 다시 시도해 주세요.", requestId: request.requestId)
             return
         } catch {
+            state = .ready
+            activeRequestId = nil
             logger.error("Could not persist chat turn: \(error.localizedDescription)")
             emitError(code: "chat_turn_storage_failed", message: "대화를 저장하지 못해 요청을 시작하지 않았습니다. 저장 공간을 확인하고 다시 시도해 주세요.", requestId: request.requestId)
             return
         }
         state = .generating
-        activeRequestId = request.requestId
-        cancelRequested = false
+        if cancelRequested { await finishCancelledRequest(request.requestId); return }
         let recentTurnIDs = Set(routedPersonaSession.chatTurns.map(\.requestID))
         emit(type: "generating", requestId: request.requestId)
 
@@ -177,11 +203,7 @@ public actor ChatSessionController {
         let baseProfileContext = UserProfileContext(
             userName: request.userProfileContext?.userName,
             characterName: selectedContent.name,
-            rhythmGamePlayCount: request.userProfileContext?
-                .rhythmGamePlayCount ?? 0,
-            rhythmGameBestScore: (
-                request.userProfileContext?.rhythmGamePlayCount ?? 0
-            ) > 0 ? request.userProfileContext?.rhythmGameBestScore : nil,
+            roomPlacementCount: request.userProfileContext?.roomPlacementCount,
             unlockedFeatures: accessPolicy.unlockedSources
         )
         if await handleNativeToolIfNeeded(
@@ -197,7 +219,7 @@ public actor ChatSessionController {
             allowedTools: accessPolicy.allowedTools
         )
 
-        let recalledMemories = await recallMemories(
+        var recalledMemories = await recallMemories(
             userMessage: prompt,
             excludingTurnIDs: recentTurnIDs
         )
@@ -208,14 +230,27 @@ public actor ChatSessionController {
         let generationPrompt: String
         let worldInfoTransaction: WorldInfoTransaction?
         do {
-            let prepared = try await prepareRoutedPersonaGeneration(
-                requestID: request.requestId,
-                userMessage: prompt,
-                recalledMemories: recalledMemories,
-                userProfileContext: userProfileContext,
-                thinkingEnabled: request.thinkingEnabled ?? slmConfiguration.generation.responseThinkingDefault,
-                session: dialogueSnapshot, worldContext: try request.worldInfoContext?.context() ?? .init()
-            )
+            let thinking = request.thinkingEnabled ?? slmConfiguration.generation.responseThinkingDefault
+            let prepared: (prompt: String, worldInfo: WorldInfoTransaction?)
+            do {
+                prepared = try await prepareRoutedPersonaGeneration(requestID: request.requestId,
+                    userMessage: prompt, recalledMemories: recalledMemories, userProfileContext: userProfileContext,
+                    thinkingEnabled: thinking, session: dialogueSnapshot,
+                    worldContext: try request.worldInfoContext?.context() ?? .init())
+            } catch let overflow as DialogueContextOverflow {
+                guard !cancelRequested else { throw RuntimeError.generationCancelled }
+                try await compactDialogueContext(requestID: request.requestId, template: overflow.prepared.contextTemplate,
+                    thinkingEnabled: thinking, resumeGeneration: true)
+                guard !cancelRequested else { throw RuntimeError.generationCancelled }
+                dialogueSnapshot = dialogueSnapshot.replacingContext(entries: routedPersonaSession.contextEntries,
+                    summary: routedPersonaSession.summary)
+                recalledMemories = await recallMemories(userMessage: prompt,
+                    excludingTurnIDs: Set(routedPersonaSession.chatTurns.map(\.requestID)))
+                prepared = try await prepareRoutedPersonaGeneration(requestID: request.requestId,
+                    userMessage: prompt, recalledMemories: recalledMemories, userProfileContext: userProfileContext,
+                    thinkingEnabled: thinking, session: dialogueSnapshot,
+                    worldContext: try request.worldInfoContext?.context() ?? .init())
+            }
             generationPrompt = prepared.prompt
             worldInfoTransaction = prepared.worldInfo
         } catch RuntimeError.generationCancelled {
@@ -224,8 +259,9 @@ public actor ChatSessionController {
         } catch {
             logger.error("Dialogue preparation failed: \(error.localizedDescription)")
             await finishFailedRequest(request.requestId,
-                code: "persona_routing_failed",
-                message: "대화 구성을 준비하지 못했습니다. 다시 시도해 주세요.")
+                code: state == .compacting ? "context_preparation_failed" : "persona_routing_failed",
+                message: "대화 구성을 준비하지 못했습니다. 다시 시도해 주세요.",
+                recoverable: state != .compacting)
             return
         }
         guard
@@ -310,10 +346,12 @@ public actor ChatSessionController {
     }
 
     public func cancel(requestID: String? = nil) async {
-        guard state == .generating, !isCommittingTurn,
+        guard (state == .generating || state == .admitting || state == .compacting), !isCommittingTurn,
               let activeID = activeRequestId,
               requestID == nil || requestID == activeID else { return }
         cancelRequested = true
+        // Finish atomic context repair, then honor a cancel that raced its start.
+        if state == .admitting || state == .compacting { return }
         await nativeToolAdapterHub.cancelConfirmation()
         guard activeRequestId == activeID, !isCommittingTurn else { return }
         await runtime.cancel()
@@ -336,7 +374,8 @@ public actor ChatSessionController {
             try await runtime.unload()
             await memoryService.close()
             routedPersonaPrompts = nil
-            embeddingSceneRouter = nil
+            lastDialogueTemplate = nil
+            dialogueModelIdentifier = nil
             nativeToolRouter = nil
             routedPersonaSession.removeAll()
             recentTurnsLoaded = false

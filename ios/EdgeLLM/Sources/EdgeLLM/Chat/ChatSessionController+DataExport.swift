@@ -18,11 +18,11 @@ extension ChatSessionController {
             defer { dataExportInProgress = false; exportTask = nil }
             var temporaryFile: TemporaryChatDataExportFile?
             do {
-                let recent = try (recentTurnStore ?? platform.recentTurnStore())
-                    .load()?.recentEntries ?? []
+                let session = try (recentTurnStore ?? platform.recentTurnStore()).load()
                 let memories = try await memoryService.allActiveObservations()
                 let diaries = try await memoryService.allDiaries()
-                let data = try ChatDataExport(recentEntries: recent, activeMemories: memories, diaries: diaries)
+                let data = try ChatDataExport(recentEntries: session?.recentEntries ?? [], activeMemories: memories,
+                    diaries: diaries, sessionSummary: session?.summary)
                     .jsonData()
                 let file = try TemporaryChatDataExportFile(data: data,
                     temporaryRoot: FileManager.default.temporaryDirectory)

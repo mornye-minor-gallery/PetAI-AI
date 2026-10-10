@@ -32,8 +32,8 @@ class SwiftWorkerTests(unittest.TestCase):
             prompts[name] = self.worker.call("prepare", configuration=configuration,
                                              characterName="엘레나", userMessage="아영아, 안녕?")
         self.assertEqual(len({row["user_prompt"] for row in prompts.values()}), 1)
-        self.assertIn('캐릭터의 이름은 "엘레나"이다', prompts["name-rule"]["system_prompt"])
-        self.assertEqual(prompts["baseline"]["sampling"]["max_output_tokens"], 1024)
+        self.assertIn('너의 이름은 "엘레나"이다', prompts["name-rule"]["system_prompt"])
+        self.assertEqual(prompts["baseline"]["sampling"]["max_output_tokens"], 512)
         self.assertEqual(prompts["baseline"]["history"], [])
         self.assertNotEqual(prompts["baseline"]["system_prompt"], prompts["answer-only"]["system_prompt"])
 
@@ -42,8 +42,8 @@ class SwiftWorkerTests(unittest.TestCase):
         response = self.worker.call("prepare", configuration=config,
                                     characterName="루미", userMessage="아영아, 안녕?")
         self.assertEqual(response["configuration"], config)
-        self.assertTrue(response["system_prompt"].startswith("## 답변 직전 확인: 호명과 정체성"))
-        self.assertIn('캐릭터의 이름은 "루미"이다', response["system_prompt"])
+        self.assertTrue(response["system_prompt"].startswith("## 이름 정정"))
+        self.assertIn('너의 이름은 "루미"이다', response["system_prompt"])
         self.assertEqual(response["user_prompt"], "## 현재 사용자 입력과 회수 기억\n아영아, 안녕?")
         processed = self.worker.call("process", configuration=config,
                                      primaryChunks=["나는 루미야."])

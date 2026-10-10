@@ -134,8 +134,9 @@ public extension SLMConfiguration {
             routerThinkingEnabled: false,
             toolReasoningEnabled: false
         ),
-        // One accepted user request is one turn, even when its answer is interrupted.
-        persona: Persona(recentTurnLimit: 20),
+        // Production retention is token-based. Finite turn limits remain useful
+        // for explicit evaluation fixtures, but must not slide the app's prefix.
+        persona: Persona(recentTurnLimit: .max),
         // Provisional UX deadline; tune after device cancellation-latency measurements.
         runtimeSafety: RuntimeSafety(cancellationTimeoutSeconds: 15)
     )

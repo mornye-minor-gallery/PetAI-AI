@@ -24,12 +24,14 @@ struct ChatControllerFixture {
     let controller: ChatSessionController
 
     init(automaticallyFinalize: Bool = true, tools: (any ChatPlatformTools)? = nil,
+         configuration: SLMConfiguration = .production,
+         personaEnabled: Bool = true,
          log: @escaping @Sendable (String) -> Void = { _ in },
          toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("chat-controller-\(UUID())")
         store = .init(fileURL: directory.appendingPathComponent("recent.json"))
-        controller = ChatSessionController(runtime: runtime, memory: memory,
-            platform: ChatTestPlatform(store: store, toolAdapter: tools), eventSink: events.receive, log: log,
+        controller = ChatSessionController(configuration: configuration, runtime: runtime, memory: memory,
+            platform: ChatTestPlatform(store: store, toolAdapter: tools, personaEnabled: personaEnabled), eventSink: events.receive, log: log,
             toolRouterArtifacts: toolRouterArtifacts)
         if automaticallyFinalize {
             let controller = controller
@@ -48,13 +50,13 @@ struct ChatControllerFixture {
     func request(_ id: String, _ text: String, allowedTools: [NativeToolKind] = []) -> String {
         let access = allowedTools.map { ["tool": $0.rawValue, "unlockSource": "test", "unlocked": true] as [String: Any] }
         let payload: [String: Any] = ["requestId": id, "prompt": text, "thinkingEnabled": false,
-            "userProfileContext": ["characterId": "test", "userName": "", "rhythmGamePlayCount": 0,
-                "rhythmGameBestScore": 0, "toolAccess": access]]
+            "userProfileContext": ["characterId": "test", "userName": "", "roomPlacementCount": 0, "toolAccess": access]]
         return String(decoding: try! JSONSerialization.data(withJSONObject: payload), as: UTF8.self)
     }
 }
 
 actor ChatTestRuntime: ChatInferenceRuntime {
+    nonisolated let identifier = "synthetic-chat-tokenizer"
     var state: RuntimeState = .ready
     var generationCount = 0
     var functionCallCount = 0
@@ -62,6 +64,17 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     var diaryGenerationCount = 0
     var diaryFailure: Error?
     var checkpointCount = 0
+    var summaryGenerationCount = 0
+    var summaryInput = ""
+    var summaryResponse = "짧게 정리한 대화입니다."
+    var summaryFailure: Error?
+    var prefillFailure: Error?
+    var preparationBudget: DialogueTokenBudget?
+    var prefillStarted = false
+    var holdPrefill = false
+    private var prefillWaiter: CheckedContinuation<Void, Never>?
+    private var prefillContinuation: CheckedContinuation<Void, Never>?
+    var prefilledInputs: [DialogueModelInput] = []
     var lastPreparedHistory: [RoutedPersonaSessionContext.Turn] = []
     var holdStream = false
     var response = "save(P=0,E=0)\n반가워."
@@ -70,11 +83,25 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     func setResponse(_ value: String) { response = value }
     func setFunctionCall(_ value: NativeToolFunctionCall) { functionCall = value }
     func failDiary(with error: Error) { diaryFailure = error }
+    func failSummary(with error: Error) { summaryFailure = error }
+    func failPrefill(with error: Error) { prefillFailure = error }
+    func usePreparationBudget(_ budget: DialogueTokenBudget) { preparationBudget = budget }
+    func holdPrefills() { holdPrefill = true }
+    func waitForPrefill() async {
+        if prefillStarted { return }
+        await withCheckedContinuation { prefillWaiter = $0 }
+    }
+    func finishPrefill() { prefillContinuation?.resume(); prefillContinuation = nil; holdPrefill = false }
+    func setSummary(_ text: String) { summaryResponse = text }
     func prepare(modelURL: URL) {}
     func startConversation(configuration: ConversationConfiguration) {}
     func prepareDialogue(input: DialoguePromptInput, policy: DialoguePromptPolicy,
-                         thinkingEnabled: Bool) throws -> PreparedDialogue {
+                         thinkingEnabled: Bool) async throws -> PreparedDialogue {
         lastPreparedHistory = input.history
+        if let preparationBudget {
+            return try await DialoguePromptComposer.prepare(input: input, policy: policy,
+                tokenBudget: preparationBudget, measurer: self, allowContextOverflow: true)
+        }
         return try DialoguePromptComposer.prepare(input: input, policy: policy)
     }
     func generateStream(prompt: String) -> AsyncThrowingStream<String, Error> {
@@ -105,6 +132,22 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     func unload() {}
     func saveCompletedDialogueCheckpoint() { checkpointCount += 1 }
     func eraseCheckpoint() {}
+    func countTokens(_ text: String) -> Int { text.count }
+    func measureInput(_ input: DialogueModelInput) -> Int {
+        input.messages.reduce(17) { $0 + $1.text.count + 7 }
+    }
+    func generateDialogueSummary(_ text: String, maximumTokens: Int) throws -> String {
+        summaryGenerationCount += 1; summaryInput = text
+        if let summaryFailure { throw summaryFailure }
+        return summaryResponse
+    }
+    func prefillDialogueContext(_ input: DialogueModelInput, thinkingEnabled: Bool) async throws {
+        if let prefillFailure { throw prefillFailure }
+        prefillStarted = true
+        prefillWaiter?.resume(); prefillWaiter = nil
+        if holdPrefill { await withCheckedContinuation { prefillContinuation = $0 } }
+        prefilledInputs.append(input)
+    }
 }
 
 actor ChatTestMemory: ChatMemoryService {
@@ -169,7 +212,7 @@ actor ChatTestMemory: ChatMemoryService {
 struct ChatTestPlatform: ChatPlatformServices, ChatPlatformTools {
     let store: DialogueSessionFileStore
     var toolAdapter: (any ChatPlatformTools)? = nil
-    var personaEnabled: Bool { true }
+    var personaEnabled = true
     var tools: any ChatPlatformTools { toolAdapter ?? self }
     var supportedTools: Set<NativeToolKind> { [] }
     var unsupportedMessage: String { "Android에서는 준비 중인 기능입니다." }

@@ -30,12 +30,17 @@ public enum WorldInfoEngine {
 
     public static func select(settings: WorldInfoSettings, messages: [String], note: AuthorsNoteResolution?,
                               measurer: any DialogueTokenMeasuring, context: WorldInfoContext = .init(),
-                              state: WorldInfoState = .init(), textContext: WorldInfoTextContext = .init()) async throws -> WorldInfoSelection {
+                              state: WorldInfoState = .init(), textContext: WorldInfoTextContext = .init(),
+                              absoluteTokenBudget: Int? = nil, preferredEntryIDs: [String] = []) async throws -> WorldInfoSelection {
         try validate(settings)
         guard context.contextTokens > 0, context.contextTokens <= Int(Int32.max) else { throw WorldInfoError.invalidBudget }
         var budget = settings.tokenBudget
         if let percent = settings.rules.budgetPercent { budget = max(1, Int((Double(context.contextTokens) * percent / 100).rounded())) }
         if let cap = settings.rules.budgetCap, cap > 0 { budget = min(budget, cap) }
+        if let absoluteTokenBudget {
+            guard absoluteTokenBudget > 0 else { throw WorldInfoError.invalidBudget }
+            budget = min(budget, absoluteTokenBudget)
+        }
         let direct = settings.entries.enumerated().sorted {
             $0.element.order == $1.element.order ? $0.offset < $1.offset : $0.element.order > $1.element.order
         }.map(\.element)
@@ -107,6 +112,11 @@ public enum WorldInfoEngine {
                 }
             }
             candidates = candidates.enumerated().sorted {
+                if absoluteTokenBudget != nil {
+                    let a = preferredEntryIDs.firstIndex(of: $0.element.id) ?? Int.max
+                    let b = preferredEntryIDs.firstIndex(of: $1.element.id) ?? Int.max
+                    if a != b { return a < b }
+                }
                 let a = temporal.activeSticky.contains($0.element.id), b = temporal.activeSticky.contains($1.element.id)
                 return a == b ? $0.offset < $1.offset : a
             }.map(\.element)
@@ -117,12 +127,27 @@ public enum WorldInfoEngine {
             let previousTokens = try await measuredCount(activatedText, measurer)
             for index in candidates.indices {
                 var entry = candidates[index]
-                if overflowed && !entry.ignoreBudget { updateTrace(&traces, entry: entry, reason: .budgetStopped); continue }
+                if overflowed && !entry.ignoreBudget && absoluteTokenBudget == nil {
+                    updateTrace(&traces, entry: entry, reason: .budgetStopped); continue
+                }
                 if let probability = entry.rules.probability, probability != 100, !temporal.activeSticky.contains(entry.id), random.next() * 100 > probability {
                     failedProbability.insert(entry.id); updateTrace(&traces, entry: entry, reason: .probabilityFailed); continue
                 }
                 entry.content = try expand(entry.content, macros: &macros, random: &random)
                 candidates[index] = entry
+                if absoluteTokenBudget != nil {
+                    let text = (selected.map(\.content) + [entry.content] +
+                        (note?.insertion.map { [$0.text] } ?? [])).joined(separator: "\n\n")
+                    let count = try await measuredCount(text, measurer)
+                    if count > budget {
+                        overflowed = true
+                        updateTrace(&traces, entry: entry, reason: .budgetExceeded, tokens: count)
+                    } else {
+                        selected.append(entry)
+                        updateTrace(&traces, entry: entry, reason: .selected, tokens: count)
+                    }
+                    continue
+                }
                 newContent += entry.content + "\n"
                 var count: Int?
                 if !entry.ignoreBudget {

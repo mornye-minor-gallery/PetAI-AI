@@ -5,8 +5,8 @@ import Testing
 @Test func dialogueProductionBudgetSeparatesMemoryAndOutput() throws {
     let budget = SLMConfiguration.production.dialogueBudget
     #expect(budget.contextTokens == 4_096)
-    #expect(budget.memoryTokens == 2_048)
-    #expect(budget.outputTokens == 1_024)
+    #expect(budget.memoryTokens == 512)
+    #expect(budget.outputTokens == 512)
     try budget.validate()
     // Existing byte fixtures and tool generations are separate consumers.
     #expect(SLMConfiguration.production.memory.promptByteBudget == 10_000)

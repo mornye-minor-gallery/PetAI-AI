@@ -16,7 +16,8 @@ enum DialoguePromptRenderer {
     static func systemSections(
         prompts: RoutedPersonaPromptSet, activeCard: String?,
         userProfileContext: UserProfileContext,
-        configuration: PersonaResponseConfiguration
+        configuration: PersonaResponseConfiguration,
+        profileText: String? = nil
     ) -> [DialoguePromptSection] {
         var sections: [DialoguePromptSection] = []
         if configuration.includePersona {
@@ -36,7 +37,7 @@ enum DialoguePromptRenderer {
             ))
         }
         if configuration.includeSessionContext {
-            sections.append(.init(id: "profile", text: userProfileContext.promptSection()))
+            sections.append(.init(id: "profile", text: profileText ?? userProfileContext.promptSection()))
         }
         if configuration.enforceCharacterName, configuration.nameRuleStyle == .identityStatement {
             sections.append(.init(id: "nameRule", text: configuration.nameInstruction(characterName: userProfileContext.characterName),

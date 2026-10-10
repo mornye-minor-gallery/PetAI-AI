@@ -1,12 +1,11 @@
 import Foundation
 
 enum RecentTurnStorageError: LocalizedError {
-    case notLoaded, incompatibleLimit
+    case notLoaded
 
     var errorDescription: String? {
         switch self {
         case .notLoaded: "Recent chat turn storage has not been loaded."
-        case .incompatibleLimit: "Saved recent chat turn limit differs from this app build."
         }
     }
 }
@@ -19,11 +18,8 @@ extension ChatSessionController {
         }
         do {
             let store = try platform.recentTurnStore()
-            let saved = try store.load() ?? RoutedPersonaSessionContext(
+            let saved = try store.load(maximumTurnCount: slmConfiguration.persona.recentTurnLimit) ?? RoutedPersonaSessionContext(
                 maximumTurnCount: slmConfiguration.persona.recentTurnLimit)
-            guard saved.maximumTurnCount == slmConfiguration.persona.recentTurnLimit else {
-                throw RecentTurnStorageError.incompatibleLimit
-            }
             routedPersonaSession = saved
             recentTurnStore = store
             recentTurnsLoaded = true
@@ -51,9 +47,16 @@ extension ChatSessionController {
                  code: "runtime_busy", message: "대화가 끝난 뒤 홈 대사를 다시 눌러 주세요.")
             return
         }
+        if let topic = request.topic {
+            guard topic.isValid, let content = dialogueContent, topic.characterID == content.id else {
+                emit(type: "home_line_failed", requestId: request.id,
+                    code: "invalid_topic_character", message: "화두의 캐릭터 설정이 대화 설정과 다릅니다.")
+                return
+            }
+        }
         do {
             try recentTurnStore.recordHomeLine(in: &routedPersonaSession,
-                id: request.id, text: request.text)
+                id: request.id, text: request.text, topic: request.topic)
             emit(type: "home_line_recorded", requestId: request.id, text: request.text)
         } catch {
             logger.error("Could not persist home line error=\(error.localizedDescription)")
@@ -161,14 +164,37 @@ extension ChatSessionController {
         if result == .committed && checkpointDialogue {
             await runtime.saveCompletedDialogueCheckpoint()
         }
-        state = .ready
-        activeRequestId = nil
-        cancelRequested = false
         if let captionUserMessage {
             captionSource = (requestID, captionUserMessage, visibleText)
         }
+        let compact: Bool
+        do {
+            if let template = lastDialogueTemplate {
+                compact = try await DialogueContextCompactor.requiresCompaction(template: template,
+                    entries: routedPersonaSession.contextEntries, summary: routedPersonaSession.summary,
+                    budget: slmConfiguration.dialogueBudget, measurer: runtime)
+            } else { compact = false }
+        } catch {
+            emit(type: "completed", requestId: requestID, text: visibleText, homeSteps: homeSteps, presentation: presentation)
+            failContextPreparation(requestID, error: error)
+            return result == .committed
+        }
+        if compact {
+            state = .compacting
+            emit(type: "context_compacting", requestId: requestID, message: "대화를 정리하고 있어요")
+        } else {
+            state = .ready
+            activeRequestId = nil
+            cancelRequested = false
+        }
         emit(type: "completed", requestId: requestID, text: visibleText,
              homeSteps: homeSteps, presentation: presentation)
+        if compact, let template = lastDialogueTemplate {
+            do {
+                try await compactDialogueContext(requestID: requestID, template: template,
+                    thinkingEnabled: lastDialogueThinking, alreadyAnnounced: true)
+            } catch { failContextPreparation(requestID, error: error) }
+        }
         return result == .committed
     }
 

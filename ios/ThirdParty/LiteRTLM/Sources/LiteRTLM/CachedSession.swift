@@ -145,6 +145,35 @@ public final class CachedSession: TextSession, @unchecked Sendable {
             userPrompt: prompt, thinkingEnabled: thinkingEnabled)
     }
 
+    /// Rebuild a complete ordered input without decoding an assistant response.
+    public func prefillInput(_ prompt: String, thinkingEnabled: Bool) async throws {
+        guard lock.withLock({ !requiresEngineRecreation && lifetime.tryBegin() }) else { throw CachedSessionError.busy }
+        lock.withLock { hasPrefilledPrefix = false; trace = nil }
+        defer { lifetime.finish() }
+        let rendered = try await render(prompt, thinkingEnabled: thinkingEnabled)
+        guard rendered.contains("<|turn>model") else { throw CachedSessionError.unsupportedTemplate }
+        let bos = try await engine.startTokenText()
+        let nativeText = !bos.isEmpty && rendered.hasPrefix(bos) ? String(rendered.dropFirst(bos.count)) : rendered
+        let tokens = try await engine.tokenIDs(bos + nativeText)
+        try lock.withLock {
+            guard !lifetime.isCancellationRequested else { throw CancellationError() }
+            guard litert_lm_session_rewind_to_step(handle, 0) == 0 else { throw CachedSessionError.rewind }
+            let input = nativeText.withCString {
+                litert_lm_input_data_create(kLiteRtLmInputDataTypeText, $0, nativeText.utf8.count)
+            }
+            guard let input else { throw CachedSessionError.input }
+            defer { litert_lm_input_data_delete(input) }
+            var pointer: OpaquePointer? = input
+            let status = litert_lm_session_run_prefill(handle, &pointer, 1)
+            guard status == 0 else { prefix.invalidate(); throw CachedSessionError.start(Int(status)) }
+            trace = .init(sessionID: id, inputTokens: tokens.count,
+                          matchingInputPrefixTokens: prefix.prepare(tokens), finishReason: "prefill")
+            prefix.commit(tokens)
+            hasNativeInput = true
+            hasPrefilledPrefix = true
+        }
+    }
+
     public func measureInput(_ prompt: String, thinkingEnabled: Bool) async throws -> Int {
         let rendered = try await render(prompt, thinkingEnabled: thinkingEnabled)
         return try await engine.countTokens(rendered)

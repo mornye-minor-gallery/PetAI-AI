@@ -12,6 +12,8 @@ public struct NativeChatEvent: Encodable, Sendable {
     public var recentEntries: [NativeRestoredDialogueEntry]?
     public var diary: NativeDiaryEntry?
     public var diaries: [NativeDiaryEntry]?
+    public var questionCharacters: Int? = nil
+    public var questionTokens: Int? = nil
 }
 
 public struct NativeDiaryEntry: Encodable, Sendable {
@@ -59,6 +61,7 @@ public struct NativeRestoredDialogueEntry: Encodable, Sendable {
 struct NativeHomeLineRequest: Decodable {
     public let id: String
     public let text: String
+    public let topic: HomeTopicContext?
 }
 
 public enum NativePreparationContext {
@@ -76,8 +79,7 @@ struct NativeSendRequest: Decodable {
 struct NativeUserProfileContext: Decodable, Sendable {
     public let userName: String
     public let characterId: String
-    public let rhythmGamePlayCount: Int
-    public let rhythmGameBestScore: Int
+    public let roomPlacementCount: Int?
     public let toolAccess: [NativeToolAccessContext]
 }
 
