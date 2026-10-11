@@ -92,6 +92,7 @@ public actor Engine {
     if let cacheDir = engineConfig.cacheDir {
       litert_lm_engine_settings_set_cache_dir(settings, cacheDir)
     }
+    EnginePrefillSettings.apply(engineConfig.prefillChunkSize, to: settings)
     if let loraRank = engineConfig.loraRank {
       litert_lm_engine_settings_set_lora_rank(settings, Int32(loraRank))
       if loraRank > 0 {

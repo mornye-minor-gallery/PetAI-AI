@@ -1,0 +1,86 @@
+--- a/runtime/executor/llm_litert_compiled_model_executor.cc
++++ b/runtime/executor/llm_litert_compiled_model_executor.cc
+@@ -13,6 +13,8 @@
+ // limitations under the License.
+ 
+ #include "runtime/executor/llm_litert_compiled_model_executor.h"
++
++#include "runtime/executor/cpu_prefill_chunk.h"
+ #include "runtime/executor/pending_prefill_embeddings.h"
+ 
+ #include <algorithm>
+@@ -1806,10 +1808,30 @@
+       state_->GetNumEntries() - llm_context_->runtime_state().current_step;
+ 
+   const bool is_cpu = executor_settings_.GetBackend() == Backend::CPU;
++  // Static models already contain prefill graphs of different sizes. Restrict
++  // selection before any graph arena is allocated; KV capacity stays unchanged.
++  auto selected_runners = prefill_signature_map_;
++  int prefill_chunk_size = -1;
++  if (is_cpu) {
++    ABSL_ASSIGN_OR_RETURN(auto cpu_config,
++                         executor_settings_.GetBackendConfig<CpuConfig>());
++    prefill_chunk_size = cpu_config.prefill_chunk_size;
++    if (!LimitCpuPrefillRunners(selected_runners, prefill_chunk_size)) {
++      return absl::InvalidArgumentError(
++          "No CPU prefill graph fits configured prefill_chunk_size");
++    }
++  }
+   ABSL_ASSIGN_OR_RETURN(auto work_groups, GetOptimizedPrefillWorkGroups(
+-                                              prefill_signature_map_,
++                                              selected_runners,
+                                               ids.size(), remaining_capacity,
+                                               /*use_greedy_chunking=*/is_cpu));
++  if (is_cpu && !work_groups.empty()) {
++    ABSL_LOG(INFO) << "CPU_PREFILL_PLAN input_tokens=" << ids.size()
++                   << " remaining_capacity=" << remaining_capacity
++                   << " chunk_limit=" << prefill_chunk_size
++                   << " groups=" << work_groups.size()
++                   << " first_signature=" << work_groups.front().first;
++  }
+   for (int i = 0; i < work_groups.size(); ++i) {
+     const auto& prefill_signature = work_groups[i].first;
+     int prefill_length = work_groups[i].second;
+--- a/runtime/executor/BUILD
++++ b/runtime/executor/BUILD
+@@ -305,7 +305,7 @@
+ cc_library(
+     name = "llm_litert_compiled_model_executor",
+     srcs = ["llm_litert_compiled_model_executor.cc", "kv_checkpoint.cc"],
+-    hdrs = ["llm_litert_compiled_model_executor.h"],
++    hdrs = ["llm_litert_compiled_model_executor.h", "cpu_prefill_chunk.h"],
+     deps = [
+         ":kv_checkpoint_io",
+         ":common_utils",
+--- /dev/null
++++ b/runtime/executor/cpu_prefill_chunk.h
+@@ -0,0 +1,29 @@
++// Copyright 2026 The ODML Authors.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// https://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++#ifndef LITERT_LM_CPU_PREFILL_CHUNK_H_
++#define LITERT_LM_CPU_PREFILL_CHUNK_H_
++
++namespace litert::lm {
++
++// Kept independent of executor/model headers so the selection policy can be
++// tested without loading a model. A missing graph is an error, not permission
++// to select a larger graph with a larger temporary arena.
++template <typename RunnerMap>
++bool LimitCpuPrefillRunners(RunnerMap& runners, int chunk_size) {
++  if (chunk_size > 0) {
++    for (auto it = runners.begin(); it != runners.end();) {
++      if (it->first > chunk_size) it = runners.erase(it);
++      else ++it;
++    }
++  }
++  return !runners.empty();
++}
++
++}  // namespace litert::lm
++#endif  // LITERT_LM_CPU_PREFILL_CHUNK_H_

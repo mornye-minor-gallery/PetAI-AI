@@ -169,6 +169,7 @@ public enum LiteRTLMError: Error, LocalizedError, Equatable {
 
   public enum ConfigError: Error, LocalizedError, Equatable {
     case invalidMaxNumTokens
+    case invalidPrefillChunkSize
     case invalidMaxNumImages(count: Int)
     case invalidTopK
     case invalidTopP
@@ -180,6 +181,8 @@ public enum LiteRTLMError: Error, LocalizedError, Equatable {
       switch self {
       case .invalidMaxNumTokens:
         return "maxNumTokens must be positive or nil (use the default from model or engine)."
+      case .invalidPrefillChunkSize:
+        return "prefillChunkSize requires CPU and a positive 32-bit token count, or nil."
       case .invalidMaxNumImages:
         return "maxNumImages must be non-negative or nil (use the default from model or engine)."
       case .invalidTopK:

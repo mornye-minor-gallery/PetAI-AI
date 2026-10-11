@@ -87,11 +87,19 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
             ExperimentalFlags.enableBenchmark = collectNativeBenchmark
             ExperimentalFlags.filterChannelContentFromKvCache = true
             let cacheURL = try runtimeCacheURL()
+            // Keep the validated iOS CPU arena bound independent of KV capacity.
+            // Other platforms retain their existing graph-selection policy.
+#if os(iOS)
+            let prefillChunkSize: Int? = 128
+#else
+            let prefillChunkSize: Int? = nil
+#endif
             let configuration = try EngineConfig(
                 modelPath: modelURL.path,
                 backend: .cpu(),
                 maxNumTokens: slmConfiguration.dialogueBudget.contextTokens,
-                cacheDir: cacheURL.path
+                cacheDir: cacheURL.path,
+                prefillChunkSize: prefillChunkSize
             )
 #if RESOURCE_BENCH
             RuntimeResourceTrace.mark("runtime.configuration", ["context_tokens": String(slmConfiguration.dialogueBudget.contextTokens),
