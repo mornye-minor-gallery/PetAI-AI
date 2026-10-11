@@ -192,9 +192,14 @@ public actor MemoryEngine {
         )
     }
 
-    public func close() async {
+    /// Stop accepting inference work without closing an app-owned database.
+    public func suspend() {
         lifecycleGeneration &+= 1
         isPrepared = false
+    }
+
+    public func close() async {
+        suspend()
         await store.close()
     }
 
