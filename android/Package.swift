@@ -16,7 +16,7 @@ let package = Package(
     dependencies: [.package(path: "../ios")],
     targets: [
         .target(name: "CAndroidDispatch", path: "Dispatch", publicHeadersPath: "include",
-                linkerSettings: [.linkedLibrary("android")]),
+                linkerSettings: [.linkedLibrary("android"), .linkedLibrary("log")]),
         .target(name: "AndroidChatBridge",
                 dependencies: ["CAndroidDispatch", .product(name: "PetAIChatRuntime", package: "ios")],
                 path: "Runtime",
