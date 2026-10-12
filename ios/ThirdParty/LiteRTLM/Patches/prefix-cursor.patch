@@ -1,0 +1,19 @@
+--- a/runtime/framework/resource_management/resource_manager.cc
++++ b/runtime/framework/resource_management/resource_manager.cc
+@@ -310,6 +310,16 @@
+     // processed token after removing the matching tokens, call executor
+     // directly.
+     if (processed_tokens->TokenCount() == current_step) {
++      // Matching cached tokens advances the logical position, but compiled
++      // executors read their stored cursor rather than the PrefillParams hint.
++      // Synchronize before appending, otherwise rewind can overwrite retained KV.
++      // Do not seek when already aligned: some backends restrict SetCurrentStep
++      // even when no state change is needed.
++      ABSL_ASSIGN_OR_RETURN(int executor_step,
++                            llm_executor_->GetCurrentStep());
++      if (executor_step != current_step) {
++        ABSL_RETURN_IF_ERROR(llm_executor_->SetCurrentStep(current_step));
++      }
+       return llm_executor_->Prefill(new_inputs, new_prefill_query_params);
+     }
+     // If the updated current_steps_ is still less than the processed tokens

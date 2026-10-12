@@ -5,9 +5,19 @@ import Testing
 struct KVCheckpointStoreTests {
     @Test func identityBindsOnlyFormatModelAndContextCapacity() {
         let a = KVCheckpointStore.identity(modelIdentity: "a", contextTokens: 4096)
-        #expect(a == "app-kv-v3:a:4096")
         #expect(a != KVCheckpointStore.identity(modelIdentity: "b", contextTokens: 4096))
         #expect(a != KVCheckpointStore.identity(modelIdentity: "a", contextTokens: 8192))
+    }
+    @Test func rejectsCacheWrittenBeforePrefixCursorFixBeforeNativeRestore() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try KVCheckpointStore(directory: root)
+        try store.save(identity: "app-kv-v3:a:4096") { io in try io(nil, 0) }
+        #expect(throws: KVCheckpointError.self) {
+            try store.restore(identity: KVCheckpointStore.identity(modelIdentity: "a", contextTokens: 4096)) { _ in
+                Issue.record("A cache potentially overwritten at the wrong position must never reach native restore")
+            }
+        }
     }
     @Test func existenceAndIdempotentRemovalIncludeTemporaryFile() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

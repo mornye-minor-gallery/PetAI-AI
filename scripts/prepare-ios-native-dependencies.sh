@@ -39,6 +39,9 @@ cpu_prefill_patch_sha256=${PREFILL_PATCH_SHA}"
   [[ "$(shasum -a 256 "$XNNPACK_PATCH" | awk '{print $1}')" == "$XNNPACK_PATCH_SHA" ]] || {
   echo "XNNPACK patch checksum mismatch" >&2; exit 1;
 }
+CURSOR_CONFIG="$(python3 "$REPO_ROOT/scripts/litertlm_prefix_cursor.py" --identity)"
+CONFIG="${CONFIG}
+${CURSOR_CONFIG}"
 if [[ "${1:-}" == --print-config ]]; then echo "$CONFIG"; exit 0; fi
 if [[ $# -ne 0 ]]; then echo "Usage: $0 [--print-config]" >&2; exit 2; fi
 
@@ -118,6 +121,7 @@ ee6b4f8710d7d1fa574b054ac0b209cad4119483f789f6095fc9d09bc1335d21  runtime/execut
 c329df678ca84fe12bc8139a0ee7dc3013a3d5efeaec3d95fd37f468ffd81649  runtime/executor/cpu_prefill_chunk.h
 CPU_PREFILL_SOURCES
 ) || { echo "CPU prefill compiled source checksum mismatch" >&2; exit 1; }
+python3 "$REPO_ROOT/scripts/litertlm_prefix_cursor.py" --prepare "$SOURCE_ROOT"
 if [[ ! -x "$BAZEL" ]]; then
   curl --fail --location --retry 2 \
     https://github.com/bazelbuild/bazel/releases/download/7.6.1/bazel-7.6.1-darwin-arm64 -o "$BAZEL"

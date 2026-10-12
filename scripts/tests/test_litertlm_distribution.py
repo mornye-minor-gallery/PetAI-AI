@@ -77,9 +77,11 @@ class LiteRTLMDistributionTests(unittest.TestCase):
             shutil.copy2(REPO_ROOT / "ios/ThirdParty/LiteRTLM/Patches/xnnpack-channelwise-scale.patch",
                          patches / "xnnpack-channelwise-scale.patch")
             source = pathlib.Path(temporary) / "shared-source"
+            shutil.copy2(REPO_ROOT / "scripts/litertlm_prefix_cursor.py", script.parent)
+            shutil.copy2(REPO_ROOT / "ios/ThirdParty/LiteRTLM/Patches/prefix-cursor.patch", patches)
             source.mkdir()
             source.joinpath(".petai-checkpoint-source").write_text(
-                "\n".join(line for line in config.splitlines() if not line.startswith(("xnnpack_", "cpu_prefill_"))) + "\n")
+                "\n".join(line for line in config.splitlines() if not line.startswith(("xnnpack_", "cpu_prefill_", "prefix_cursor_"))) + "\n")
             xnnpack = root / "ios/.artifacts/sources" / (
                 "XNNPACK-" + values["xnnpack_revision"] + "-" + values["xnnpack_patch_sha256"][:12])
             xnnpack.joinpath("src/subgraph").mkdir(parents=True)

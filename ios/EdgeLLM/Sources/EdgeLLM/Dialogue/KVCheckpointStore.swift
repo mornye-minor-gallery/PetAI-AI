@@ -56,7 +56,9 @@ public struct KVCheckpointStore: Sendable {
     }
 
     public static func identity(modelIdentity: String, contextTokens: Int) -> String {
-        ["app-kv-v3", modelIdentity, String(contextTokens)].joined(separator: ":")
+        // Earlier engines could overwrite retained KV at the wrong cursor.
+        // Reject those snapshots before passing any state to the native engine.
+        ["app-kv-v4", modelIdentity, String(contextTokens)].joined(separator: ":")
     }
 
     public typealias Transfer = (UnsafeMutableRawPointer?, Int) throws -> Void
