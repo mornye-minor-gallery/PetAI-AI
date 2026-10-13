@@ -75,8 +75,9 @@ public struct ReactionFrameIndex: Sendable {
         return try Self(metadata: metadata, vectors: floats)
     }
     /// K counts messages, including the pending user message, not exchanges.
-    public static func query(history: [String], current: String) -> String {
-        (Array(history.suffix(2)) + [current]).joined(separator: "\n")
+    public static func query(history: [String], current: String,
+                             messageCount: ReactionQueryGate.MessageCount = .three) -> String {
+        (Array(history.suffix(messageCount.rawValue - 1)) + [current]).joined(separator: "\n")
     }
     public func search(query: [Float], embeddingIdentity: String) throws -> Match {
         guard embeddingIdentity == metadata.embeddingIdentity else { throw IndexError.embeddingMismatch }
@@ -111,10 +112,13 @@ public struct ReactionFrameIndex: Sendable {
 /// own keyword selection and budget; reaction selection contributes exactly one entry.
 public struct DialogueRetrievalResources: Sendable {
     public let index: ReactionFrameIndex?
+    public let queryGate: ReactionQueryGate?
     public let lore: WorldInfoSettings?
     public init(directory: URL, characterID: String, reactions: Bool, worldLore: Bool) throws {
         index = reactions ? try ReactionFrameIndex.load(directory: directory) : nil
+        queryGate = reactions ? try ReactionQueryGate.load(directory: directory) : nil
         guard index == nil || index?.characterID == characterID else { throw ReactionFrameIndex.IndexError.invalidArtifact }
+        guard index?.embeddingIdentity == queryGate?.embeddingIdentity else { throw ReactionFrameIndex.IndexError.invalidArtifact }
         lore = worldLore ? try JSONDecoder().decode(WorldInfoSettings.self,
             from: Data(contentsOf: directory.appendingPathComponent("dialogue-lore.json"))) : nil
     }

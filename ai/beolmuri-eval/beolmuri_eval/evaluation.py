@@ -242,7 +242,8 @@ def load_plan(path=None, *, variant=None, repeats=None, limit_pairs=None, timeou
         retrieval["directory"] = str(directory)
         names = []
         if retrieval["reactions"]:
-            names += ["reaction-frames.json", "reaction-vectors.f32"]
+            names += ["reaction-frames.json", "reaction-vectors.f32",
+                      "reaction-query-gate.json", "reaction-query-prototypes.f32"]
         if retrieval["worldLore"]:
             names += ["dialogue-lore.json"]
         for name in names:
@@ -318,7 +319,9 @@ def verify_snapshot(directory, metadata):
     for name, expected in metadata.items():
         if name not in required | {"history.json", "memories.json", "character.yaml", "situation.yaml",
                                    "slm-runtime-defaults.json",
-                                   "reaction-frames.json", "reaction-vectors.f32", "dialogue-lore.json"} and not re.fullmatch(r"lorebook-[0-9a-f]{64}\.(json|png)", name):
+                                   "reaction-frames.json", "reaction-vectors.f32",
+                                   "reaction-query-gate.json", "reaction-query-prototypes.f32",
+                                   "dialogue-lore.json"} and not re.fullmatch(r"lorebook-[0-9a-f]{64}\.(json|png)", name):
             raise ValueError("unknown snapshot entry")
         actual = hashlib.sha256((Path(directory) / "inputs" / name).read_bytes()).hexdigest()
         if actual != expected["sha256"]:

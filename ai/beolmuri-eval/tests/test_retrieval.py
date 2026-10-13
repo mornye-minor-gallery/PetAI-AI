@@ -18,7 +18,8 @@ class RetrievalTests(unittest.TestCase):
             metadata = {}
             for name in ['config.yaml', 'dataset.jsonl', 'judge.md', 'judge.schema.json',
                          'character.yaml', 'situation.yaml', 'reaction-frames.json',
-                         'reaction-vectors.f32', 'dialogue-lore.json']:
+                         'reaction-vectors.f32', 'reaction-query-gate.json',
+                         'reaction-query-prototypes.f32', 'dialogue-lore.json']:
                 (inputs / name).write_bytes(b'fixture')
                 metadata[name] = {'sha256': hashlib.sha256(b'fixture').hexdigest()}
             verify_snapshot(d, metadata)
@@ -49,6 +50,14 @@ class RetrievalTests(unittest.TestCase):
                 'vectorsSHA256': hashlib.sha256(vector).hexdigest(), 'rows': [0],
                 'frames': [{'id': 'selected', 'goal': '상대의 이야기를 듣는다', 'shape': '짧게 답한다',
                             'example': {'user': '안녕', 'assistant': '{{user}}, 반가워.'}}]}))
+            prototypes = struct.pack('<20f', *([1., 0.] * 5 + [-1., 0.] * 5))
+            (directory / 'reaction-query-prototypes.f32').write_bytes(prototypes)
+            (directory / 'reaction-query-gate.json').write_text(json.dumps({
+                'version': 1, 'policyID': 'ensemble-bb81762edc8a', 'embeddingIdentity': 'fixture',
+                'dimension': 2, 'vectorsSHA256': hashlib.sha256(prototypes).hexdigest(),
+                'source': {'indexSHA256': hashlib.sha256((directory / 'reaction-frames.json').read_bytes()).hexdigest()},
+                'examples': ([{'current': '별 이야기 해줘', 'nontopical': False}] * 5 +
+                             [{'current': '그거는 어떻게 해?', 'nontopical': True}] * 5)}))
             (directory / 'dialogue-lore.json').write_text(json.dumps({
                 'tokenBudget': 200, 'scanDepth': 3, 'entries': [{'id': 'lore', 'keys': ['별'], 'content': '별길 정보'}]}))
             config = {'includePersona': True, 'includeSessionContext': True, 'enforceCharacterName': False,
@@ -65,7 +74,8 @@ class RetrievalTests(unittest.TestCase):
                             tokenBudget={'memoryTokens': 100, 'contextTokens': 8096, 'outputTokens': 1024},
                             measurerID='fixture', measurement_handler=measure, embedding_handler=embed)
                 result = worker.call('prepare', **args)
-                self.assertEqual(requests, ['안녕\n반가워\n별 이야기 해줘'])
+                self.assertEqual(requests, ['별 이야기 해줘'])
+                self.assertEqual(result['retrieval_trace']['query_messages'], 1)
                 self.assertEqual(result['retrieval_trace']['selected_id'], 'selected')
                 self.assertIn('상대의 이야기를 듣는다', result['user_prompt'])
                 self.assertIn('별길 정보', result['system_prompt'])
@@ -79,6 +89,9 @@ class RetrievalTests(unittest.TestCase):
                 self.assertNotIn('상대의 이야기를 듣는다', result['user_prompt'])
                 self.assertEqual(len(requests), 2)
                 config['dialogueContent']['retrieval']['reactions'] = True
+                result = worker.call('prepare', **{**args, 'userMessage': '그거는 어떻게 해?'})
+                self.assertEqual(result['retrieval_trace']['query_messages'], 3)
+                self.assertEqual(requests[-2:], ['그거는 어떻게 해?', '안녕\n반가워\n그거는 어떻게 해?'])
                 with self.assertRaisesRegex(RuntimeError, 'embeddingMismatch'):
                     worker.call('prepare', **{**args, 'embedding_handler': lambda r: {'vector': [1, 0], 'identity': 'wrong'}})
                 # An input error must not kill or desynchronize the worker.

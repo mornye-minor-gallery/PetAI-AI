@@ -26,14 +26,22 @@ extension ChatSessionController {
         let scene = PersonaSceneRoute.general
 
         var reactionMatch: ReactionFrameIndex.Match?
-        if let index = dialogueRetrieval?.index {
-            let query = ReactionFrameIndex.query(history: session.history.map(\.text), current: userMessage)
+        if let index = dialogueRetrieval?.index, let gate = dialogueRetrieval?.queryGate {
             let started = ProcessInfo.processInfo.systemUptime
-            let vector = try await memoryService.embedWorldInfoQuery(query)
-            let embeddingMS = (ProcessInfo.processInfo.systemUptime - started) * 1000
-            let match = try index.search(query: vector, embeddingIdentity: await memoryService.searchEmbeddingIdentity())
+            let currentVector = try await memoryService.embedWorldInfoQuery(userMessage)
+            let currentEmbeddingMS = (ProcessInfo.processInfo.systemUptime - started) * 1000
+            let identity = try await memoryService.searchEmbeddingIdentity()
+            let gateStarted = ProcessInfo.processInfo.systemUptime
+            let messageCount = try gate.select(current: userMessage, embedding: currentVector,
+                                               embeddingIdentity: identity)
+            let gateMS = (ProcessInfo.processInfo.systemUptime - gateStarted) * 1000
+            let query = ReactionFrameIndex.query(history: session.history.map(\.text), current: userMessage,
+                                                 messageCount: messageCount)
+            let vector = query == userMessage ? currentVector : try await memoryService.embedWorldInfoQuery(query)
+            let totalMS = (ProcessInfo.processInfo.systemUptime - started) * 1000
+            let match = try index.search(query: vector, embeddingIdentity: identity)
             reactionMatch = match
-            logger.notice("Reaction frame id=\(match.frame.id) score=\(match.score) embeddingMS=\(embeddingMS) searchMS=\(match.searchMilliseconds)")
+            logger.notice("Reaction frame id=\(match.frame.id) queryMessages=\(min(messageCount.rawValue, session.history.count + 1)) embeddingCalls=\(query == userMessage ? 1 : 2) score=\(match.score) currentEmbeddingMS=\(currentEmbeddingMS) gateMS=\(gateMS) retrievalMS=\(totalMS) searchMS=\(match.searchMilliseconds)")
         }
         let worldInfo = dialogueRetrieval?.worldInfo(base: slmConfiguration.worldInfo, match: reactionMatch) ?? slmConfiguration.worldInfo
         var worldContext = worldContext
