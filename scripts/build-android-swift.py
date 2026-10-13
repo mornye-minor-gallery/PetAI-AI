@@ -44,6 +44,7 @@ def main():
     (native / "libPetAIAndroid.provenance.json").write_text(json.dumps(bridge, indent=2) + "\n")
     verify_android_product(native, backend=args.backend)
     print("Swift bridge, resources and native profile verified.", flush=True)
+    print("Team delivery: publish the approved native bundle with scripts/build_inputs.py publish.", flush=True)
 
 
 if __name__ == "__main__": main()
