@@ -102,6 +102,18 @@ public func android_select_model(_ pointer: UnsafePointer<CChar>?) {
         await NativePreparationContext.$requestID.withValue(id) { await controller.selectModel() }
     }
 }
+@_cdecl("petai_activate_character")
+public func android_activate_character(_ characterPointer: UnsafePointer<CChar>?,
+                                       _ preparationPointer: UnsafePointer<CChar>?) {
+    guard let characterPointer, let preparationPointer else { return }
+    let characterID = String(cString: characterPointer)
+    let preparationID = String(cString: preparationPointer)
+    AndroidChatHost.shared.use { controller in
+        await NativePreparationContext.$requestID.withValue(preparationID) {
+            await controller.activateCharacter(characterID)
+        }
+    }
+}
 @_cdecl("petai_send")
 public func android_send(_ pointer: UnsafePointer<CChar>?) {
     guard let pointer else { return }

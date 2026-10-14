@@ -54,13 +54,13 @@ public struct ReactionQueryGate: Sendable {
         lexical = ReactionQueryLexicalIndex(examples: decoded.examples.map(\.current))
     }
 
-    public static func load(directory: URL) throws -> Self {
-        let metadata = try Data(contentsOf: directory.appendingPathComponent("reaction-query-gate.json"))
+    public static func load(directory: URL, suffix: String = "") throws -> Self {
+        let metadata = try Data(contentsOf: directory.appendingPathComponent("reaction-query-gate\(suffix).json"))
         let header = try JSONDecoder().decode(Metadata.self, from: metadata)
-        let index = try Data(contentsOf: directory.appendingPathComponent("reaction-frames.json"))
+        let index = try Data(contentsOf: directory.appendingPathComponent("reaction-frames\(suffix).json"))
         let indexDigest = SHA256.hash(data: index).map { String(format: "%02x", $0) }.joined()
         guard indexDigest == header.source.indexSHA256 else { throw GateError.invalidArtifact }
-        let data = try Data(contentsOf: directory.appendingPathComponent("reaction-query-prototypes.f32"), options: .mappedIfSafe)
+        let data = try Data(contentsOf: directory.appendingPathComponent("reaction-query-prototypes\(suffix).f32"), options: .mappedIfSafe)
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         guard digest == header.vectorsSHA256, data.count % 4 == 0 else { throw GateError.invalidArtifact }
         let values: [Float] = data.withUnsafeBytes { bytes in

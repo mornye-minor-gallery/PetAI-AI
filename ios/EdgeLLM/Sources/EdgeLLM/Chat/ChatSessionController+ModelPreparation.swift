@@ -5,7 +5,8 @@ extension ChatSessionController {
     public func selectModel() async { await prepareOnce(selectingModel: true) }
 
     func prepareOnce(selectingModel: Bool) async {
-        guard !isUnloading, maintenanceRequestID == nil, !dataExportInProgress, diaryTask == nil else {
+        guard !isUnloading, maintenanceRequestID == nil, !dataExportInProgress,
+              diaryTask == nil, characterActivationTask == nil else {
             emitError(code: "runtime_busy", message: RuntimeError.runtimeBusy.localizedDescription)
             return
         }
@@ -284,7 +285,7 @@ extension ChatSessionController {
         defer { diagnostics?.mark("retrieval.load.exit", [:]) }
         dialogueContent = nil
         dialogueRetrieval = nil
-        let resources = try platform.loadContent()
+        let resources = try platform.loadContent(characterID: selectedCharacterID)
         dialogueContent = resources.content
         dialogueRetrieval = platform.personaEnabled ? resources.retrieval : nil
         return platform.personaEnabled ? resources.content.promptSet : nil

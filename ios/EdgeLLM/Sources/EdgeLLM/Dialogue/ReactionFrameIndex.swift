@@ -60,10 +60,10 @@ public struct ReactionFrameIndex: Sendable {
         }
         metadata = m; self.vectors = vectors
     }
-    public static func load(directory: URL) throws -> Self {
-        let metadata = try Data(contentsOf: directory.appendingPathComponent("reaction-frames.json"))
+    public static func load(directory: URL, suffix: String = "") throws -> Self {
+        let metadata = try Data(contentsOf: directory.appendingPathComponent("reaction-frames\(suffix).json"))
         let header = try JSONDecoder().decode(Metadata.self, from: metadata)
-        let data = try Data(contentsOf: directory.appendingPathComponent("reaction-vectors.f32"), options: .mappedIfSafe)
+        let data = try Data(contentsOf: directory.appendingPathComponent("reaction-vectors\(suffix).f32"), options: .mappedIfSafe)
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         guard header.vectorsSHA256 == digest else { throw IndexError.invalidArtifact }
         guard data.count % 4 == 0 else { throw IndexError.invalidArtifact }
@@ -114,13 +114,14 @@ public struct DialogueRetrievalResources: Sendable {
     public let index: ReactionFrameIndex?
     public let queryGate: ReactionQueryGate?
     public let lore: WorldInfoSettings?
-    public init(directory: URL, characterID: String, reactions: Bool, worldLore: Bool) throws {
-        index = reactions ? try ReactionFrameIndex.load(directory: directory) : nil
-        queryGate = reactions ? try ReactionQueryGate.load(directory: directory) : nil
+    public init(directory: URL, characterID: String, reactions: Bool, worldLore: Bool,
+                suffix: String = "") throws {
+        index = reactions ? try ReactionFrameIndex.load(directory: directory, suffix: suffix) : nil
+        queryGate = reactions ? try ReactionQueryGate.load(directory: directory, suffix: suffix) : nil
         guard index == nil || index?.characterID == characterID else { throw ReactionFrameIndex.IndexError.invalidArtifact }
         guard index?.embeddingIdentity == queryGate?.embeddingIdentity else { throw ReactionFrameIndex.IndexError.invalidArtifact }
         lore = worldLore ? try JSONDecoder().decode(WorldInfoSettings.self,
-            from: Data(contentsOf: directory.appendingPathComponent("dialogue-lore.json"))) : nil
+            from: Data(contentsOf: directory.appendingPathComponent("dialogue-lore\(suffix).json"))) : nil
     }
     public func worldInfo(base: WorldInfoSettings?, match: ReactionFrameIndex.Match?) -> WorldInfoSettings? {
         guard base != nil || lore != nil || match != nil else { return nil }

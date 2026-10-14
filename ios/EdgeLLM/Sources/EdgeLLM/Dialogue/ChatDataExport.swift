@@ -26,31 +26,37 @@ public struct ChatDataExport: Codable, Sendable {
         public let occurredAt: Date
     }
 
+    public struct Conversation: Codable, Sendable {
+        public let characterID: String
+        public let recentEntries: [RecentEntry]
+        public let sessionSummary: String?
+    }
+
     public let formatVersion: Int
     public let exportedAt: Date
-    public let recentEntries: [RecentEntry]
+    public let conversations: [Conversation]
     public let longTermMemories: [LongTermMemory]
     public let diaries: [DailyDiary]
-    public let sessionSummary: String?
 
-    public init(recentEntries: [RecentDialogueEntry], activeMemories: [MemoryObservation],
-                diaries: [DailyDiary] = [], exportedAt: Date = Date(), sessionSummary: String? = nil) throws {
+    public init(sessions: [String: RoutedPersonaSessionContext], activeMemories: [MemoryObservation],
+                diaries: [DailyDiary] = [], exportedAt: Date = Date()) throws {
         if let invalid = activeMemories.first(where: { $0.state != .active || $0.labels.isEmpty }) {
             throw ChatDataExportError.invalidMemory(invalid.id)
         }
-        formatVersion = 4
-        self.sessionSummary = sessionSummary
+        formatVersion = 5
         self.exportedAt = exportedAt
         self.diaries = diaries
-        self.recentEntries = recentEntries.map { entry in
-            switch entry {
-            case .request(let turn):
-                RecentEntry(kind: "request", id: turn.requestID, userMessage: turn.userMessage,
-                    assistantMessage: turn.assistantMessage, status: turn.status, text: nil, topic: nil)
-            case .homeLine(let line):
-                RecentEntry(kind: "homeLine", id: line.id, userMessage: nil,
-                    assistantMessage: nil, status: nil, text: line.text, topic: line.topic)
-            }
+        conversations = sessions.sorted { $0.key < $1.key }.map { characterID, session in
+            return Conversation(characterID: characterID, recentEntries: session.recentEntries.map { entry in
+                switch entry {
+                case .request(let turn):
+                    RecentEntry(kind: "request", id: turn.requestID, userMessage: turn.userMessage,
+                        assistantMessage: turn.assistantMessage, status: turn.status, text: nil, topic: nil)
+                case .homeLine(let line):
+                    RecentEntry(kind: "homeLine", id: line.id, userMessage: nil,
+                        assistantMessage: nil, status: nil, text: line.text, topic: line.topic)
+                }
+            }, sessionSummary: session.summary)
         }
         longTermMemories = activeMemories.map {
             LongTermMemory(observationID: $0.id, sourceTurnID: $0.turnID,

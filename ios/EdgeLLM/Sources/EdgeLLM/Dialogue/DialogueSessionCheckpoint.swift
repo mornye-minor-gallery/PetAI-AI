@@ -2,6 +2,7 @@ import Foundation
 
 /// Recent originals and their summary are one checkpoint. Pending ownership is serialized as cancelled.
 public struct DialogueSessionCheckpoint: Codable, Equatable, Sendable {
+    public var characterID: String?
     public let version: Int
     public let maximumTurnCount: Int
     public let turns: [RoutedPersonaSessionContext.Turn]
@@ -21,7 +22,8 @@ public struct DialogueSessionCheckpoint: Codable, Equatable, Sendable {
                 worldInfoState: WorldInfoState, worldInfoText: WorldInfoTextContext,
                 chatTurns: [ChatTurn]? = nil, visibleUserMessages: Int? = nil, visibleMessages: Int? = nil,
                 recentEntries: [RecentDialogueEntry]? = nil, summary: String? = nil,
-                summaryModelIdentifier: String? = nil) {
+                summaryModelIdentifier: String? = nil, characterID: String? = nil) {
+        self.characterID = characterID
         self.version = version; self.maximumTurnCount = maximumTurnCount; self.turns = turns
         self.completedUserMessages = completedUserMessages; self.completedMessages = completedMessages
         self.worldInfoState = worldInfoState; self.worldInfoText = worldInfoText

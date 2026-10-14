@@ -47,10 +47,11 @@ struct ChatControllerFixture {
         }
     }
     func remove() { try? FileManager.default.removeItem(at: directory) }
-    func request(_ id: String, _ text: String, allowedTools: [NativeToolKind] = []) -> String {
+    func request(_ id: String, _ text: String, allowedTools: [NativeToolKind] = [],
+                 characterID: String = "test") -> String {
         let access = allowedTools.map { ["tool": $0.rawValue, "unlockSource": "test", "unlocked": true] as [String: Any] }
         let payload: [String: Any] = ["requestId": id, "prompt": text, "thinkingEnabled": false,
-            "userProfileContext": ["characterId": "test", "userName": "", "roomPlacementCount": 0, "toolAccess": access]]
+            "userProfileContext": ["characterId": characterID, "userName": "", "roomPlacementCount": 0, "toolAccess": access]]
         return String(decoding: try! JSONSerialization.data(withJSONObject: payload), as: UTF8.self)
     }
 }
@@ -59,6 +60,7 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     nonisolated let identifier = "synthetic-chat-tokenizer"
     var state: RuntimeState = .ready
     var generationCount = 0
+    var modelPreparationCount = 0
     var functionCallCount = 0
     var functionCall: NativeToolFunctionCall?
     var diaryGenerationCount = 0
@@ -89,6 +91,7 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     func failSummary(with error: Error) { summaryFailure = error }
     func failPrefill(with error: Error) { prefillFailure = error }
     func failPreparation(with error: Error) { preparationFailure = error }
+    func clearPreparationFailure() { preparationFailure = nil }
     func usePreparationBudget(_ budget: DialogueTokenBudget) { preparationBudget = budget }
     func holdPrefills() { holdPrefill = true }
     func waitForPrefill() async {
@@ -97,7 +100,7 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     }
     func finishPrefill() { prefillContinuation?.resume(); prefillContinuation = nil; holdPrefill = false }
     func setSummary(_ text: String) { summaryResponse = text }
-    func prepare(modelURL: URL) {}
+    func prepare(modelURL: URL) { modelPreparationCount += 1 }
     func startConversation(configuration: ConversationConfiguration) {}
     func prepareDialogue(input: DialoguePromptInput, policy: DialoguePromptPolicy,
                          thinkingEnabled: Bool) async throws -> PreparedDialogue {
@@ -162,6 +165,7 @@ actor ChatTestMemory: ChatMemoryService {
     nonisolated let modelID = "litert-community/embeddinggemma-300m-seq256-mixed-precision"
     nonisolated let dimension = 768
     var lastExcluded: Set<String> = []
+    var recalledCharacterIDs: [String] = []
     var holdWrite = false
     var writeStarted = false
     var writeCount = 0
@@ -181,6 +185,7 @@ actor ChatTestMemory: ChatMemoryService {
     func close() { if pendingWrite != nil { closedDuringWrite = true } }
     func recall(_ request: MemorySearchRequest) -> [RetrievedMemoryObservation] {
         lastExcluded = request.excludedTurnIDs
+        recalledCharacterIDs.append(request.scope.characterID)
         return []
     }
     func remember(_ request: MemoryWriteRequest, decision: MemoryGateDecision) async -> MemoryRememberResult {
@@ -219,6 +224,7 @@ actor ChatTestMemory: ChatMemoryService {
 
 struct ChatTestPlatform: ChatPlatformServices, ChatPlatformTools {
     let store: DialogueSessionFileStore
+    let defaultCharacterID = "test"
     var toolAdapter: (any ChatPlatformTools)? = nil
     var personaEnabled = true
     var tools: any ChatPlatformTools { toolAdapter ?? self }
@@ -235,9 +241,20 @@ struct ChatTestPlatform: ChatPlatformServices, ChatPlatformTools {
     }
     func selectAsset(_ kind: NativeAssetKind) throws -> URL { throw UnityBridgeError.modelSelectionCancelled }
     func importAsset(_ url: URL, kind: NativeAssetKind) {}
-    func recentTurnStore() -> DialogueSessionFileStore { store }
-    func loadContent() throws -> ChatContentResources {
-        .init(content: try .load(data: Data(#"{"id":"test","name":"별","persona":"대화 시험용 캐릭터."}"#.utf8)))
+    func recentTurnStore(characterID: String) throws -> DialogueSessionFileStore {
+        if characterID == "test" { return store }
+        return try .character(characterID, in: store.fileURL.deletingLastPathComponent())
+    }
+    func storedCharacterIDs() throws -> [String] {
+        let others = try DialogueSessionFileStore.existingCharacterIDs(in: store.fileURL.deletingLastPathComponent())
+        return (FileManager.default.fileExists(atPath: store.fileURL.path) ? ["test"] : []) + others
+    }
+    func loadContent(characterID: String) throws -> ChatContentResources {
+        guard ["test", "lucia"].contains(characterID) else {
+            throw DialogueContent.SelectionError.characterNotConfigured
+        }
+        let text = characterID == "test" ? "대화 시험용 캐릭터." : "두 번째 시험용 캐릭터."
+        return .init(content: try .load(data: Data("{\"id\":\"\(characterID)\",\"name\":\"별\",\"persona\":\"\(text)\"}".utf8)))
     }
     func share(_ file: URL) {}
     func showExportError(_ message: String) {}

@@ -12,6 +12,7 @@ struct AndroidChatPaths: Decodable, Sendable {
 struct AndroidChatPlatform: ChatPlatformServices {
     let paths: AndroidChatPaths
     let tools: any ChatPlatformTools = AndroidPendingTools()
+    let defaultCharacterID = "elena"
     var personaEnabled: Bool { true }
     var assets: URL { URL(fileURLWithPath: paths.assetsDirectory) }
 
@@ -25,16 +26,25 @@ struct AndroidChatPlatform: ChatPlatformServices {
     func missingAsset() async throws -> NativeAssetKind? {
         DownloadedModelAssets.installed(in: URL(fileURLWithPath: paths.modelsDirectory)) == nil ? .languageModel : nil
     }
-    func loadContent() throws -> ChatContentResources {
-        let content = try DialogueContent.load(url: assets.appendingPathComponent("dialogue-content.json"))
+    func loadContent(characterID: String) throws -> ChatContentResources {
+        let contentURL = try DialogueContent.fileURL(for: characterID, in: assets)
+        let content = try DialogueContent.load(url: contentURL)
         let retrieval = try content.retrieval.map {
             try DialogueRetrievalResources(directory: assets, characterID: content.id,
-                                           reactions: $0.reactions, worldLore: $0.worldLore)
+                                           reactions: $0.reactions, worldLore: $0.worldLore,
+                                           suffix: DialogueContent.resourceSuffix(for: contentURL))
         }
         return .init(content: content, retrieval: retrieval)
     }
-    func recentTurnStore() throws -> DialogueSessionFileStore {
-        .init(fileURL: URL(fileURLWithPath: paths.supportDirectory).appendingPathComponent("recent-turns.json"))
+    func recentTurnStore(characterID: String) throws -> DialogueSessionFileStore {
+        let support = URL(fileURLWithPath: paths.supportDirectory)
+        return try .character(characterID, in: support,
+                              legacyFileURL: support.appendingPathComponent("recent-turns.json"))
+    }
+    func storedCharacterIDs() throws -> [String] {
+        let support = URL(fileURLWithPath: paths.supportDirectory)
+        return try DialogueSessionFileStore.existingCharacterIDs(in: support,
+            legacyFileURL: support.appendingPathComponent("recent-turns.json"))
     }
     func selectAsset(_ kind: NativeAssetKind) async throws -> URL { throw AndroidHostError.notReady }
     func importAsset(_ url: URL, kind: NativeAssetKind) async throws { throw AndroidHostError.notReady }

@@ -17,7 +17,7 @@ extension ChatSessionController {
             return true
         }
         do {
-            let store = try platform.recentTurnStore()
+            let store = try platform.recentTurnStore(characterID: selectedCharacterID)
             let saved = try store.load(maximumTurnCount: slmConfiguration.persona.recentTurnLimit) ?? RoutedPersonaSessionContext(
                 maximumTurnCount: slmConfiguration.persona.recentTurnLimit)
             routedPersonaSession = saved
@@ -40,7 +40,8 @@ extension ChatSessionController {
             emit(type: "home_line_failed", code: "invalid_home_line", message: "홈 대사를 읽지 못했습니다.")
             return
         }
-        guard recentTurnsLoaded, let recentTurnStore,
+        guard state == .ready, characterActivationTask == nil,
+              recentTurnsLoaded, let recentTurnStore,
               activeRequestId == nil, dialogueTasks.isEmpty, !isCommittingTurn, !dataExportInProgress,
               maintenanceRequestID == nil, !isUnloading else {
             emit(type: "home_line_failed", requestId: request.id,

@@ -100,12 +100,13 @@ final class HomeTopicDialogueTests: XCTestCase {
 
     func testExportKeepsTopicMetadataSeparateFromSpeech() throws {
         let topic = HomeTopicContext(id: "automation", characterID: "fixture", guidance: "보조 자료")
-        let export = try ChatDataExport(recentEntries: [.homeLine(.init(id: "offer-1", text: opening, topic: topic))],
-            activeMemories: [])
+        var session = RoutedPersonaSessionContext()
+        try session.appendHomeLine(id: "offer-1", text: opening, topic: topic)
+        let export = try ChatDataExport(sessions: ["fixture": session], activeMemories: [])
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let restored = try decoder.decode(ChatDataExport.self, from: export.jsonData())
-        XCTAssertEqual(restored.recentEntries.first?.text, opening)
-        XCTAssertEqual(restored.recentEntries.first?.topic, topic)
+        XCTAssertEqual(restored.conversations.first?.recentEntries.first?.text, opening)
+        XCTAssertEqual(restored.conversations.first?.recentEntries.first?.topic, topic)
     }
 }

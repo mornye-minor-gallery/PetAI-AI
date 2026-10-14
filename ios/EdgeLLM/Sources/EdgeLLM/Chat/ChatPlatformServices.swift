@@ -7,8 +7,10 @@ public protocol ChatPlatformServices: Sendable {
     func resolveModelAssets() async throws -> RuntimeModelAssets
     func selectAsset(_ kind: NativeAssetKind) async throws -> URL
     func importAsset(_ url: URL, kind: NativeAssetKind) async throws
-    func loadContent() throws -> ChatContentResources
-    func recentTurnStore() throws -> DialogueSessionFileStore
+    var defaultCharacterID: String { get }
+    func loadContent(characterID: String) throws -> ChatContentResources
+    func recentTurnStore(characterID: String) throws -> DialogueSessionFileStore
+    func storedCharacterIDs() throws -> [String]
     var personaEnabled: Bool { get }
     var tools: any ChatPlatformTools { get }
     func share(_ file: URL) async throws

@@ -24,6 +24,7 @@ public actor ChatSessionController {
     let nativeToolAdapterHub: any ChatPlatformTools
     let nativeToolCoordinator: NativeToolProposalCoordinator
     let platform: any ChatPlatformServices
+    var selectedCharacterID: String
     let memoryService: any ChatMemoryService
     let toolRouterArtifacts: NativeToolRouterArtifactRegistry?
     let eventSink: @Sendable (NativeChatEvent) -> Void
@@ -73,6 +74,7 @@ public actor ChatSessionController {
         self.memoryService = memory
         self.toolRouterArtifacts = toolRouterArtifacts
         self.platform = platform
+        selectedCharacterID = platform.defaultCharacterID
         self.eventSink = eventSink
         logger = ChatLogger(write: log)
         self.diagnostics = diagnostics
@@ -83,10 +85,12 @@ public actor ChatSessionController {
     }
 
     var preparationTask: Task<Void, Never>?
+    var characterActivationTask: Task<Void, Never>?
     var isUnloading = false
 
     public func send(json: String) async {
-        guard maintenanceRequestID == nil, !dataExportInProgress, diaryTask == nil, !isUnloading else {
+        guard maintenanceRequestID == nil, !dataExportInProgress, diaryTask == nil,
+              characterActivationTask == nil, !isUnloading else {
             let id = (try? JSONDecoder().decode(NativeSendRequest.self, from: Data(json.utf8)))?.requestId
             emitError(code: "runtime_busy", message: "데이터 정리 또는 이전 대화가 진행 중입니다.", requestId: id)
             return
@@ -368,6 +372,7 @@ public actor ChatSessionController {
         abandonPendingTurnDecision()
         defer { isUnloading = false }
         if let task = preparationTask { await task.value }
+        if let task = characterActivationTask { await task.value }
         await cancel()
         // A visible completion can precede its memory write. Keep stores alive
         // until every admitted request has finished its terminal persistence.

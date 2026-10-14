@@ -32,6 +32,7 @@ extension ChatSessionController {
                 }
                 emit(type: "maintenance_progress", requestId: id, message: "진행 중인 대화와 기억 저장을 정리하고 있어요.")
                 if let preparationTask { await preparationTask.value }
+                if let characterActivationTask { await characterActivationTask.value }
                 await cancel()
                 // Completed replies can still be writing long-term memory. Drain every writer,
                 // while allowing normal follow-up dialogue outside maintenance.
