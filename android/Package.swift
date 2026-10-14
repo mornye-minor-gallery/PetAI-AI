@@ -22,6 +22,6 @@ let package = Package(
         .target(name: "AndroidChatBridge",
                 dependencies: ["CAndroidDispatch", .product(name: "PetAIChatRuntime", package: "ios")],
                 path: "Runtime",
-                swiftSettings: [.unsafeFlags(["-Xcc", "-I" + source])] + (backend == "gpu" ? [.define("PETAI_ANDROID_GPU")] : []),
+                swiftSettings: [.unsafeFlags(["-Xcc", "-I" + source])],
                 linkerSettings: [.unsafeFlags(["-L", library, "-llitert-lm"])]),
     ])

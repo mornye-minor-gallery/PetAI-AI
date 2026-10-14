@@ -6,6 +6,7 @@ struct AndroidChatPaths: Decodable, Sendable {
     let modelsDirectory: String
     let supportDirectory: String
     let cacheDirectory: String
+    let inferenceBackend: String
 }
 
 struct AndroidChatPlatform: ChatPlatformServices {

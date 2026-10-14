@@ -41,12 +41,8 @@ final class AndroidChatHost: @unchecked Sendable {
         let profileURL = URL(fileURLWithPath: paths.assetsDirectory).appendingPathComponent("native-engine.json")
         let nativeProfile = try Data(contentsOf: profileURL)
         let profile = try JSONDecoder().decode(AndroidEngineProfile.self, from: nativeProfile)
-#if PETAI_ANDROID_GPU
-        let backend: ChatInferenceBackend = .gpu
-#else
-        let backend: ChatInferenceBackend = .cpu
-#endif
-        guard profile.backend == backend.rawValue else {
+        guard let backend = ChatInferenceBackend(rawValue: paths.inferenceBackend),
+              profile.supports(backend.rawValue) else {
             throw AndroidHostError.engineProfileMismatch
         }
         let engineIdentity = try KVCheckpointStore.modelIdentity(at: profileURL)
@@ -60,6 +56,7 @@ final class AndroidChatHost: @unchecked Sendable {
             eventSink: { [weak self] in self?.emit($0) },
             log: { Logger(subsystem: "PetAI", category: "AndroidChat").notice("\($0, privacy: .public)") })
         configuration = json
+        print("ANDROID_CHAT configured build=\(profile.backend) selected=\(backend.rawValue)")
     }
     func use(_ operation: @escaping @Sendable (ChatSessionController) async -> Void) {
         lock.lock()
@@ -69,8 +66,6 @@ final class AndroidChatHost: @unchecked Sendable {
         Task { await operation(value) }
     }
 }
-
-private struct AndroidEngineProfile: Decodable { let backend: String }
 
 @_cdecl("petai_android_configure")
 public func petai_android_configure(_ json: UnsafePointer<CChar>?, _ error: UnsafeMutablePointer<CChar>?,
