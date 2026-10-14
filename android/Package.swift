@@ -6,6 +6,8 @@ guard let source = ProcessInfo.processInfo.environment["PETAI_LITERTLM_SOURCE_DI
       let library = ProcessInfo.processInfo.environment["PETAI_LITERTLM_LIBRARY_DIR"] else {
     fatalError("Set PETAI_LITERTLM_SOURCE_DIR and PETAI_LITERTLM_LIBRARY_DIR.")
 }
+let backend = ProcessInfo.processInfo.environment["PETAI_ANDROID_LLM_BACKEND"] ?? "cpu"
+guard ["cpu", "gpu"].contains(backend) else { fatalError("PETAI_ANDROID_LLM_BACKEND must be cpu or gpu") }
 let package = Package(
     name: "PetAIAndroid",
     products: [
@@ -20,6 +22,6 @@ let package = Package(
         .target(name: "AndroidChatBridge",
                 dependencies: ["CAndroidDispatch", .product(name: "PetAIChatRuntime", package: "ios")],
                 path: "Runtime",
-                swiftSettings: [.unsafeFlags(["-Xcc", "-I" + source])],
+                swiftSettings: [.unsafeFlags(["-Xcc", "-I" + source])] + (backend == "gpu" ? [.define("PETAI_ANDROID_GPU")] : []),
                 linkerSettings: [.unsafeFlags(["-L", library, "-llitert-lm"])]),
     ])

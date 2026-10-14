@@ -16,7 +16,7 @@ def main():
     parser.add_argument("--native", type=Path, required=True)
     parser.add_argument("--scratch", type=Path, required=True)
     parser.add_argument("--swift", default="swift")
-    parser.add_argument("--backend", choices=("cpu",), default="cpu")
+    parser.add_argument("--backend", choices=("cpu", "gpu"), default="cpu")
     args = parser.parse_args()
     source, native, scratch = args.source.resolve(), args.native.resolve(), args.scratch.resolve()
     manifest = verify_android(native, backend=args.backend)

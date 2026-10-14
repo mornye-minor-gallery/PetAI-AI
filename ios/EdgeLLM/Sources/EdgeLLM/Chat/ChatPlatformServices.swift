@@ -44,7 +44,7 @@ public protocol ChatInferenceRuntime: LLMRuntime, NativeToolProposalGenerating, 
                           thinkingEnabled: Bool?, maxOutputTokens: Int?) async throws -> String
     func generateDiary(systemPrompt: String, userMessage: String) async throws -> String
     func countDiaryInputTokens(systemPrompt: String, userMessage: String) async throws -> Int
-    func saveCompletedDialogueCheckpoint() async
+    func saveCompletedDialogueCheckpoint() async throws
     func generateDialogueSummary(_ text: String, maximumTokens: Int) async throws -> String
     func prefillDialogueContext(_ input: DialogueModelInput, thinkingEnabled: Bool) async throws
     func eraseCheckpoint() async throws

@@ -64,12 +64,14 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     var diaryGenerationCount = 0
     var diaryFailure: Error?
     var checkpointCount = 0
+    var checkpointFailure: Error?
     var summaryGenerationCount = 0
     var summaryInput = ""
     var summaryResponse = "짧게 정리한 대화입니다."
     var summaryFailure: Error?
     var prefillFailure: Error?
     var preparationBudget: DialogueTokenBudget?
+    var preparationFailure: Error?
     var prefillStarted = false
     var holdPrefill = false
     private var prefillWaiter: CheckedContinuation<Void, Never>?
@@ -83,8 +85,10 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     func setResponse(_ value: String) { response = value }
     func setFunctionCall(_ value: NativeToolFunctionCall) { functionCall = value }
     func failDiary(with error: Error) { diaryFailure = error }
+    func failCheckpoint(with error: Error) { checkpointFailure = error }
     func failSummary(with error: Error) { summaryFailure = error }
     func failPrefill(with error: Error) { prefillFailure = error }
+    func failPreparation(with error: Error) { preparationFailure = error }
     func usePreparationBudget(_ budget: DialogueTokenBudget) { preparationBudget = budget }
     func holdPrefills() { holdPrefill = true }
     func waitForPrefill() async {
@@ -97,6 +101,7 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     func startConversation(configuration: ConversationConfiguration) {}
     func prepareDialogue(input: DialoguePromptInput, policy: DialoguePromptPolicy,
                          thinkingEnabled: Bool) async throws -> PreparedDialogue {
+        if let preparationFailure { throw preparationFailure }
         lastPreparedHistory = input.history
         if let preparationBudget {
             return try await DialoguePromptComposer.prepare(input: input, policy: policy,
@@ -130,7 +135,10 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     func cancel() { continuation?.finish(throwing: CancellationError()); continuation = nil }
     func resetConversation() {}
     func unload() {}
-    func saveCompletedDialogueCheckpoint() { checkpointCount += 1 }
+    func saveCompletedDialogueCheckpoint() throws {
+        checkpointCount += 1
+        if let checkpointFailure { throw checkpointFailure }
+    }
     func eraseCheckpoint() {}
     func countTokens(_ text: String) -> Int { text.count }
     func measureInput(_ input: DialogueModelInput) -> Int {

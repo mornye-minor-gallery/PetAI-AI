@@ -11,16 +11,13 @@ import LiteRTLM
 
 extension LiteRTLMRuntime {
     func makeCheckpointStore() throws -> KVCheckpointStore {
-        if let cacheDirectory {
-            return try KVCheckpointStore(directory: cacheDirectory.appendingPathComponent("Session"))
-        }
-        return try KVCheckpointStore.deviceLocal()
+        try KVCheckpointStore(directory: runtimeCacheURL().appendingPathComponent("Session"))
     }
     func prepareCheckpointStore(modelURL: URL) {
         do {
             checkpointStore = try makeCheckpointStore()
-            checkpointModelIdentity = KVCheckpointStore.modelIdentity(at: modelURL)
-            logger.notice("KV checkpoint storage ready")
+            checkpointModelIdentity = try KVCheckpointStore.modelIdentity(at: modelURL)
+            logger.notice("KV checkpoint storage ready backend=\(self.backend.rawValue, privacy: .public)")
         } catch {
             // KV is a disposable acceleration cache, not user history. A storage
             // failure must not make the authoritative conversation unavailable.
@@ -33,7 +30,8 @@ extension LiteRTLMRuntime {
     func checkpointIdentity() -> String? {
         checkpointModelIdentity.map {
             KVCheckpointStore.identity(modelIdentity: $0,
-                contextTokens: slmConfiguration.dialogueBudget.contextTokens)
+                contextTokens: slmConfiguration.dialogueBudget.contextTokens,
+                backend: backend.rawValue, engineIdentity: engineIdentity)
         }
     }
 
@@ -45,17 +43,18 @@ extension LiteRTLMRuntime {
             logger.notice("KV checkpoint restored seconds=\(ProcessInfo.processInfo.systemUptime - start, privacy: .public)")
         } catch {
             logger.error("KV checkpoint restore rejected: \(error.localizedDescription, privacy: .public)")
-            try store.remove()
+            removeRejectedCheckpoint(store)
             // Native clears partial buffers and token metadata on a failed read.
             // If that cleanup itself failed, continuing inference is unsafe.
-            if case CachedSessionError.checkpoint(10) = error { throw error }
+            try requireHealthyEngine()
             logger.notice("KV checkpoint discarded; full prompt will be recomputed")
         }
     }
 
     /// Called only after the app commits a completed, visible dialogue turn.
     /// Actor admission remains owned until this synchronous bounded-memory write ends.
-    func saveCompletedDialogueCheckpoint() {
+    func saveCompletedDialogueCheckpoint() throws {
+        try requireNativeIdle()
         guard activeGenerationID == nil, !isPreparingInput,
               currentState == .ready, let session = conversation as? CachedSession,
               let store = checkpointStore, let identity = checkpointIdentity() else { return }
@@ -67,6 +66,7 @@ extension LiteRTLMRuntime {
             // Atomic app writes preserve the previous complete cache. The full
             // prompt on the next request safely handles an older matching prefix.
             logger.error("KV checkpoint save failed; completed dialogue kept: \(error.localizedDescription, privacy: .public)")
+            try requireHealthyEngine()
         }
     }
 
@@ -75,5 +75,17 @@ extension LiteRTLMRuntime {
         try (checkpointStore ?? makeCheckpointStore()).remove()
         try makeDiaryCheckpointStore().remove()
         logger.notice("KV checkpoint removed")
+    }
+
+    func requireHealthyEngine() throws {
+        guard engine?.health.requiresRecreation == true else { return }
+        logger.error("Native engine invalidated: \(self.engine?.health.failureDetail ?? "state transfer failed", privacy: .public)")
+        currentState = .failed(message: RuntimeError.engineRequiresReload.localizedDescription)
+        throw RuntimeError.engineRequiresReload
+    }
+
+    func removeRejectedCheckpoint(_ store: KVCheckpointStore) {
+        do { try store.remove() }
+        catch { logger.error("Rejected checkpoint removal failed: \(error.localizedDescription, privacy: .public)") }
     }
 }

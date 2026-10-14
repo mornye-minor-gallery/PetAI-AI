@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "error_reporter.h"
 int test_checkpoint_reads(void);
 int test_checkpoint_writes(void);
 void test_set_checkpoint_error(int code);

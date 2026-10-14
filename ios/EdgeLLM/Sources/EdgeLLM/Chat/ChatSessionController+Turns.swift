@@ -107,7 +107,7 @@ extension ChatSessionController {
     func finishFailedRequest(_ requestID: String, code: String, message: String,
                              recoverable: Bool = true) async {
         guard activeRequestId == requestID else { return }
-        if cancelRequested {
+        if cancelRequested && recoverable {
             await finishCancelledRequest(requestID)
             return
         }
@@ -162,7 +162,14 @@ extension ChatSessionController {
         // Commit user-visible history first. Keep request admission closed until
         // KV persistence ends; cancellation after this commit cannot undo the turn.
         if result == .committed && checkpointDialogue {
-            await runtime.saveCompletedDialogueCheckpoint()
+            do { try await runtime.saveCompletedDialogueCheckpoint() }
+            catch {
+                // The visible turn is already durable. A failed engine blocks
+                // the next request, but must not relabel this turn as failed.
+                emit(type: "completed", requestId: requestID, text: visibleText, homeSteps: homeSteps, presentation: presentation)
+                failContextPreparation(requestID, error: error)
+                return true
+            }
         }
         if let captionUserMessage {
             captionSource = (requestID, captionUserMessage, visibleText)

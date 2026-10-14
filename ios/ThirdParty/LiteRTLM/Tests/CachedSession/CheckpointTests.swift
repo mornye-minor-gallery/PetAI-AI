@@ -87,6 +87,31 @@ extension LifecycleTests {
         test_set_checkpoint_error(0)
         do { try poisoned.replaceInput(systemPrompt: "fixed"); preconditionFailure("poisoned session reused") }
         catch CachedSessionError.checkpoint(10) {}
+        let sharedEngine = Engine()
+        let sibling = try CachedSession(engine: sharedEngine, engineHandle: OpaquePointer(bitPattern: 1)!,
+            sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
+        let failedSave = try CachedSession(engine: sharedEngine, engineHandle: OpaquePointer(bitPattern: 1)!,
+            sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
+        try failedSave.replaceInput(systemPrompt: "fixed")
+        _ = try await run(failedSave, "completed before GPU transfer failure")
+        test_set_checkpoint_error(10)
+        do { try failedSave.transferState(reading: false) { _, _ in }; preconditionFailure("fatal save hidden") }
+        catch CachedSessionError.checkpoint(10) {}
+        test_set_checkpoint_error(0)
+        do { try failedSave.replaceInput(systemPrompt: "fixed"); preconditionFailure("fatal save reused engine") }
+        catch CachedSessionError.checkpoint(10) {}
+        precondition(sharedEngine.health.failureDetail == "injected buffer transfer failure")
+        do { try sibling.replaceInput(systemPrompt: "fixed"); preconditionFailure("sibling reused failed executor") }
+        catch CachedSessionError.checkpoint(10) {}
+        do { try sibling.transferState(reading: true) { _, _ in }; preconditionFailure("failed executor restored") }
+        catch CachedSessionError.checkpoint(10) {}
+        do { _ = try await run(sibling, "blocked"); preconditionFailure("failed executor streamed") }
+        catch CachedSessionError.checkpoint(10) {}
+        do {
+            _ = try CachedSession(engine: sharedEngine, engineHandle: OpaquePointer(bitPattern: 1)!,
+                sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
+            preconditionFailure("new session reused failed executor")
+        } catch CachedSessionError.checkpoint(10) {}
         print("checkpoint admission and recovery tests passed")
     }
 }

@@ -38,12 +38,25 @@ final class AndroidChatHost: @unchecked Sendable {
             return
         }
         let paths = try JSONDecoder().decode(AndroidChatPaths.self, from: Data(json.utf8))
+        let profileURL = URL(fileURLWithPath: paths.assetsDirectory).appendingPathComponent("native-engine.json")
+        let nativeProfile = try Data(contentsOf: profileURL)
+        let profile = try JSONDecoder().decode(AndroidEngineProfile.self, from: nativeProfile)
+#if PETAI_ANDROID_GPU
+        let backend: ChatInferenceBackend = .gpu
+#else
+        let backend: ChatInferenceBackend = .cpu
+#endif
+        guard profile.backend == backend.rawValue else {
+            throw AndroidHostError.engineProfileMismatch
+        }
+        let engineIdentity = try KVCheckpointStore.modelIdentity(at: profileURL)
         try EdgeLLMResources.configure(bundleURL: URL(fileURLWithPath: paths.assetsDirectory)
             .appendingPathComponent("EdgeLLM_EdgeLLM.bundle"))
         controller = ChatRuntimeAssembly.makeController(configuration: .production,
             platform: AndroidChatPlatform(paths: paths),
             cacheDirectory: URL(fileURLWithPath: paths.cacheDirectory),
             supportDirectory: URL(fileURLWithPath: paths.supportDirectory),
+            backend: backend, engineIdentity: engineIdentity,
             eventSink: { [weak self] in self?.emit($0) },
             log: { Logger(subsystem: "PetAI", category: "AndroidChat").notice("\($0, privacy: .public)") })
         configuration = json
@@ -56,6 +69,8 @@ final class AndroidChatHost: @unchecked Sendable {
         Task { await operation(value) }
     }
 }
+
+private struct AndroidEngineProfile: Decodable { let backend: String }
 
 @_cdecl("petai_android_configure")
 public func petai_android_configure(_ json: UnsafePointer<CChar>?, _ error: UnsafeMutablePointer<CChar>?,

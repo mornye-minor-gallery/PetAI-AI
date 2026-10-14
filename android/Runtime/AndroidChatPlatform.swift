@@ -44,13 +44,14 @@ struct AndroidChatPlatform: ChatPlatformServices {
 }
 
 enum AndroidHostError: LocalizedError {
-    case notReady, alreadyConfigured, notConfigured, modelsNotInstalled
+    case notReady, alreadyConfigured, notConfigured, modelsNotInstalled, engineProfileMismatch
     var errorDescription: String? {
         switch self {
         case .notReady: "Android에서는 준비 중인 기능입니다."
         case .modelsNotInstalled: "모델 다운로드를 완료한 뒤 다시 시도해 주세요."
         case .alreadyConfigured: "Android chat is already configured with different paths."
         case .notConfigured: "Android chat paths must be configured before initialization."
+        case .engineProfileMismatch: "Android native engine and Swift backend profiles do not match."
         }
     }
 }

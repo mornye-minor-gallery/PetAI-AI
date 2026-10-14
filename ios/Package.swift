@@ -5,6 +5,7 @@ import PackageDescription
 let android = ProcessInfo.processInfo.environment["PETAI_ANDROID_CORE_POC"] == "1"
 let nativeSource = ProcessInfo.processInfo.environment["PETAI_LITERTLM_SOURCE_DIR"] ?? ""
 let nativeLibrary = ProcessInfo.processInfo.environment["PETAI_LITERTLM_LIBRARY_DIR"] ?? ""
+let gpu = ProcessInfo.processInfo.environment["PETAI_ANDROID_LLM_BACKEND"] == "gpu"
 let external = nativeSource + "/bazel-" + URL(fileURLWithPath: nativeSource).lastPathComponent + "/external"
 
 let package = Package(
@@ -22,7 +23,7 @@ let package = Package(
                 cxxSettings: [.unsafeFlags(["-I" + external + "/litert", "-I" + external + "/sentencepiece",
                     "-I" + external + "/com_google_absl",
                     "-I" + nativeSource + "/bazel-out/arm64-v8a-opt/bin/external/litert"])],
-                linkerSettings: [.unsafeFlags(["-L" + nativeLibrary, "-llitert-lm"])]),
+                linkerSettings: [.unsafeFlags(["-L" + nativeLibrary, "-llitert-lm"] + (gpu ? ["-lLiteRt"] : []))]),
     ] : []) + [
         .target(name: "PetAIChatRuntime",
                 dependencies: [

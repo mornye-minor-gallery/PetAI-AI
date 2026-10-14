@@ -14,6 +14,7 @@ public struct Message: Sendable {
     init(_ text: String, role: Role = .user) { self.text=text; self.role=role }
 }
 actor Engine {
+    nonisolated let health = NativeEngineHealth()
     func renderTextRequest(systemPrompt: String?, history: [Message], userPrompt: String, thinkingEnabled: Bool) throws -> String {
         "BOS" + (systemPrompt ?? "") + history.map {
             "<|turn>" + $0.role.rawValue + "\n" + $0.text + "<turn|>\n"

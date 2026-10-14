@@ -51,14 +51,21 @@ public struct KVCheckpointStore: Sendable {
         }
     }
 
-    public static func modelIdentity(at url: URL) -> String {
-        url.lastPathComponent
+    public static func modelIdentity(at url: URL) throws -> String {
+        let file = try FileHandle(forReadingFrom: url)
+        defer { try? file.close() }
+        var digest = SHA256()
+        while let chunk = try file.read(upToCount: 1024 * 1024), !chunk.isEmpty {
+            digest.update(data: chunk)
+        }
+        return digest.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
-    public static func identity(modelIdentity: String, contextTokens: Int) -> String {
-        // Earlier engines could overwrite retained KV at the wrong cursor.
-        // Reject those snapshots before passing any state to the native engine.
-        ["app-kv-v4", modelIdentity, String(contextTokens)].joined(separator: ":")
+    public static func identity(modelIdentity: String, contextTokens: Int,
+                                backend: String = "cpu", engineIdentity: String = "cpu-kv2-prefix-cursor1") -> String {
+        // Rebuild disposable KV after the prefix-cursor fix: old snapshots may
+        // contain a suffix written over retained prefix state. User data stays.
+        ["app-kv-v4", backend, engineIdentity, modelIdentity, String(contextTokens)].joined(separator: ":")
     }
 
     public typealias Transfer = (UnsafeMutableRawPointer?, Int) throws -> Void

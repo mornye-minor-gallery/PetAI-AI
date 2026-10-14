@@ -76,6 +76,8 @@ class LiteRTLMDistributionTests(unittest.TestCase):
                          patches / "cpu-prefill-chunk.patch")
             shutil.copy2(REPO_ROOT / "ios/ThirdParty/LiteRTLM/Patches/xnnpack-channelwise-scale.patch",
                          patches / "xnnpack-channelwise-scale.patch")
+            shutil.copy2(REPO_ROOT / "scripts/litertlm_prefix_cursor.py", script.parent)
+            shutil.copy2(REPO_ROOT / "ios/ThirdParty/LiteRTLM/Patches/prefix-cursor.patch", patches)
             source = pathlib.Path(temporary) / "shared-source"
             shutil.copy2(REPO_ROOT / "scripts/litertlm_prefix_cursor.py", script.parent)
             shutil.copy2(REPO_ROOT / "ios/ThirdParty/LiteRTLM/Patches/prefix-cursor.patch", patches)

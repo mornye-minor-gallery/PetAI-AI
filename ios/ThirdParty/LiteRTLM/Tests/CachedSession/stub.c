@@ -8,6 +8,8 @@ struct LiteRtLmInputData { char* text; };
 struct LiteRtLmStreamChunk { const char* text; const char* error; bool final; };
 static int created, rewinds, pending, start_error;
 static int checkpoint_reads, checkpoint_writes, checkpoint_error;
+void litert_lm_clear_last_error(void) {}
+const char* litert_lm_get_last_error_message(void) { return "injected buffer transfer failure"; }
 int test_checkpoint_reads(void) { return checkpoint_reads; }
 int test_checkpoint_writes(void) { return checkpoint_writes; }
 void test_set_checkpoint_error(int code) { checkpoint_error = code; }

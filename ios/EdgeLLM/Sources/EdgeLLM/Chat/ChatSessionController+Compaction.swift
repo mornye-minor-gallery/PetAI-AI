@@ -30,6 +30,7 @@ extension ChatSessionController {
                     throw UnityBridgeError.invalidRequest
                 }
             } catch {
+                if error as? RuntimeError == .engineRequiresReload { throw error }
                 // Only summary generation has the approved recent-only fallback.
                 // Storage and native prefill failures remain terminal preparation errors.
                 logger.error("Dialogue summary failed: \(error.localizedDescription)")
@@ -43,7 +44,7 @@ extension ChatSessionController {
         try await runtime.prefillDialogueContext(fitted.modelInput, thinkingEnabled: thinkingEnabled)
         try store.compact(in: &routedPersonaSession, retaining: fitted.retainedEntries,
             summary: fitted.summary, modelIdentifier: dialogueModelIdentifier)
-        await runtime.saveCompletedDialogueCheckpoint()
+        try await runtime.saveCompletedDialogueCheckpoint()
         logger.notice("Dialogue compaction committed inputBefore=\(inputBefore) inputAfter=\(fitted.inputTokens) retained=\(fitted.retainedEntries.count) seconds=\(ProcessInfo.processInfo.systemUptime - started)")
         if resumeGeneration {
             state = .generating
@@ -63,6 +64,8 @@ extension ChatSessionController {
         activeRequestId = nil
         cancelRequested = false
         emit(type: "context_failed", requestId: requestID, code: "context_preparation_failed",
-             message: "대화를 정리하지 못했어요. 대화를 다시 열어 주세요.")
+             message: error as? RuntimeError == .engineRequiresReload
+                ? "대화 엔진을 다시 준비해야 해요. 대화를 다시 열어 주세요."
+                : "대화를 정리하지 못했어요. 대화를 다시 열어 주세요.")
     }
 }

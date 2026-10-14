@@ -26,6 +26,8 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     )
     let slmConfiguration: SLMConfiguration
     let cacheDirectory: URL?
+    let backend: ChatInferenceBackend
+    let engineIdentity: String
     var currentState: RuntimeState = .modelRequired
     var engine: Engine?
     var conversation: (any TextSession)?
@@ -51,11 +53,15 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     init(
         configuration: SLMConfiguration = .production,
         collectNativeBenchmark: Bool = false,
-        cacheDirectory: URL? = nil
+        cacheDirectory: URL? = nil,
+        backend: ChatInferenceBackend = .cpu,
+        engineIdentity: String = "cpu-kv2-prefix-cursor1"
     ) {
         slmConfiguration = configuration
         self.collectNativeBenchmark = collectNativeBenchmark
         self.cacheDirectory = cacheDirectory
+        self.backend = backend
+        self.engineIdentity = engineIdentity
     }
 
     private var cancellationTimeoutSeconds: Int {
@@ -63,7 +69,10 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     }
 
     var state: RuntimeState {
-        isPreparingInput ? .preparingInput : currentState
+        if engine?.health.requiresRecreation == true {
+            return .failed(message: RuntimeError.engineRequiresReload.localizedDescription)
+        }
+        return isPreparingInput ? .preparingInput : currentState
     }
 
     func prepare(modelURL: URL) async throws {
@@ -86,24 +95,25 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
             ExperimentalFlags.optIntoExperimentalAPIs()
             ExperimentalFlags.enableBenchmark = collectNativeBenchmark
             ExperimentalFlags.filterChannelContentFromKvCache = true
-            let cacheURL = try runtimeCacheURL()
+            let cacheURL = try runtimeCacheURL().appendingPathComponent("Compiled")
+            try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
             // Keep the validated iOS CPU arena bound independent of KV capacity.
             // Other platforms retain their existing graph-selection policy.
 #if os(iOS)
-            let prefillChunkSize: Int? = 128
+            let prefillChunkSize: Int? = backend == .cpu ? 128 : nil
 #else
             let prefillChunkSize: Int? = nil
 #endif
             let configuration = try EngineConfig(
                 modelPath: modelURL.path,
-                backend: .cpu(),
+                backend: backend.native,
                 maxNumTokens: slmConfiguration.dialogueBudget.contextTokens,
                 cacheDir: cacheURL.path,
                 prefillChunkSize: prefillChunkSize
             )
 #if RESOURCE_BENCH
             RuntimeResourceTrace.mark("runtime.configuration", ["context_tokens": String(slmConfiguration.dialogueBudget.contextTokens),
-                "output_tokens": String(slmConfiguration.dialogueBudget.outputTokens), "backend": "cpu", "model_file": modelURL.lastPathComponent])
+                "output_tokens": String(slmConfiguration.dialogueBudget.outputTokens), "backend": backend.rawValue, "model_file": modelURL.lastPathComponent])
 #endif
             let candidate = Engine(engineConfig: configuration)
 
@@ -323,7 +333,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     }
 
     func unload() async throws {
-        try requireNativeIdle()
+        try requireNativeIdle(allowInvalidatedEngine: true)
         logger.notice("Unloading LiteRT-LM runtime")
         cancellationTimeoutTask?.cancel()
         cancellationTimeoutTask = nil
@@ -441,10 +451,11 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
         activeNativeConversation = nil
     }
 
-    private func runtimeCacheURL() throws -> URL {
+    func runtimeCacheURL() throws -> URL {
         if let cacheDirectory {
-            try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-            return cacheDirectory
+            let scoped = cacheDirectory.appendingPathComponent(backend.rawValue)
+            try FileManager.default.createDirectory(at: scoped, withIntermediateDirectories: true)
+            return scoped
         }
         let baseURL = try FileManager.default.url(
             for: .cachesDirectory,
@@ -453,7 +464,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
             create: true
         )
         let cacheURL = baseURL.appendingPathComponent(
-            "LiteRTLM",
+            "LiteRTLM/" + backend.rawValue,
             isDirectory: true
         )
         try FileManager.default.createDirectory(

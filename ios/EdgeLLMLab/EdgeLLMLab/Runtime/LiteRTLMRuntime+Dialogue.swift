@@ -45,9 +45,13 @@ extension LiteRTLMRuntime {
                      maxOutputTokens: slmConfiguration.dialogueBudget.outputTokens, thinkingEnabled: thinkingEnabled)
     }
 
-    func requireNativeIdle() throws {
+    func requireNativeIdle(allowInvalidatedEngine: Bool = false) throws {
         guard activeGenerationID == nil, !isPreparingInput, currentState != .generating, currentState != .preparingModel else {
             throw RuntimeError.runtimeBusy
+        }
+        if !allowInvalidatedEngine, engine?.health.requiresRecreation == true {
+            currentState = .failed(message: RuntimeError.engineRequiresReload.localizedDescription)
+            throw RuntimeError.engineRequiresReload
         }
     }
 

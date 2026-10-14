@@ -59,6 +59,22 @@ private func compactingConfiguration(enabled: Bool = true) -> SLMConfiguration {
     #expect(saved.summary == nil)
 }
 
+@Test func brokenEngineDuringSummaryDoesNotTakeRecentOnlyFallback() async throws {
+    let fixture = try ChatControllerFixture(configuration: compactingConfiguration())
+    defer { fixture.remove() }
+    await fixture.runtime.setResponse("save(P=0,E=0)\n" + String(repeating: "말", count: 90))
+    await fixture.runtime.failSummary(with: RuntimeError.engineRequiresReload)
+    await fixture.controller.initialize()
+    for index in 0..<14 {
+        await fixture.controller.send(json: fixture.request("r\(index)", "질문 \(index)"))
+        if fixture.events.snapshot().contains(where: { $0.type == "context_failed" }) { break }
+    }
+    #expect(await fixture.runtime.summaryGenerationCount == 1)
+    #expect(await fixture.runtime.prefilledInputs.isEmpty)
+    #expect(!fixture.events.snapshot().contains { $0.type == "context_warning" })
+    #expect(fixture.events.snapshot().contains { $0.type == "context_failed" })
+}
+
 @Test func overLimitQuestionIsRejectedBeforeDurableAdmissionAndInference() async throws {
     let fixture = try ChatControllerFixture()
     defer { fixture.remove() }

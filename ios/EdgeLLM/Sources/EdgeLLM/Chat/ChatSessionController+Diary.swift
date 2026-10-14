@@ -75,6 +75,9 @@ extension ChatSessionController {
             emit(type: "diary_completed", requestId: requestId, diary: NativeDiaryEntry(stored))
         } catch {
             logger.error("Diary creation failed: \(error.localizedDescription)")
+            if error as? RuntimeError == .engineRequiresReload {
+                failContextPreparation(requestId, error: error)
+            }
             emit(type: "diary_failed", requestId: requestId,
                  code: error is DailyDiaryError ? "diary_unavailable" : "diary_failed",
                  message: (error as? DailyDiaryError)?.localizedDescription ?? "일기를 만들지 못했어요. 다시 시도해 주세요.")

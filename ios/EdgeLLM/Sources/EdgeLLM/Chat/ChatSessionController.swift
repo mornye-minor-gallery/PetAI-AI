@@ -256,12 +256,15 @@ public actor ChatSessionController {
         } catch RuntimeError.generationCancelled {
             await finishCancelledRequest(request.requestId)
             return
+        } catch is CancellationError {
+            await finishCancelledRequest(request.requestId)
+            return
         } catch {
             logger.error("Dialogue preparation failed: \(error.localizedDescription)")
             await finishFailedRequest(request.requestId,
                 code: state == .compacting ? "context_preparation_failed" : "persona_routing_failed",
                 message: "대화 구성을 준비하지 못했습니다. 다시 시도해 주세요.",
-                recoverable: state != .compacting)
+                recoverable: state != .compacting && error as? RuntimeError != .engineRequiresReload)
             return
         }
         guard
@@ -336,6 +339,8 @@ public actor ChatSessionController {
                 )
             }
         } catch RuntimeError.generationCancelled {
+            await finishCancelledRequest(request.requestId)
+        } catch is CancellationError {
             await finishCancelledRequest(request.requestId)
         } catch {
             await finishFailedRequest(request.requestId,

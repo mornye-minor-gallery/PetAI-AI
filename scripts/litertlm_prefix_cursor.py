@@ -67,6 +67,10 @@ def write_android_manifest(directory, backend="cpu"):
     # Called only after a successful build from verified sources, never used to
     # bless an arbitrary existing engine. Hashes bind the copied binary to it.
     manifest = {**identity(), "engine_sha256": sha(directory / "liblitert-lm.so"), "backend": backend}
+    if backend == "gpu":
+        from litertlm_android_profile import GPU_PATCH, GPU_LIBRARIES
+        manifest["gpu_checkpoint_patch_sha256"] = sha(GPU_PATCH)
+        manifest["libraries"] = {name: sha(directory / name) for name in ["libLiteRt.so", *GPU_LIBRARIES]}
     (directory / "liblitert-lm.provenance.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
 
@@ -78,8 +82,18 @@ def verify_android(directory, backend=None):
     if manifest.get("engine_sha256") != sha(directory / "liblitert-lm.so"):
         raise ValueError("Android engine binary checksum mismatch")
     actual = manifest.get("backend")
-    if actual != "cpu" or (backend is not None and actual != backend):
+    if actual not in ("cpu", "gpu") or (backend is not None and actual != backend):
         raise ValueError("Android engine backend mismatch")
+    if actual == "gpu":
+        from litertlm_android_profile import GPU_PATCH, GPU_LIBRARIES
+        if manifest.get("gpu_checkpoint_patch_sha256") != sha(GPU_PATCH):
+            raise ValueError("GPU checkpoint patch mismatch")
+        libraries = manifest.get("libraries", {})
+        if set(libraries) != {"libLiteRt.so", *GPU_LIBRARIES}:
+            raise ValueError("GPU runtime libraries missing")
+        for name, digest in libraries.items():
+            if digest != sha(directory / name) or (name in GPU_LIBRARIES and digest != GPU_LIBRARIES[name]):
+                raise ValueError("GPU runtime library checksum mismatch: " + name)
     return manifest
 
 
@@ -121,7 +135,7 @@ def main():
     action.add_argument("--verify-android", type=Path)
     action.add_argument("--verify-android-product", type=Path)
     action.add_argument("--verify-ios", type=Path)
-    parser.add_argument("--backend", choices=("cpu",), default="cpu")
+    parser.add_argument("--backend", choices=("cpu", "gpu"), default="cpu")
     args = parser.parse_args()
     if args.identity:
         print("prefix_cursor_patch_sha256=" + identity()["prefix_cursor_patch_sha256"])
