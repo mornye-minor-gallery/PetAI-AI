@@ -1,5 +1,6 @@
 import Foundation
 import EdgeLLM
+import AndroidPlatformTools
 
 struct AndroidChatPaths: Decodable, Sendable {
     let assetsDirectory: String
@@ -8,10 +9,9 @@ struct AndroidChatPaths: Decodable, Sendable {
     let cacheDirectory: String
     let inferenceBackend: String
 }
-
 struct AndroidChatPlatform: ChatPlatformServices {
     let paths: AndroidChatPaths
-    let tools: any ChatPlatformTools = AndroidPendingTools()
+    let tools: any ChatPlatformTools = AndroidPlatformTools()
     let defaultCharacterID = "elena"
     var personaEnabled: Bool { true }
     var assets: URL { URL(fileURLWithPath: paths.assetsDirectory) }
@@ -65,13 +65,4 @@ enum AndroidHostError: LocalizedError {
         case .engineProfileMismatch: "Android native engine and Swift backend profiles do not match."
         }
     }
-}
-
-struct AndroidPendingTools: ChatPlatformTools {
-    let supportedTools: Set<NativeToolKind> = []
-    let unsupportedMessage = "Android에서는 준비 중인 기능입니다."
-    func enrich(_ base: UserProfileContext, allowedTools: Set<NativeToolKind>) async -> UserProfileContext { base }
-    func confirm(_ draft: NativeToolProposal) async throws -> NativeToolProposal { throw AndroidHostError.notReady }
-    func cancelConfirmation() async {}
-    func execute(_ proposal: ValidatedToolProposal) async throws -> JSONValue { throw AndroidHostError.notReady }
 }

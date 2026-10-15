@@ -1,0 +1,4 @@
+module CAndroidPlatformJNI {
+    header "../../../PlatformJNI/include/AndroidPlatformJNI.h"
+    export *
+}

@@ -1,0 +1,28 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <application android:allowBackup="false" android:label="별무리 알람 검사" android:theme="@android:style/Theme.Material.Light">
+        <activity android:name="com.byeolmuri.petai.platform.PetAIAlarmAgent" android:exported="true" android:launchMode="singleTop" />
+        <receiver android:name="com.byeolmuri.petai.platform.AlarmAgentReceiver" android:exported="true" />
+        <activity android:name="com.byeolmuri.petai.platform.PetAIAlarmConfirmationActivity" android:exported="false" android:theme="@android:style/Theme.Material.Light.Dialog.Alert" />
+        <activity android:name="com.byeolmuri.petai.platform.PetAIAlarmListActivity" android:exported="false" android:theme="@android:style/Theme.Material.Light.Dialog.Alert" />
+        <receiver android:name="com.byeolmuri.petai.platform.PetAIAlarmReceiver" android:exported="false" android:directBootAware="true" />
+        <receiver android:name="com.byeolmuri.petai.platform.PetAIAlarmRestoreReceiver" android:exported="false" android:directBootAware="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <service android:name="com.byeolmuri.petai.platform.PetAIAlarmService" android:exported="false" android:directBootAware="true"
+            android:foregroundServiceType="mediaPlayback" android:stopWithTask="false" />
+    </application>
+</manifest>
