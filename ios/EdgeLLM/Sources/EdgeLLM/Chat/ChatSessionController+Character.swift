@@ -27,11 +27,12 @@ extension ChatSessionController {
             let session = try store.load(maximumTurnCount: slmConfiguration.persona.recentTurnLimit)
                 ?? RoutedPersonaSessionContext(maximumTurnCount: slmConfiguration.persona.recentTurnLimit)
 
+            let stateBeforeActivation = state
             state = .loading
             emit(type: "loading")
             let task = Task {
                 await finishCharacterActivation(characterID: characterID, resources: resources,
-                    store: store, session: session)
+                    store: store, session: session, stateBeforeActivation: stateBeforeActivation)
             }
             characterActivationTask = task
             await task.value
@@ -44,7 +45,8 @@ extension ChatSessionController {
 
     private func finishCharacterActivation(characterID: String, resources: ChatContentResources,
                                            store: DialogueSessionFileStore,
-                                           session: RoutedPersonaSessionContext) async {
+                                           session: RoutedPersonaSessionContext,
+                                           stateBeforeActivation: State) async {
         let previousID = selectedCharacterID
         let previousContent = dialogueContent
         let previousRetrieval = dialogueRetrieval
@@ -65,7 +67,11 @@ extension ChatSessionController {
             lastDialogueTemplate = nil
             captionSource = nil
 
-            if let dialogueModelIdentifier {
+            if case .preparationDeferred = stateBeforeActivation {
+                // Character content and stored history are usable without the model.
+                // Preserve the admission reason; asset download cannot resolve it.
+                state = stateBeforeActivation
+            } else if let dialogueModelIdentifier {
                 if session.summary != nil &&
                     (!slmConfiguration.dialogueBudget.contextPolicy.summaryEnabled ||
                      session.summaryModelIdentifier != dialogueModelIdentifier) {

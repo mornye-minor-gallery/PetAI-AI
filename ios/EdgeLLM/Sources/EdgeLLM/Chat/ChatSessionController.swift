@@ -8,7 +8,7 @@ public actor ChatSessionController {
     public static let routedPersonaDefaultsKey =
         "PetAIRoutedPersonaEnabled"
 
-    enum State {
+    enum State: Equatable {
         case modelRequired
         case loading
         case ready
@@ -16,6 +16,14 @@ public actor ChatSessionController {
         case generating
         case compacting
         case failed
+        case preparationDeferred(ModelLoadMemoryDeferred)
+
+        var permitsHistoryRecording: Bool {
+            switch self {
+            case .ready, .preparationDeferred: true
+            default: false
+            }
+        }
     }
 
     let slmConfiguration: SLMConfiguration

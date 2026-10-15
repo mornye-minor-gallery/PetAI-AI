@@ -40,7 +40,8 @@ extension ChatSessionController {
             emit(type: "home_line_failed", code: "invalid_home_line", message: "홈 대사를 읽지 못했습니다.")
             return
         }
-        guard state == .ready, characterActivationTask == nil,
+        // Recording authored home text needs the store, not a loaded model.
+        guard state.permitsHistoryRecording, characterActivationTask == nil,
               recentTurnsLoaded, let recentTurnStore,
               activeRequestId == nil, dialogueTasks.isEmpty, !isCommittingTurn, !dataExportInProgress,
               maintenanceRequestID == nil, !isUnloading else {

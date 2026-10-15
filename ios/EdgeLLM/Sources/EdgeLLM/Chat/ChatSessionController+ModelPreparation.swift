@@ -187,6 +187,12 @@ extension ChatSessionController {
                 lastDialogueTemplate = prepared.contextTemplate
                 lastDialogueThinking = slmConfiguration.generation.responseThinkingDefault
             }
+        } catch let reason as ModelLoadMemoryDeferred {
+            // Files and restored history are valid. Keep the model-download path
+            // separate so Retry re-observes memory rather than re-importing assets.
+            state = .preparationDeferred(reason)
+            emitState()
+            return
         } catch {
             logger.error("Language model preparation failed: \(error.localizedDescription)")
             if error is DialogueInputLimitError || error is DialogueTokenBudgetError || error is DialogueContextOverflow {

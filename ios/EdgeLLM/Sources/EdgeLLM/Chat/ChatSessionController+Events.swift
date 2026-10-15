@@ -23,6 +23,8 @@ extension ChatSessionController {
                 code: "runtime_failed",
                 message: "The native chat runtime must be initialized again."
             )
+        case .preparationDeferred(let reason):
+            emitError(code: "model_memory_insufficient", message: reason.localizedDescription)
         }
     }
 

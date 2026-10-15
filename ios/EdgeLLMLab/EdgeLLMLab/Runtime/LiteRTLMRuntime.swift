@@ -28,6 +28,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     let cacheDirectory: URL?
     let backend: ChatInferenceBackend
     let engineIdentity: String
+    private let checkModelLoadAdmission: (@Sendable () throws -> Void)?
     var currentState: RuntimeState = .modelRequired
     var engine: Engine?
     var conversation: (any TextSession)?
@@ -55,13 +56,15 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
         collectNativeBenchmark: Bool = false,
         cacheDirectory: URL? = nil,
         backend: ChatInferenceBackend = .cpu,
-        engineIdentity: String = "cpu-kv2-prefix-cursor1"
+        engineIdentity: String = "cpu-kv2-prefix-cursor1",
+        checkModelLoadAdmission: (@Sendable () throws -> Void)? = nil
     ) {
         slmConfiguration = configuration
         self.collectNativeBenchmark = collectNativeBenchmark
         self.cacheDirectory = cacheDirectory
         self.backend = backend
         self.engineIdentity = engineIdentity
+        self.checkModelLoadAdmission = checkModelLoadAdmission
     }
 
     private var cancellationTimeoutSeconds: Int {
@@ -92,6 +95,9 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
         }
 
         do {
+            // Observe after unloading the previous engine. This check is never
+            // cached and must run before either the engine or its KV is allocated.
+            try checkModelLoadAdmission?()
             ExperimentalFlags.optIntoExperimentalAPIs()
             ExperimentalFlags.enableBenchmark = collectNativeBenchmark
             ExperimentalFlags.filterChannelContentFromKvCache = true
@@ -122,6 +128,10 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
             engine = candidate
             prepareCheckpointStore(modelURL: modelURL)
             currentState = .ready
+        } catch let reason as ModelLoadMemoryDeferred {
+            releaseSecurityScopedModel()
+            currentState = .failed(message: reason.localizedDescription)
+            throw reason
         } catch {
             releaseSecurityScopedModel()
             currentState = .failed(message: error.localizedDescription)

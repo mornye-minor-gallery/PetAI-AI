@@ -61,6 +61,8 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     var state: RuntimeState = .ready
     var generationCount = 0
     var modelPreparationCount = 0
+    var modelLoadFailure: ModelLoadMemoryDeferred?
+    func setModelLoadFailure(_ value: ModelLoadMemoryDeferred?) { modelLoadFailure = value }
     var functionCallCount = 0
     var functionCall: NativeToolFunctionCall?
     var diaryGenerationCount = 0
@@ -100,7 +102,10 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     }
     func finishPrefill() { prefillContinuation?.resume(); prefillContinuation = nil; holdPrefill = false }
     func setSummary(_ text: String) { summaryResponse = text }
-    func prepare(modelURL: URL) { modelPreparationCount += 1 }
+    func prepare(modelURL: URL) throws {
+        modelPreparationCount += 1
+        if let modelLoadFailure { throw modelLoadFailure }
+    }
     func startConversation(configuration: ConversationConfiguration) {}
     func prepareDialogue(input: DialoguePromptInput, policy: DialoguePromptPolicy,
                          thinkingEnabled: Bool) async throws -> PreparedDialogue {
@@ -181,7 +186,8 @@ actor ChatTestMemory: ChatMemoryService {
     func setDiaryObservations(_ values: [MemoryObservation]) { diaryObservations = values }
     func holdWrites() { holdWrite = true }
     func finishWrite() { pendingWrite?.resume(); pendingWrite = nil }
-    func prepare(modelURL: URL, tokenizerURL: URL) {}
+    var preparationCount = 0
+    func prepare(modelURL: URL, tokenizerURL: URL) { preparationCount += 1 }
     func close() { if pendingWrite != nil { closedDuringWrite = true } }
     func recall(_ request: MemorySearchRequest) -> [RetrievedMemoryObservation] {
         lastExcluded = request.excludedTurnIDs
