@@ -22,6 +22,9 @@ public func alarmProbeSubmit(_ pointer: UnsafePointer<CChar>?) {
             let result: JSONValue
             if request.operation == "cancel_confirmation" {
                 await tools.cancelConfirmation(); result = .bool(true)
+            } else if request.operation == "cancel_execution" {
+                guard let requestID = request.requestID else { throw NativeToolErrorCode.invalidArguments }
+                await tools.cancelExecution(requestID: requestID); result = .bool(true)
             } else if request.operation == "enrich" {
                 let context = await tools.enrich(UserProfileContext(characterName: "시험 캐릭터"), allowedTools: tools.supportedTools)
                 result = .object(["alarmCount": context.alarmCount.map { .number(Double($0)) } ?? .null,
@@ -31,9 +34,13 @@ public func alarmProbeSubmit(_ pointer: UnsafePointer<CChar>?) {
                 let arguments: NativeToolArguments
                 let data = try JSONEncoder().encode(request.arguments ?? .object([:]))
                 switch tool {
+                case .getStepCount: arguments = .getStepCount(try JSONDecoder().decode(StepCountArguments.self, from: data))
                 case .createAlarm: arguments = .createAlarm(try JSONDecoder().decode(CreateAlarmArguments.self, from: data))
                 case .createTimer: arguments = .createTimer(try JSONDecoder().decode(CreateTimerArguments.self, from: data))
                 case .listAlarms: arguments = .listAlarms
+                case .getCalendarEvents: arguments = .getCalendarEvents(try JSONDecoder().decode(CalendarQueryArguments.self, from: data))
+                case .createCalendarEvent: arguments = .createCalendarEvent(try JSONDecoder().decode(CalendarEventArguments.self, from: data))
+                case .scheduleLocalNotification: arguments = .scheduleLocalNotification(try JSONDecoder().decode(LocalNotificationArguments.self, from: data))
                 default: throw NativeToolErrorCode.invalidArguments
                 }
                 var draft = NativeToolProposal(requestID: request.requestID ?? request.id, tool: tool, arguments: arguments)

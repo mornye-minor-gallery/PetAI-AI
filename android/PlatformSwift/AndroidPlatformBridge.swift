@@ -6,9 +6,10 @@ actor AndroidPlatformBridge {
     static let shared = AndroidPlatformBridge()
     private var pending: [String: CheckedContinuation<JSONValue, Error>] = [:]
     private var confirmationID: String?
+    private var readOwners: [String: String] = [:]
     private var cancellationWaiters: [String: [CheckedContinuation<Void, Never>]] = [:]
 
-    func request(operation: String, fields: [String: JSONValue] = [:]) async throws -> JSONValue {
+    func request(operation: String, fields: [String: JSONValue] = [:], cancellableReadRequestID: String? = nil) async throws -> JSONValue {
         guard operation != "confirm" || confirmationID == nil else { throw NativeToolErrorCode.nativeFailure }
         let id = UUID().uuidString
         var body = fields
@@ -19,10 +20,12 @@ actor AndroidPlatformBridge {
         petai_platform_set_reply(androidPlatformReply)
         return try await withCheckedThrowingContinuation { continuation in
             pending[id] = continuation
+            if let owner = cancellableReadRequestID { readOwners[id] = owner }
             if operation == "confirm" { confirmationID = id }
             let result = json.withCString { petai_platform_submit($0) }
             if result != 1 {
                 pending.removeValue(forKey: id)?.resume(throwing: NativeToolErrorCode.nativeFailure)
+                readOwners.removeValue(forKey: id)
                 if confirmationID == id { confirmationID = nil }
                 print("ANDROID_PLATFORM submission_failed code=\(result)")
             }
@@ -34,6 +37,7 @@ actor AndroidPlatformBridge {
         do {
             let reply = try JSONDecoder().decode(Reply.self, from: Data(json.utf8))
             guard let continuation = pending.removeValue(forKey: reply.id) else { return }
+            readOwners.removeValue(forKey: reply.id)
             if confirmationID == reply.id { confirmationID = nil }
             let waiters = cancellationWaiters.removeValue(forKey: reply.id) ?? []
             defer { for waiter in waiters { waiter.resume() } }
@@ -47,8 +51,18 @@ actor AndroidPlatformBridge {
 
     func cancelConfirmation() async {
         guard let id = confirmationID else { return }
+        await cancel(operation: "cancel_confirmation", id: id)
+    }
+
+    func cancelRead(requestID: String) async {
+        let ids = readOwners.filter { $0.value == requestID }.map(\.key)
+        for id in ids { await cancel(operation: "cancel_read", id: id) }
+    }
+
+    private func cancel(operation: String, id: String) async {
+        guard pending[id] != nil else { return }
         let body: JSONValue = .object(["id": .string(UUID().uuidString),
-            "operation": .string("cancel_confirmation"), "targetID": .string(id)])
+            "operation": .string(operation), "targetID": .string(id)])
         do {
             let json = String(decoding: try JSONEncoder().encode(body), as: UTF8.self)
             await withCheckedContinuation { waiter in

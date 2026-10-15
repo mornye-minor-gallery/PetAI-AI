@@ -91,7 +91,7 @@ public struct UserProfileContext: Equatable, Sendable {
             facts.append("- 방에 배치한 가구: \(roomPlacementCount)개")
         }
         if !unlockedFeatures.isEmpty {
-            facts.append("- 현재 해금된 기능 가구: \(unlockedFeatures.joined(separator: ", "))")
+            facts.append("- 현재 사용 가능한 기능: \(unlockedFeatures.joined(separator: ", "))")
         }
         facts.append(contentsOf: dailySteps.map {
             "- \($0.date) 걸음 수: \($0.steps)걸음"

@@ -159,7 +159,7 @@ func stepCountFormatterDoesNotClaimPermissionWasDenied() throws {
 
     #expect(
         try NativeToolResultFormatter().visibleText(for: envelope)
-            == "걸음 수 데이터를 확인할 수 없어요. 건강 앱에서 접근 권한과 데이터 상태를 확인해 주세요."
+            == "해당 기간의 걸음 기록을 확인할 수 없어요. 걸음 기록 설정과 조회 기간을 확인해 주세요."
     )
 }
 

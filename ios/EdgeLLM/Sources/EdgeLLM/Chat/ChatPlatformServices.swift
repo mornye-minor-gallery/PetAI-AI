@@ -25,7 +25,14 @@ public protocol ChatPlatformTools: Sendable {
     func enrich(_ base: UserProfileContext, allowedTools: Set<NativeToolKind>) async -> UserProfileContext
     func confirm(_ draft: NativeToolProposal) async throws -> NativeToolProposal
     func cancelConfirmation() async
+    func cancelExecution(requestID: String) async
     func execute(_ proposal: ValidatedToolProposal) async throws -> JSONValue
+}
+
+public extension ChatPlatformTools {
+    /// Hosts without cancellable OS reads finish the query; the controller still
+    /// discards its result. This hook must never undo a committed device write.
+    func cancelExecution(requestID: String) async {}
 }
 
 public struct ChatContentResources: Sendable {

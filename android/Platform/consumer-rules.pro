@@ -5,3 +5,9 @@
 -keep class com.byeolmuri.petai.platform.PetAIAlarmService { *; }
 -keep class com.byeolmuri.petai.platform.PetAIAlarmConfirmationActivity { *; }
 -keep class com.byeolmuri.petai.platform.PetAIAlarmListActivity { *; }
+-keep class com.byeolmuri.petai.platform.PetAICalendarConfirmationActivity { *; }
+-keep class com.byeolmuri.petai.platform.PetAINotificationBridge { *; }
+-keep class com.byeolmuri.petai.platform.PetAINotificationReceiver { *; }
+-keep class com.byeolmuri.petai.platform.PetAINotificationRestoreReceiver { *; }
+-keep class com.byeolmuri.petai.platform.PetAINotificationConfirmationActivity { *; }
+-keep class com.byeolmuri.petai.platform.PetAINotificationOpenActivity { *; }

@@ -21,7 +21,7 @@ public struct NativeToolResultFormatter: Sendable {
             if envelope.tool == .getStepCount,
                envelope.errorCode == .dataUnavailable
             {
-                return "걸음 수 데이터를 확인할 수 없어요. 건강 앱에서 접근 권한과 데이터 상태를 확인해 주세요."
+                return "해당 기간의 걸음 기록을 확인할 수 없어요. 걸음 기록 설정과 조회 기간을 확인해 주세요."
             }
             if envelope.tool == .createCalendarEvent,
                envelope.errorCode == .dataUnavailable
@@ -115,6 +115,9 @@ public struct NativeToolResultFormatter: Sendable {
             return "요청을 완료했어요."
         }
 
+        if object["source"] == .string("google_local_recording") {
+            return try LocalStepResultFormatter.text(object, now: dateTime.now)
+        }
         if aggregation == StepCountAggregation.total.rawValue,
            case .number(let total)? = object["totalSteps"]
         {

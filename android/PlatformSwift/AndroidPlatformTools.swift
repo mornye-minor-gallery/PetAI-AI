@@ -2,12 +2,16 @@ import Foundation
 import EdgeLLM
 
 public struct AndroidPlatformTools: ChatPlatformTools {
-    public let supportedTools: Set<NativeToolKind> = [.createAlarm, .listAlarms, .createTimer]
+    public let supportedTools: Set<NativeToolKind> = [.getStepCount, .createAlarm, .listAlarms, .createTimer, .getCalendarEvents, .createCalendarEvent, .scheduleLocalNotification]
     public let unsupportedMessage = "Android에서는 준비 중인 기능입니다."
     private let bridge = AndroidPlatformBridge.shared
+    private let calendar = AndroidCalendarAdapter()
+    private let steps = AndroidStepAdapter()
     public init() {}
 
     public func confirm(_ draft: NativeToolProposal) async throws -> NativeToolProposal {
+        if draft.tool == .getStepCount { return try await steps.confirm(draft) }
+        if draft.tool == .getCalendarEvents || draft.tool == .createCalendarEvent { return try await calendar.confirm(draft) }
         let arguments: [String: JSONValue]
         switch draft.arguments {
         case .createAlarm(let value):
@@ -15,6 +19,8 @@ public struct AndroidPlatformTools: ChatPlatformTools {
                 "minute": .number(Double(value.minute)), "label": .string(value.label)]
         case .createTimer(let value):
             arguments = ["durationSeconds": .number(Double(value.durationSeconds)), "label": .string(value.label)]
+        case .scheduleLocalNotification(let value):
+            arguments = ["dateTime": .string(value.dateTime), "title": .string(value.title), "body": .string(value.body)]
         case .listAlarms: arguments = [:]
         default: throw NativeToolConfirmationError.unsupportedTool(draft.tool)
         }
@@ -26,6 +32,7 @@ public struct AndroidPlatformTools: ChatPlatformTools {
             switch draft.tool {
             case .createAlarm: edited = .createAlarm(try JSONDecoder().decode(CreateAlarmArguments.self, from: data))
             case .createTimer: edited = .createTimer(try JSONDecoder().decode(CreateTimerArguments.self, from: data))
+            case .scheduleLocalNotification: edited = .scheduleLocalNotification(try JSONDecoder().decode(LocalNotificationArguments.self, from: data))
             case .listAlarms: edited = .listAlarms
             default: throw NativeToolErrorCode.invalidArguments
             }
@@ -34,14 +41,20 @@ public struct AndroidPlatformTools: ChatPlatformTools {
             throw NativeToolValidationError(code: code, field: "androidPermission")
         }
     }
-    public func cancelConfirmation() async { await bridge.cancelConfirmation() }
+    public func cancelConfirmation() async { await bridge.cancelConfirmation(); await calendar.clearChoice() }
+    public func cancelExecution(requestID: String) async { await bridge.cancelRead(requestID: requestID) }
     public func execute(_ proposal: ValidatedToolProposal) async throws -> JSONValue {
+        if proposal.tool == .getStepCount { return try await steps.execute(proposal) }
+        if proposal.tool == .getCalendarEvents || proposal.tool == .createCalendarEvent { return try await calendar.execute(proposal) }
         let arguments: [String: JSONValue]
         switch proposal.arguments {
         case .createAlarm(let date, let label):
             arguments = ["scheduledAtMillis": .number((date.timeIntervalSince1970 * 1000).rounded()), "label": .string(label)]
         case .createTimer(let duration, let label):
             arguments = ["durationSeconds": .number(Double(duration)), "label": .string(label)]
+        case .scheduleLocalNotification(let date, let title, let body):
+            arguments = ["scheduledAtMillis": .number((date.timeIntervalSince1970 * 1000).rounded()),
+                "title": .string(title), "body": .string(body)]
         case .listAlarms: arguments = [:]
         default: throw NativeToolErrorCode.invalidArguments
         }
@@ -49,7 +62,11 @@ public struct AndroidPlatformTools: ChatPlatformTools {
             "requestID": .string(proposal.requestID), "tool": .string(proposal.tool.rawValue), "arguments": .object(arguments)])
     }
     public func enrich(_ base: UserProfileContext, allowedTools: Set<NativeToolKind>) async -> UserProfileContext {
-        guard !allowedTools.isDisjoint(with: supportedTools) else { return base }
+        let withReminders = await enrichReminders(base, allowedTools: allowedTools)
+        return await enrichAlarms(withReminders, allowedTools: allowedTools)
+    }
+    private func enrichAlarms(_ base: UserProfileContext, allowedTools: Set<NativeToolKind>) async -> UserProfileContext {
+        guard !allowedTools.isDisjoint(with: [.createAlarm, .listAlarms, .createTimer]) else { return base }
         do {
             struct Snapshot: Decodable {
                 struct Alarm: Decodable { let kind: String; let label: String; let scheduledAt: String; let state: String }
@@ -67,6 +84,28 @@ public struct AndroidPlatformTools: ChatPlatformTools {
         } catch {
             // Context enrichment cannot claim a zero count when the OS snapshot failed.
             print("ANDROID_PLATFORM alarm_context_unavailable")
+            return base
+        }
+    }
+    private func enrichReminders(_ base: UserProfileContext, allowedTools: Set<NativeToolKind>) async -> UserProfileContext {
+        guard allowedTools.contains(.scheduleLocalNotification) else { return base }
+        do {
+            struct Snapshot: Decodable {
+                struct Reminder: Decodable { let title: String; let body: String; let scheduledAtIso: String }
+                let authorized: Bool
+                let notifications: [Reminder]
+            }
+            let value = try await bridge.request(operation: "notification_snapshot")
+            let snapshot = try JSONDecoder().decode(Snapshot.self, from: JSONEncoder().encode(value))
+            guard snapshot.authorized else { return base }
+            return UserProfileContext(userName: base.userName, characterName: base.characterName,
+                roomPlacementCount: base.roomPlacementCount, unlockedFeatures: base.unlockedFeatures,
+                dailySteps: base.dailySteps, alarms: base.alarms,
+                reminders: snapshot.notifications.prefix(UserProfileContext.maximumScheduledItemCount).map {
+                    .init(title: $0.title, body: $0.body, scheduledAt: $0.scheduledAtIso)
+                }, alarmCount: base.alarmCount, reminderCount: snapshot.notifications.count)
+        } catch {
+            print("ANDROID_PLATFORM notification_context_unavailable")
             return base
         }
     }

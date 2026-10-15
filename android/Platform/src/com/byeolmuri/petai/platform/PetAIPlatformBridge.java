@@ -16,7 +16,7 @@ public final class PetAIPlatformBridge {
     private static volatile Context context;
     private static WeakReference<Activity> foreground = new WeakReference<>(null);
     private static JSONObject confirmation;
-    private static WeakReference<PetAIAlarmConfirmationActivity> presenter = new WeakReference<>(null);
+    private static WeakReference<Activity> presenter = new WeakReference<>(null);
 
     private PetAIPlatformBridge() {}
     private static native boolean nativeInstall();
@@ -35,7 +35,9 @@ public final class PetAIPlatformBridge {
         ((Application) context).registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
             public void onActivityResumed(Activity value) {
                 applyTimeZone();
-                if (value instanceof PetAIAlarmConfirmationActivity) return;
+                if (value instanceof PetAIAlarmConfirmationActivity || value instanceof PetAINotificationConfirmationActivity
+                        || value instanceof PetAINotificationOpenActivity || value instanceof PetAICalendarConfirmationActivity
+                        || value instanceof PetAIStepConfirmationActivity) return;
                 foreground = new WeakReference<>(value);
                 AlarmRuntime.WORK.execute(() -> {
                     try { AlarmRuntime.get(context).engine.reconcile(false); }
@@ -71,6 +73,26 @@ public final class PetAIPlatformBridge {
         final String id = request.optString("id");
         if (id.isEmpty() || id.length() > 128) throw new IllegalArgumentException("Invalid platform correlation ID");
         String operation = request.optString("operation");
+        if (operation.equals("cancel_read")) {
+            CalendarRuntime.cancelRead(request.optString("targetID")); StepRuntime.cancelRead(request.optString("targetID")); return;
+        }
+        if (operation.equals("execute") && request.optString("tool").equals("get_step_count")) {
+            StepRuntime.submit(context, request); return;
+        }
+        if (operation.equals("execute") && CalendarRuntime.supports(request.optString("tool"))) {
+            CalendarRuntime.submit(context, request); return;
+        }
+        if (operation.equals("notification_snapshot") || (operation.equals("execute") && request.optString("tool").equals("schedule_local_notification"))) {
+            NotificationRuntime.WORK.execute(() -> {
+                try {
+                    if (context == null) throw new NotificationFailure("data_unavailable");
+                    NotificationRuntime runtime = NotificationRuntime.get(context);
+                    reply(id, operation.equals("execute") ? runtime.execute(request) : runtime.contextSnapshot(), null);
+                } catch (NotificationFailure error) { reply(id, null, error.code); }
+                catch (Exception error) { NotificationRuntime.log("tool", error); reply(id, null, "native_failure"); }
+            });
+            return;
+        }
         if (operation.equals("confirm") || operation.equals("cancel_confirmation")) {
             new android.os.Handler(Looper.getMainLooper()).post(() -> {
                 if (operation.equals("confirm")) beginConfirmation(request);
@@ -98,11 +120,17 @@ public final class PetAIPlatformBridge {
         Activity activity = foreground.get();
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) { reply(id, null, "data_unavailable"); return; }
         if (confirmation != null) { reply(id, null, "native_failure"); return; }
+        String tool = request.optString("tool");
+        Class<? extends Activity> type = CalendarRuntime.supports(tool) ? PetAICalendarConfirmationActivity.class
+            : tool.equals("get_step_count") ? PetAIStepConfirmationActivity.class
+            : tool.equals("schedule_local_notification") ? PetAINotificationConfirmationActivity.class
+            : (tool.equals("create_alarm") || tool.equals("create_timer") || tool.equals("list_alarms")) ? PetAIAlarmConfirmationActivity.class : null;
+        if (type == null) { reply(id, null, "invalid_arguments"); return; }
         confirmation = request;
-        try { activity.startActivity(new Intent(activity, PetAIAlarmConfirmationActivity.class).putExtra("operationID", id)); }
+        try { activity.startActivity(new Intent(activity, type).putExtra("operationID", id)); }
         catch (RuntimeException error) { confirmation = null; reply(id, null, "native_failure"); }
     }
-    static synchronized JSONObject attach(String id, PetAIAlarmConfirmationActivity activity) {
+    static synchronized JSONObject attach(String id, Activity activity) {
         if (confirmation == null || !id.equals(confirmation.optString("id"))) return null;
         presenter = new WeakReference<>(activity);
         return confirmation;
@@ -114,11 +142,11 @@ public final class PetAIPlatformBridge {
     }
     private static synchronized void cancelConfirmation(String id) {
         if (confirmation == null || !id.equals(confirmation.optString("id"))) return;
-        PetAIAlarmConfirmationActivity activity = presenter.get();
+        Activity activity = presenter.get();
         finishConfirmation(id, null, "cancelled_by_user");
         if (activity != null) activity.finish();
     }
-    private static void reply(String id, JSONObject data, String error) {
+    static void reply(String id, JSONObject data, String error) {
         try {
             JSONObject reply = new JSONObject().put("id", id);
             if (error == null) reply.put("data", data == null ? new JSONObject() : data);

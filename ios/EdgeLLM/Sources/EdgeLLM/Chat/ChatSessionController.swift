@@ -363,6 +363,8 @@ public actor ChatSessionController {
         if state == .admitting || state == .compacting { return }
         await nativeToolAdapterHub.cancelConfirmation()
         guard activeRequestId == activeID, !isCommittingTurn else { return }
+        await nativeToolAdapterHub.cancelExecution(requestID: activeID)
+        guard activeRequestId == activeID, !isCommittingTurn else { return }
         await runtime.cancel()
     }
 
