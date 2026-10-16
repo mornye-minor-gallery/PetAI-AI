@@ -29,13 +29,42 @@ private func compactingConfiguration(enabled: Bool = true) -> SLMConfiguration {
     #expect(before.summary == nil)
     #expect(await fixture.runtime.summaryGenerationCount == 0)
     #expect(fixture.events.snapshot().last?.type == "context_ready")
-    await fixture.controller.send(json: fixture.request("blocked", "새 질문"))
-    #expect(fixture.events.snapshot().last?.code == "inference_memory_insufficient")
-    #expect(try fixture.store.load()?.chatTurns.count == before.chatTurns.count)
+    let originalBytes = try Data(contentsOf: fixture.store.fileURL)
+    let generations = await fixture.runtime.generationCount
+    let checkpoints = await fixture.runtime.checkpointCount
+    for index in 0..<3 {
+        let id = "blocked-\(index)"
+        await fixture.controller.send(json: fixture.request(id, "새 질문"))
+        #expect(fixture.events.snapshot().last?.code == "inference_memory_insufficient")
+        #expect(try Data(contentsOf: fixture.store.fileURL) == originalBytes)
+        #expect(await fixture.runtime.generationCount == generations)
+        #expect(await fixture.runtime.summaryGenerationCount == 0)
+        #expect(await fixture.runtime.checkpointCount == checkpoints)
+        #expect(await fixture.runtime.prefilledInputs.isEmpty)
+        #expect(!fixture.events.snapshot().contains { $0.requestId == id && $0.type == "generating" })
+    }
     admission.block([])
-    await fixture.controller.send(json: fixture.request("retry", "다시 질문"))
-    #expect(await fixture.runtime.summaryGenerationCount > 0)
-    #expect(try fixture.store.load()?.chatTurns.last?.requestID == "retry")
+    await fixture.runtime.setResponse("반가워.")
+    await fixture.runtime.holdPrefills()
+    let retry = Task { await fixture.controller.send(json: fixture.request("retry", "다시 질문")) }
+    await fixture.runtime.waitForPrefill()
+    // Recovery must finish preparing the old context before it accepts the new turn.
+    #expect(try Data(contentsOf: fixture.store.fileURL) == originalBytes)
+    #expect(await fixture.runtime.generationCount == generations)
+    await fixture.controller.send(json: fixture.request("concurrent", "동시 질문"))
+    #expect(fixture.events.snapshot().last?.code == "runtime_not_ready")
+    await fixture.runtime.finishPrefill()
+    await retry.value
+    #expect(await fixture.runtime.summaryGenerationCount == 1)
+    #expect(await fixture.runtime.prefilledInputs.count == 1)
+    #expect(await fixture.runtime.generationCount == generations + 1)
+    let recovered = try #require(try fixture.store.load())
+    #expect(recovered.summary != nil)
+    #expect(recovered.chatTurns.last?.requestID == "retry")
+    #expect(recovered.chatTurns.last?.status == .completed)
+    #expect(recovered.chatTurns.filter { $0.requestID == "retry" }.count == 1)
+    #expect(!recovered.chatTurns.contains { $0.requestID.hasPrefix("blocked") || $0.requestID == "concurrent" })
+    #expect(await fixture.runtime.modelPreparationCount == 1)
     #expect(!fixture.events.snapshot().contains { $0.code == "summary_generation_failed" })
 }
 
