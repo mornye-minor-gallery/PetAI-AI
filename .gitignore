@@ -25,3 +25,7 @@ xcuserdata/
 *.p12
 *.pem
 *.key
+
+# Android standalone test host
+.gradle/
+android/tests/OwnedAlarms/device/build/

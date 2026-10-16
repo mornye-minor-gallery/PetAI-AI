@@ -47,7 +47,7 @@ def main():
             os.replace(stage / "liblitert-lm.provenance.json", output / "liblitert-lm.provenance.json")
         verify_android(output, backend=args.backend)
         print("Product engine and matching provenance ready.", flush=True)
-        print("Rebuild the matching Swift bridge, then publish approved inputs with scripts/build_inputs.py publish.", flush=True)
+        print("Next: build the matching bridge with scripts/build-android-swift.py.", flush=True)
     finally:
         lock.rmdir()
 

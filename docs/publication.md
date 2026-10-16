@@ -7,14 +7,18 @@ AI 런타임·연구·테스트를 선별해 개발 저장소에서 옮깁니다
 
 ## 포함 범위
 
-- `ios/EdgeLLM`: 공통 대화 제어, 프롬프트 구성, 최근 20턴, 장기기억, 일기와 테스트
+- `ios/EdgeLLM`: 대화 제어, 캐릭터별 기록, 문맥 요약, 반응 검색, 장기기억, 일기와 테스트
 - `ios/EdgeLLMLab`, `ios/ThirdParty`, `ios/Package.swift`: 추론·임베딩·KV 연결과 독립 실험 앱
-- `android/Runtime`, `android/Dispatch`: Android 호스트와 Swift 메인 큐 연결
+- `android/Runtime`, `android/Dispatch`, `android/Platform*`: Android 호스트, Swift 메인 큐, JNI와 OS 도구 연결
+- `android/tests`, 네이티브 빌드·검사 스크립트: 독립 검사 호스트와 CPU·GPU 의존성 검증
 - `ai/`, `ios/ResourceBench`, `contracts/resource-benchmark`: 평가기·계측기·합성 입력과 연구 기록
 
 Unity 게임 프로젝트, 배포·서명 설정, 제품 캐릭터 콘텐츠, 반응풀 원문과 벡터,
 학습 가중치, 제품 필터 목록, 실제 사용자 기록은 옮기지 않습니다.
 외부 코퍼스 제작 폴더에 의존하는 BST 전용 실행기도 제외합니다.
+현재 시각 라우터의 제품 가중치·보정 및 내보내기 실험과 반응 질의 게이트의 제품
+학습 자료는 외부 산출물에 의존하므로 공개하지 않습니다. 게이트의 소비 코드와
+합성 테스트는 포함합니다. 과거 연구 기준선은 그대로 유지합니다.
 
 ## 공개본의 연결 방식
 
@@ -33,7 +37,8 @@ Guardrail의 새 실행은 외부 캐릭터 콘텐츠와 현재 출력 예산을
 2. 변경 패치만 옮기고 작성자·작성 시각·원본 커밋 번호를 남깁니다. 비공개 브랜치는 병합하지 않습니다.
 3. 추가 파일과 중간 커밋까지 개인정보·데이터 권한·외부 라이선스를 확인합니다.
 4. `uv run --frozen python scripts/check.py --swift`와 변경된 네이티브 연결을 검증합니다.
-5. PR에서 공개 범위와 검증 결과를 확인한 뒤 병합합니다.
+5. README·변경 문서·PR 본문에 anti-slop 검수를 수행하고 별도 검수자의 누락 지적을 반영합니다.
+6. PR에서 공개 범위와 검증 결과를 확인한 뒤 병합합니다.
 
 모델 추론과 기기 QA는 별도 검증입니다. 실행 방법은 [빠른 시작](quickstart.md)과
 [Android 연결](../android/README.md)에 있습니다.

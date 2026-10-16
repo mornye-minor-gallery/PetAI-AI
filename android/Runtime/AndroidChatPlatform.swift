@@ -12,7 +12,7 @@ struct AndroidChatPaths: Decodable, Sendable {
 struct AndroidChatPlatform: ChatPlatformServices {
     let paths: AndroidChatPaths
     let tools: any ChatPlatformTools = AndroidPlatformTools()
-    let defaultCharacterID = "elena"
+    let defaultCharacterID: String
     var personaEnabled: Bool { true }
     var assets: URL { URL(fileURLWithPath: paths.assetsDirectory) }
 
@@ -39,12 +39,14 @@ struct AndroidChatPlatform: ChatPlatformServices {
     func recentTurnStore(characterID: String) throws -> DialogueSessionFileStore {
         let support = URL(fileURLWithPath: paths.supportDirectory)
         return try .character(characterID, in: support,
-                              legacyFileURL: support.appendingPathComponent("recent-turns.json"))
+                              legacyFileURL: support.appendingPathComponent("recent-turns.json"),
+                              legacyCharacterID: defaultCharacterID)
     }
     func storedCharacterIDs() throws -> [String] {
         let support = URL(fileURLWithPath: paths.supportDirectory)
         return try DialogueSessionFileStore.existingCharacterIDs(in: support,
-            legacyFileURL: support.appendingPathComponent("recent-turns.json"))
+            legacyFileURL: support.appendingPathComponent("recent-turns.json"),
+                              legacyCharacterID: defaultCharacterID)
     }
     func selectAsset(_ kind: NativeAssetKind) async throws -> URL { throw AndroidHostError.notReady }
     func importAsset(_ url: URL, kind: NativeAssetKind) async throws { throw AndroidHostError.notReady }

@@ -1,206 +1,75 @@
-# LiteRTLM iOS package
+# LiteRT-LM 연결과 KV 체크포인트
 
-The Swift wrappers use the LiteRT-LM session APIs. Native builds pin public fork
-revision [`939b09f5`](https://github.com/mornye-minor-gallery/LiteRT-LM/tree/939b09f5ac92974bb4a7df430d440c2b8780941e).
-The fork contains exclusive CPU state transfer and the separate pending-token
-prefill fix, based on upstream `a327b494f874a319605e6fd7e3439678daa4d07d`.
-Native source and source-boundary tests belong to the public fork; Swift adapters,
-file storage policy, and application integration tests belong to this package and
-EdgeLLM. Upstream source comments are unchanged. The
-[fork guide](https://github.com/mornye-minor-gallery/LiteRT-LM/blob/939b09f5ac92974bb4a7df430d440c2b8780941e/docs/PETAI_KV_CHECKPOINT.md)
-lists the native changes and API contract.
-Before adding a fork-specific operation, inspect existing upstream APIs for the
-same capability, including ownership, locking, side effects and allocation behavior.
-Reuse a suitable operation instead of exposing another path to the same state.
+Swift 연결 코드는 Apache-2.0이며 [원문 라이선스](LICENSE)를 보존합니다. 네이티브 엔진은 [고정한 LiteRT-LM 포크](https://github.com/mornye-minor-gallery/LiteRT-LM/tree/939b09f5ac92974bb4a7df430d440c2b8780941e)와 이 폴더의 패치로 빌드합니다. 모델 파일과 빌드한 바이너리는 저장소에 포함하지 않습니다.
 
-Prepare the native dependency from the repository root:
+## 빌드 입력
 
-```bash
-bash scripts/prepare-ios-native-dependencies.sh
-```
+iOS에서는 저장소 루트에서 `bash scripts/prepare-ios-native-dependencies.sh`를 실행합니다. 스크립트는 소스 압축 파일·패치·Bazel의 해시를 확인하고 기기 및 시뮬레이터용 XCFramework를 만듭니다. `--print-config`로 필요한 빌드 식별값을 볼 수 있습니다. 기존 프레임워크는 provenance, 두 슬라이스의 바이너리 해시와 필수 심볼이 일치할 때 재사용합니다.
 
-Inspect the pinned source contract without downloading:
-
-```bash
-bash scripts/prepare-ios-native-dependencies.sh --print-config
-```
-
-The framework is stored under `ios/.artifacts/` and linked into this package at
-`Artifacts/CLiteRTLM.xcframework`. Both paths remain outside version control.
-The Unity iOS post-processor copies the prepared framework and these Swift
-sources into the exported Xcode project.
-
-PetAI keeps runtime-boundary extensions beside the upstream wrapper:
-
-- native tokenizer-backed prompt measurement;
-- native stream lifetime tracking used by cancellation and unload handling;
-- full-prompt cached text sessions and the synchronous state-transfer C ABI.
-
-The checkpoint ABI is built from source, not available in the official release
-binary. Source archive, Bazel executable, and installed slice checksums
-are recorded/validated by the preparation script. Builds are incremental;
-compiled artifacts and model weights are never committed.
-
-The same public repository also hosts `petai-ios-embedding-native-v1`, which
-supplies LiteRT and SentencePiece frameworks through
-`scripts/prepare-ios-embedding-dependencies.sh`. That release is independent of
-the KV engine and must remain available while the app pins it. The
-`petai-v0.14.0-topk-poc.1` release is a separate telemetry experiment, not a product
-dependency. KV native sources are built from the pinned fork commit; there is no
-KV prebuilt release in this distribution path.
-
-## Full-prompt KV reuse
-
-`Engine.createCachedSession` creates a CPU, Gemma 4 text-only adapter over the
-existing Session C ABI. It keeps one native session alive and submits a complete
-rendered request after `session_rewind_to_step(0)`. Native prefix matching skips
-identical tokens and replaces the changed suffix. It does not clone sessions. GPU ringbuffer semantics are outside this adapter's scope.
-
-`replaceInput` begins a new authoritative app turn: previous dynamic inputs are
-not appended. The app supplies retained dialogue history. Additional sends before
-`replaceInput` are retries and include the preceding visible response, rendered
-with the official chat template. Sampling/output-limit changes replace the native
-session; text changes do not. Reset/unload explicitly releases it.
-
-Rendering uses an unprefilled Conversation solely for its model template. Never
-query that temporary object's token count: `GetCurrentStep` acquires its executor
-context and can cause a copy/context switch. Count the rendered text using the
-engine tokenizer. The native BOS is stripped from the submitted text because a
-fresh raw Session prepends it; it is included once in diagnostic tokenization.
-
-Cancellation retains native ownership until the terminal callback. Rewind never
-runs while generation is active. Gemma channel delimiters are buffered across
-chunks; channel content is excluded from visible output and from retry history.
-Token-limit termination returns available text, matching Conversation's default,
-with `finishReason=token_limit`; other native errors propagate.
-
-`matchingInputPrefixTokens` measures input/input token overlap, **not physical KV
-hits**. Session C API does not expose current KV size. Native TTFT refers to the
-first session turn, so use the runtime's monotonic `first_response_seconds` for
-per-turn comparisons. No cache speedup or device memory safety follows from a
-successful build or the stub tests.
-
-Upstream API references:
-- [Native CachedSession contract](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.17.1/runtime/core/cached_session.h)
-- [Native prefix matching](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.17.1/runtime/framework/resource_management/resource_manager.cc)
-- [Rewind semantics](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.17.1/runtime/core/session_advanced.cc)
-- [BOS handling](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.17.1/runtime/core/session_utils.cc)
-
-Run `bash scripts/test-litertlm-cached-session.sh` from the repository root for
-chunked channel parsing and native-boundary lifecycle tests. These use a C stub;
-run the shared app runtime through `beolmuri-eval resource` for device evidence.
-
-## File checkpoints
-
-The app commits a completed visible recent turn before saving the latest native
-CPU text-session cache. Cancellation, errors, tool replies and memory-caption
-sessions never trigger a save. New requests, unload and cancellation cannot
-interleave with the committed-turn checkpoint. Native task completion is checked
-in addition to the Swift terminal callback.
-
-The device-shared file is `Library/Caches/LiteRTLM/Session/latest.kv`, excluded
-from backup and export. It is a disposable optimization, not a new history store.
-There is one latest cache, not a cache archive. Recent turns and SQLite memories
-remain authoritative. A kill during writing leaves the previous atomically
-renamed file; startup removes the orphan temporary file.
-
-Restore occurs when the first cached dialogue session is prepared, before its
-full input is submitted. Native prefix matching still discards changed suffixes.
-The app binds the file only to its cache compatibility version, model filename
-and context capacity. It does not inspect filesystem identity or read model
-contents at startup. Explicit language-model imports remove the cache before
-replacing the model, including replacements with the same filename. Other model
-replacement paths must also clear the cache when reusing a filename.
-The single app compatibility version must change when the native state
-representation or its interpretation becomes incompatible. Sampling settings and
-output limits are not part of the identity. Changed prompts do not invalidate the
-entire file because exact token-prefix matching handles them.
-
-`KVCheckpointStore` in EdgeLLM owns the file, identity header, streamed SHA-256
-payload check, temporary-file cleanup and atomic rename. Its POSIX reads/writes
-operate directly on the supplied buffer; neither a whole-cache `Data` object nor
-a model-sized autoreleased buffer chain is constructed.
-
-## State-transfer contract
-
-`litert_lm_session_transfer_state(session, transfer, user_data, reading)` performs
-synchronous transfer with an idle, exclusively owned CPU session. The callback
-receives a borrowed mutable pointer and length, in chunks no larger than 64 KiB.
-On save, the caller reads those bytes without mutating them. On restore, the caller
-fills the complete buffer. The pointer is valid only during the callback and must
-not escape. The callback must not reenter the session or start inference.
-
-`transfer(NULL, 0, user_data)` is the finalization call: the app validates the
-payload digest and EOF before returning success on restore. Return `false` for
-any transfer or finalization failure. The engine does not know filenames, model
-identity, checksum algorithms, retention or atomic-file policies. It returns an
-Abseil status code (`0` is success). Swift propagates the caller's I/O error unless
-native cleanup failed (`10`), which poisons that session until engine recreation.
-
-The caller waits until the final generation callback has returned before entering
-this API. The engine additionally drains native tasks and rechecks authoritative
-manager state under lock. Restore requires a fresh session. Only next-request
-full-prompt reuse is supported, not resuming a half-generated answer. The Swift
-adapter admits saves only after successful completion or the output-token limit;
-the app decides which completed dialogue invokes it.
-
-The binary state contains tensor layout and bytes, cursor, processed token IDs,
-pending-token embeddings and sampler RNG. It is CPU/batch-one/in-place only, without
-LoRA or speculative drafter. It has a format version, but is not a portable format.
-GPU, cross-engine transfer, untrusted imports and schema migration are out of scope.
-
-Buffers are transferred directly in bounded chunks, without cloning full KV.
-A failed read clears the touched state and token metadata before cold prefill;
-if clearing fails (status 10), inference is refused until engine reinitialization.
-Failures are logged, not hidden. A failed write leaves the completed dialogue and
-previous cache intact. Memory deletion and explicit conversation reset delete the
-cache. No portable/untrusted cache import, GPU cache or format migration is supported.
-
-Verification:
-
-- `bash scripts/test-litertlm-cached-session.sh`: C-boundary admission tests.
-- `swift test --package-path ios/EdgeLLM --filter KVCheckpointStoreTests`: storage/identity tests.
-- `PETAI_LITERTLM_BAZEL=<bazel> bash scripts/test-litertlm-checkpoint-integration.sh <patched-native-source> <model> <new-result-directory>`:
-  actual app composer + product checkpoint API in separate Mac CPU processes;
-  ordinary, dynamic, recent-window boundary, cancelled and failed-turn fixtures,
-  same-session continuation after save, plus corrupted/truncated-file,
-  old-format and incompatible-identity recovery. The criterion is visible
-  greedy-output equality, not a new bitwise-logit or device-speed claim.
-
-Device latency, memory, cold-start responsiveness and kill/relaunch UX require
-physical iPhone testing; Mac tests and an iOS build do not establish those results.
-
-## Fork surface relative to the pinned upstream revision
-
-The state-transfer extension touches 17 files: 8 existing source/header files, 5 new
-implementation/helper files, and 4 build files. The prefill fix touches 4 files,
-one of which is the same executor build file, for 20 distinct native files total.
-Most existing headers only declare the forwarding operation; file policy is not
-implemented at any native layer.
-
-| Native file | Function or change |
+| 패치 | 적용 경로와 목적 |
 | --- | --- |
-| `c/engine.h`, `c/kv_checkpoint.cc` | `LiteRtLmStateTransfer`, `litert_lm_session_transfer_state` |
-| `runtime/engine/engine.h` | `SessionInterface::TransferState` |
-| `runtime/core/session_advanced.h`, `runtime/core/kv_checkpoint_session.cc` | `SessionAdvanced::TransferState`: fresh-state admission and task drain |
-| `runtime/framework/resource_management/execution_manager.h` | `ExecutionManager::TransferState` |
-| `runtime/framework/resource_management/threaded_execution_manager.h`, `runtime/framework/resource_management/kv_checkpoint_manager.cc` | `ThreadedExecutionManager::TransferState`: single owner, idle check and executor acquisition |
-| `runtime/framework/resource_management/resource_manager.cc` | `LockedLlmExecutor::TransferState`: forwarding |
-| `runtime/executor/llm_executor_base.h` | `LlmExecutorBase::TransferState` |
-| `runtime/executor/llm_litert_compiled_model_executor.h`, `runtime/executor/kv_checkpoint.cc` | `LlmLiteRtCompiledModelExecutorBase::TransferState`: runtime metadata, existing KV buffer access and failed-import reset |
-| `runtime/executor/kv_checkpoint_io.h` | `Io`: bounded callback transfer of values, vectors and tensor descriptors |
-| `c/BUILD`, `runtime/core/BUILD`, `runtime/executor/BUILD`, `runtime/framework/resource_management/BUILD` | Compile/link added sources; Mac integration target |
-| `runtime/executor/llm_litert_compiled_model_executor.cc` | `PrefillInternal`: prepare missing pending-token embeddings before writing float input |
-| `runtime/executor/pending_prefill_embeddings.h` | `EnsurePendingPrefillEmbeddings`: resolve only missing embeddings |
-| `runtime/executor/pending_prefill_embeddings_test.cc` | Ten focused prefill tests |
+| `prefix-cursor.patch` | iOS·Android에서 캐시 접두부를 찾은 뒤 실행 커서를 실제 재사용 위치에 맞춥니다. 새 입력이 기존 KV를 덮어쓰는 문제를 수정합니다. |
+| `cpu-prefill-chunk.patch` | CPU prefill 그래프 크기 상한을 C API로 전달합니다. iOS 런타임은 128토큰을 지정하고, 정적 실행기는 큰 그래프를 arena 할당 전에 제외합니다. |
+| `xnnpack-channelwise-scale.patch` | iOS 빌드의 XNNPACK에 채널별 스케일 버퍼 수정 사항을 적용합니다. 마지막 두 텐서 차원을 제외한 배치 크기로 버퍼를 할당합니다. |
+| `gpu-checkpoint.patch` | Android GPU 빌드에서 물리 KV 뱅크와 순서를 저장·복원합니다. Mac 네이티브 통합 검사도 이 패치를 사용합니다. |
 
-`DeepCopy`, `CloneContext`, `RestoreContext`, `Serialize` and `Load` are unchanged.
-`LitertState` and its build file are also unchanged. The executor uses the existing
-`GetStateBuffers` operation and checks that each input/output pair references the
-same host buffer. That operation synchronizes signature shapes and duplicates
-reference-counted handles, not the underlying KV data. Tensor names, element types,
-dimensions and byte sizes are checked against the live buffers during import.
-Native state format 2 and the app compatibility identifier reject earlier caches.
-No KV clone is used by this path. The separate prefill fix is required when rewind
-reconstructs an ID-only pending token for a model that consumes float embeddings;
-it is not file persistence logic.
+XNNPACK 수정은 [공식 커밋 c72e2a4](https://github.com/google/XNNPACK/commit/c72e2a4ae0efb7c648f73835e9a0133e7bf21a23)의 backport입니다. 빌드 스크립트는 고정 XNNPACK 소스와 패치 적용 후 파일의 해시를 확인하고 Bazel의 `--override_repository`로 전달합니다. 이 패치에도 XNNPACK의 [라이선스](LICENSE-XNNPACK)가 적용됩니다.
+
+`PETAI_LITERTLM_BUILD_JOBS`로 iOS 빌드 병렬 수를 지정할 수 있으며 기본값은 10입니다. Android는 [CPU·GPU 빌드 안내](../../../android/README.md)를 따릅니다. 엔진과 Swift 리소스의 해시가 연결되므로 두 빌드의 결과를 섞지 않습니다.
+
+EmbeddingGemma용 LiteRT·SentencePiece 프레임워크는 별도 준비 스크립트 `scripts/prepare-ios-embedding-dependencies.sh`에서 관리합니다.
+
+## 전체 입력의 KV 재사용
+
+`Engine.createCachedSession`은 Gemma 4 텍스트 입력에 Session C ABI를 사용합니다. 요청마다 완성된 입력을 전달하고 `session_rewind_to_step(0)` 이후 네이티브 접두부 비교로 같은 토큰을 재사용합니다. CPU와 Android GPU는 같은 Swift 어댑터를 사용합니다.
+
+`replaceInput`은 새 앱 요청을 시작합니다. 호스트가 최근 대화와 동적 내용을 다시 공급합니다. 그 사이의 재시도에는 앞서 보인 답변을 공식 채팅 템플릿으로 넣습니다. 샘플링이나 출력 상한이 바뀌면 네이티브 세션을 교체합니다.
+
+템플릿 렌더링에는 prefill하지 않은 임시 Conversation을 사용합니다. 그 객체의 토큰 수를 조회하면 실행 컨텍스트 획득이 발생하므로, 렌더링 결과를 엔진 토크나이저로 측정합니다. 새 Session이 BOS를 추가하므로 전달 문자열에서는 BOS를 한 번 제거합니다.
+
+취소 후에도 마지막 콜백이 끝날 때까지 세션을 소유합니다. 생성 중에는 rewind하지 않습니다. Gemma의 채널 구분자가 여러 청크로 나뉘어 도착해도 필터가 이를 모아 처리합니다. 출력 토큰 상한에 도달하면 생성한 답변과 `finishReason=token_limit`을 반환하고, 다른 네이티브 오류는 호출 측에 전달합니다.
+
+`matchingInputPrefixTokens`는 두 입력의 같은 접두부 길이입니다. 실제 KV 적중량이나 속도 개선을 측정한 값은 아닙니다. 턴별 지연은 런타임의 `first_response_seconds`로 관찰합니다.
+
+## 파일과 실패 처리
+
+앱은 보이는 대화 턴을 저장한 뒤 KV 체크포인트를 저장합니다. 캐시 경로는 앱 캐시 디렉터리의 `LiteRTLM/<cpu|gpu>/Session/latest.kv`입니다. 임시 파일을 쓴 뒤 원자적으로 교체하며, 대화 기록·SQLite 기억·일기는 각 저장소에서 유지합니다.
+
+캐시 식별값에는 모델 SHA-256, 문맥 용량, 백엔드, 엔진 식별자와 앱 호환 버전이 들어갑니다. 같은 파일명으로 모델을 교체해도 이전 캐시를 재사용하지 않습니다. 모델 해시는 준비 단계에서 청크 단위로 계산합니다.
+
+`litert_lm_session_transfer_state`는 유휴 상태의 세션을 독점한 호출자가 동기적으로 실행합니다. 콜백 버퍼는 최대 64 KiB이며 콜백 밖으로 보관하지 않습니다. 마지막 `transfer(NULL, 0, user_data)`에서 읽기 측이 페이로드 해시와 EOF를 확인합니다. 파일 정책과 모델 식별은 앱에서, 텐서·커서·토큰·난수 상태 전송은 엔진에서 처리합니다.
+
+CPU는 상태 형식 2, GPU는 형식 4를 사용합니다. 두 경로 모두 배치 크기 1이며 LoRA와 추측 디코딩을 사용하지 않습니다. 다른 백엔드나 임의 엔진 빌드 사이에서 교환할 수 있는 형식은 아닙니다.
+
+GPU 저장은 KV 뱅크를 회전시키지 않는 별도 조회 경로를 사용합니다. 각 버퍼의 생산자 이벤트를 기다린 뒤 CPU에서 접근하도록 매핑하고, `PackedSize()`만큼 전송한 후 명시적으로 매핑을 해제합니다. 복원 시 할당 정책·뱅크·차원·stride·크기를 확인합니다.
+
+상태 전송 오류 코드 `10`은 엔진을 다시 만들기 전까지 기존·신규 세션의 추론을 막습니다. GPU 복원이 도중에 실패하면 일부 뱅크가 이미 바뀌었을 수 있어 엔진을 무효화합니다. CPU 복원 실패는 상태를 지운 뒤 다시 prefill하며, 초기화도 실패하면 같은 재준비 오류를 반환합니다. 파일 쓰기 실패는 이전 캐시와 이미 저장한 대화를 유지합니다.
+
+## 검증
+
+- `bash scripts/test-litertlm-prefill.sh`: Swift/C 설정 전달 검사. 준비된 소스 경로를 인자로 주면 C++ 그래프 선택 정책도 검사합니다.
+- `bash scripts/test-litertlm-cached-session.sh`: 프레임워크 준비 후 C stub으로 수명·취소·체크포인트 경계를 검사합니다. 외부 헤더를 쓰려면 `PETAI_LITERTLM_HEADERS`를 지정합니다.
+- `swift test --package-path ios/EdgeLLM --filter KVCheckpointStoreTests`: 파일 교체·해시·식별값 검사입니다.
+- `Tests/PrefixCursor/`: 실제 ResourceManager와 실행 커서 테스트입니다. 준비한 소스의 `petai_cursor_tests`에 복사하고 `//petai_cursor_tests:prefix_cursor_test`를 빌드합니다.
+
+실제 모델의 Mac 통합 검사는 다음과 같습니다. 소스와 결과 경로는 새 디렉터리를 사용합니다.
+
+```sh
+PETAI_LITERTLM_BAZEL="$PETAI_BAZEL" \
+  bash scripts/test-litertlm-checkpoint-integration.sh \
+  "$PETAI_LITERTLM_SOURCE_DIR" "$PETAI_MODEL_PATH" \
+  .artifacts/checkpoint-run cpu 8192
+```
+
+Android에서는 대상 기기와 기기 내 모델 경로를 지정합니다.
+
+```sh
+python3 scripts/test-android-kv-checkpoint.py \
+  --source "$PETAI_LITERTLM_SOURCE_DIR" \
+  --native "$PETAI_LITERTLM_LIBRARY_DIR" \
+  --ndk "$ANDROID_NDK_HOME" --serial "$PETAI_ANDROID_SERIAL" \
+  --model "$PETAI_ANDROID_MODEL_PATH" --backend gpu \
+  --result android/.artifacts/gpu-checkpoint-test
+```
+
+검사는 cold prefill, 같은 세션 재사용, 저장 후 계속 생성, 새 프로세스 복원의 출력을 비교합니다. 모델·샘플링 조건을 고정하고 시나리오 결과와 시간을 JSON에 남깁니다. GPU 검사는 OpenCL을 지원하는 기기가 필요합니다. stub 검사와 컴파일 결과만으로 기기 지연·메모리 사용량·모델 출력의 일치를 판단하지 않습니다.

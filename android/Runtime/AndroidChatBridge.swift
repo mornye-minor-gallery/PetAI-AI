@@ -48,8 +48,11 @@ final class AndroidChatHost: @unchecked Sendable {
         let engineIdentity = try KVCheckpointStore.modelIdentity(at: profileURL)
         try EdgeLLMResources.configure(bundleURL: URL(fileURLWithPath: paths.assetsDirectory)
             .appendingPathComponent("EdgeLLM_EdgeLLM.bundle"))
+        let content = try DialogueContent.load(url: URL(fileURLWithPath: paths.assetsDirectory)
+            .appendingPathComponent("dialogue-content.json"))
+        _ = try DialogueCharacterID(content.id)
         controller = ChatRuntimeAssembly.makeController(configuration: .production,
-            platform: AndroidChatPlatform(paths: paths),
+            platform: AndroidChatPlatform(paths: paths, defaultCharacterID: content.id),
             cacheDirectory: URL(fileURLWithPath: paths.cacheDirectory),
             supportDirectory: URL(fileURLWithPath: paths.supportDirectory),
             backend: backend, engineIdentity: engineIdentity,
