@@ -14,6 +14,24 @@ SPEC.loader.exec_module(BUILD)
 
 
 class AndroidSwiftBuildTests(unittest.TestCase):
+    def test_android_environment_preserves_backend_and_native_inputs(self):
+        for backend in ("cpu", "gpu"):
+            with self.subTest(backend=backend), patch.dict("os.environ", {"EXTRA": "kept"}, clear=True):
+                environment = BUILD.android_environment(Path("engine"), Path("native"), backend)
+                self.assertEqual(environment, {
+                    "EXTRA": "kept", "PETAI_ANDROID_BUILD": "1",
+                    "PETAI_ANDROID_LLM_BACKEND": backend,
+                    "PETAI_LITERTLM_SOURCE_DIR": "engine",
+                    "PETAI_LITERTLM_LIBRARY_DIR": "native",
+                })
+
+    def test_sqlite_preparation_uses_product_owned_script(self):
+        with patch.object(BUILD.subprocess, "run") as run:
+            BUILD.prepare_sqlite()
+        script = BUILD.ROOT / "android/dependencies/prepare-sqlite.sh"
+        self.assertTrue(script.is_file())
+        run.assert_called_once_with(["sh", str(script)], check=True)
+
     def test_c_sources_use_a_generic_build_path(self):
         scratch = Path("/private/workspace/swift-scratch")
         self.assertEqual(BUILD.c_source_path_map(scratch),

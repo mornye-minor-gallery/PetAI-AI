@@ -15,6 +15,15 @@ def c_source_path_map(scratch: Path) -> str:
     return f"-ffile-prefix-map={scratch}=/petai-build"
 
 
+def prepare_sqlite() -> None:
+    subprocess.run(["sh", str(ROOT / "android/dependencies/prepare-sqlite.sh")], check=True)
+
+
+def android_environment(source: Path, native: Path, backend: str) -> dict[str, str]:
+    return {**os.environ, "PETAI_ANDROID_BUILD": "1", "PETAI_ANDROID_LLM_BACKEND": backend,
+            "PETAI_LITERTLM_SOURCE_DIR": str(source), "PETAI_LITERTLM_LIBRARY_DIR": str(native)}
+
+
 def finalize_shared_bridge(library: Path, ndk: Path) -> None:
     strips = list((ndk / "toolchains/llvm/prebuilt").glob("*/bin/llvm-strip"))
     if len(strips) != 1:
@@ -40,9 +49,8 @@ def main():
         raise ValueError("ANDROID_NDK_HOME is required to finalize the Android bridge")
     manifest = verify_android(native, backend=args.backend)
     prepare_source(source, args.backend)
-    subprocess.run(["sh", str(ROOT / "android/poc/swift-android/prepare-core-sqlite.sh")], check=True)
-    environment = {**os.environ, "PETAI_ANDROID_CORE_POC": "1", "PETAI_ANDROID_LLM_BACKEND": args.backend,
-                   "PETAI_LITERTLM_SOURCE_DIR": str(source), "PETAI_LITERTLM_LIBRARY_DIR": str(native)}
+    prepare_sqlite()
+    environment = android_environment(source, native, args.backend)
     command = [args.swift, "build", "--package-path", str(ROOT / "android"), "--scratch-path", str(scratch),
                "--swift-sdk", "swift-6.4.0-RELEASE_android", "--triple", "aarch64-unknown-linux-android28",
                "-c", "release", "--static-swift-stdlib", "--jobs", "2", "-Xcc", c_source_path_map(scratch),

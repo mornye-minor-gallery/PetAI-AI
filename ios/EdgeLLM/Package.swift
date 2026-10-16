@@ -4,7 +4,7 @@
 import PackageDescription
 import Foundation
 
-let androidPoc = ProcessInfo.processInfo.environment["PETAI_ANDROID_CORE_POC"] == "1"
+let android = ProcessInfo.processInfo.environment["PETAI_ANDROID_BUILD"] == "1"
 
 let package = Package(
     name: "EdgeLLM",
@@ -19,7 +19,7 @@ let package = Package(
             targets: ["EdgeLLM"]
         ),
     ],
-    dependencies: androidPoc ? [
+    dependencies: android ? [
         .package(url: "https://github.com/apple/swift-crypto.git", exact: "4.5.2"),
         .package(path: "../../android/.artifacts/sqlite-package"),
     ] : [],
@@ -28,7 +28,7 @@ let package = Package(
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "EdgeLLM",
-            dependencies: androidPoc ? [
+            dependencies: android ? [
                 .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.android])),
                 .product(name: "SQLite3", package: "sqlite-package", condition: .when(platforms: [.android])),
             ] : [],
