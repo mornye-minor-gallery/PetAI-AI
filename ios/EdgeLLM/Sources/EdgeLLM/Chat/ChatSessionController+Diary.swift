@@ -47,6 +47,7 @@ extension ChatSessionController {
             let observations = try await memoryService.activeObservations(
                 in: memoryScope, from: day.start, to: day.end)
             guard !observations.isEmpty else { throw DailyDiaryError.noMemories }
+            try checkInferenceAdmission(.diary)
             var random = SystemRandomNumberGenerator()
             var selected = DailyDiaryPrompt.select(observations, using: &random)
             let capacity = slmConfiguration.dialogueBudget.contextTokens - 384
@@ -73,6 +74,9 @@ extension ChatSessionController {
             let stored = try await memoryService.insertDiaryIfAbsent(
                 characterID: characterID, localDate: day.key, draft: draft)
             emit(type: "diary_completed", requestId: requestId, diary: NativeDiaryEntry(stored))
+        } catch let error as InferenceMemoryDeferred {
+            emit(type: "diary_failed", requestId: requestId,
+                 code: "inference_memory_insufficient", message: error.localizedDescription)
         } catch {
             logger.error("Diary creation failed: \(error.localizedDescription)")
             if error as? RuntimeError == .engineRequiresReload {

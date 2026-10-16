@@ -3,10 +3,12 @@ import Foundation
 extension ChatSessionController {
     func compactDialogueContext(requestID: String, template: DialogueContextTemplate,
                                 thinkingEnabled: Bool, resumeGeneration: Bool = false,
-                                alreadyAnnounced: Bool = false) async throws {
+                                alreadyAnnounced: Bool = false, admissionOnly: Bool = false) async throws {
         guard let store = recentTurnStore else { throw RecentTurnStorageError.notLoaded }
-        state = .compacting
-        if !alreadyAnnounced { emit(type: "context_compacting", requestId: requestID, message: "대화를 정리하고 있어요") }
+        // Compaction includes native prefill even when summary generation is off.
+        try checkInferenceAdmission(.summary)
+        if !admissionOnly { state = .compacting }
+        if !alreadyAnnounced && !admissionOnly { emit(type: "context_compacting", requestId: requestID, message: "대화를 정리하고 있어요") }
         let heartbeat = Task {
             while !Task.isCancelled {
                 do { try await Task.sleep(nanoseconds: 5_000_000_000) } catch { return }
@@ -31,6 +33,7 @@ extension ChatSessionController {
                 }
             } catch {
                 if error as? RuntimeError == .engineRequiresReload { throw error }
+                if error is InferenceMemoryDeferred { throw error }
                 // Only summary generation has the approved recent-only fallback.
                 // Storage and native prefill failures remain terminal preparation errors.
                 logger.error("Dialogue summary failed: \(error.localizedDescription)")
@@ -46,7 +49,10 @@ extension ChatSessionController {
             summary: fitted.summary, modelIdentifier: dialogueModelIdentifier)
         try await runtime.saveCompletedDialogueCheckpoint()
         logger.notice("Dialogue compaction committed inputBefore=\(inputBefore) inputAfter=\(fitted.inputTokens) retained=\(fitted.retainedEntries.count) seconds=\(ProcessInfo.processInfo.systemUptime - started)")
-        if resumeGeneration {
+        contextCompactionDeferred = false
+        if admissionOnly {
+            state = .admitting
+        } else if resumeGeneration {
             state = .generating
             emit(type: "generating", requestId: requestID)
         } else {

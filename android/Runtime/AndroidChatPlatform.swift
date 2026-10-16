@@ -8,6 +8,7 @@ struct AndroidChatPaths: Decodable, Sendable {
     let supportDirectory: String
     let cacheDirectory: String
     let inferenceBackend: String
+    let chatModel: ChatModelProfile
 }
 struct AndroidChatPlatform: ChatPlatformServices {
     let paths: AndroidChatPaths
@@ -21,10 +22,12 @@ struct AndroidChatPlatform: ChatPlatformServices {
         guard let installed = DownloadedModelAssets.installed(in: URL(fileURLWithPath: paths.modelsDirectory)) else {
             throw AndroidHostError.modelsNotInstalled
         }
-        return installed
+        return try paths.chatModel.resolve(base: installed, documents: URL(fileURLWithPath: paths.modelsDirectory))
     }
     func missingAsset() async throws -> NativeAssetKind? {
-        DownloadedModelAssets.installed(in: URL(fileURLWithPath: paths.modelsDirectory)) == nil ? .languageModel : nil
+        guard DownloadedModelAssets.installed(in: URL(fileURLWithPath: paths.modelsDirectory)) != nil else { return .languageModel }
+        _ = try await resolveModelAssets()
+        return nil
     }
     func loadContent(characterID: String) throws -> ChatContentResources {
         let contentURL = try DialogueContent.fileURL(for: characterID, in: assets)

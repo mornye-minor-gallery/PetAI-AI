@@ -148,6 +148,7 @@ extension ChatSessionController {
         // Keep the committed history, World Info state and clock for the next prompt snapshot.
         // Explicit session teardown (unload) and test data reset own dialogue erasure.
         lastDialogueTemplate = nil
+        contextCompactionDeferred = false
         nativeToolRouter = nil
         do {
             routedPersonaPrompts = try loadRoutedPersonaPromptsIfEnabled()
@@ -187,6 +188,10 @@ extension ChatSessionController {
                 lastDialogueTemplate = prepared.contextTemplate
                 lastDialogueThinking = slmConfiguration.generation.responseThinkingDefault
             }
+        } catch let reason as ChatModelProfileError {
+            state = .failed
+            emitError(code: "model_profile_invalid", message: reason.localizedDescription)
+            return
         } catch let reason as ModelLoadMemoryDeferred {
             // Files and restored history are valid. Keep the model-download path
             // separate so Retry re-observes memory rather than re-importing assets.
@@ -206,22 +211,7 @@ extension ChatSessionController {
         }
 
         do {
-            guard let store = recentTurnStore else { throw RecentTurnStorageError.notLoaded }
-            if routedPersonaSession.summary != nil &&
-                (!slmConfiguration.dialogueBudget.contextPolicy.summaryEnabled
-                    || routedPersonaSession.summaryModelIdentifier != modelURL.lastPathComponent) {
-                try store.compact(in: &routedPersonaSession, retaining: routedPersonaSession.contextEntries,
-                                  summary: nil, modelIdentifier: nil)
-                try await runtime.eraseCheckpoint()
-            } else if let summary = routedPersonaSession.summary {
-                let shortened = try await DialogueTokenTruncation.prefix(summary,
-                    maximumTokens: slmConfiguration.dialogueBudget.contextPolicy.summaryTokens, measurer: runtime)
-                if shortened != summary {
-                    try store.compact(in: &routedPersonaSession, retaining: routedPersonaSession.contextEntries,
-                        summary: shortened.isEmpty ? nil : shortened, modelIdentifier: modelURL.lastPathComponent)
-                    try await runtime.eraseCheckpoint()
-                }
-            }
+            try await reconcileSummary(modelIdentifier: modelURL.lastPathComponent)
             dialogueModelIdentifier = modelURL.lastPathComponent
         } catch {
             state = .failed

@@ -28,6 +28,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     let cacheDirectory: URL?
     let backend: ChatInferenceBackend
     let engineIdentity: String
+    let modelProfile: ChatModelProfile?
     private let checkModelLoadAdmission: (@Sendable () throws -> Void)?
     var currentState: RuntimeState = .modelRequired
     var engine: Engine?
@@ -57,6 +58,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
         cacheDirectory: URL? = nil,
         backend: ChatInferenceBackend = .cpu,
         engineIdentity: String = "cpu-kv2-prefix-cursor1",
+        modelProfile: ChatModelProfile? = nil,
         checkModelLoadAdmission: (@Sendable () throws -> Void)? = nil
     ) {
         slmConfiguration = configuration
@@ -64,6 +66,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
         self.cacheDirectory = cacheDirectory
         self.backend = backend
         self.engineIdentity = engineIdentity
+        self.modelProfile = modelProfile
         self.checkModelLoadAdmission = checkModelLoadAdmission
     }
 
@@ -95,6 +98,11 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
         }
 
         do {
+            try modelProfile?.validateConfiguration(slmConfiguration)
+            // Hash once before native allocation. E4B is pinned; a same-size
+            // damaged or substituted file must not pass the optional-model gate.
+            let modelIdentity = try KVCheckpointStore.modelIdentity(at: modelURL)
+            try modelProfile?.validateDigest(modelIdentity)
             // Observe after unloading the previous engine. This check is never
             // cached and must run before either the engine or its KV is allocated.
             try checkModelLoadAdmission?()
@@ -126,8 +134,12 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
             try await candidate.initialize()
 
             engine = candidate
-            prepareCheckpointStore(modelURL: modelURL)
+            prepareCheckpointStore(modelIdentity: modelIdentity)
             currentState = .ready
+        } catch let reason as ChatModelProfileError {
+            releaseSecurityScopedModel()
+            currentState = .failed(message: reason.localizedDescription)
+            throw reason
         } catch let reason as ModelLoadMemoryDeferred {
             releaseSecurityScopedModel()
             currentState = .failed(message: reason.localizedDescription)
@@ -464,6 +476,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     func runtimeCacheURL() throws -> URL {
         if let cacheDirectory {
             let scoped = cacheDirectory.appendingPathComponent(backend.rawValue)
+                .appendingPathComponent(modelProfile?.cacheNamespace ?? "unprofiled")
             try FileManager.default.createDirectory(at: scoped, withIntermediateDirectories: true)
             return scoped
         }
@@ -474,7 +487,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
             create: true
         )
         let cacheURL = baseURL.appendingPathComponent(
-            "LiteRTLM/" + backend.rawValue,
+            "LiteRTLM/" + backend.rawValue + "/" + (modelProfile?.cacheNamespace ?? "unprofiled"),
             isDirectory: true
         )
         try FileManager.default.createDirectory(

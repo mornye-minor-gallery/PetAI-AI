@@ -3,6 +3,20 @@ import Testing
 @testable import EdgeLLM
 
 struct KVCheckpointStoreTests {
+    @Test func multiChunkModelIdentityMatchesIndependentDigest() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data(repeating: 0xa5, count: 2 * 1024 * 1024 + 17).write(to: url)
+        // Python hashlib over the same bytes; crosses two full read boundaries.
+        #expect(try KVCheckpointStore.modelIdentity(at: url) ==
+            "b3a820b5f06b74f17d7a159b51633d2191b463ee4dcee22a3f18722540adf4f1")
+        try Data().write(to: url)
+        #expect(try KVCheckpointStore.modelIdentity(at: url) ==
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        try FileManager.default.removeItem(at: url)
+        #expect(throws: (any Error).self) { try KVCheckpointStore.modelIdentity(at: url) }
+    }
+
     @Test func identityBindsEngineGenerationModelAndContextCapacity() {
         let a = KVCheckpointStore.identity(modelIdentity: "a", contextTokens: 4096)
         #expect(a == "app-kv-v4:cpu:cpu-kv2-prefix-cursor1:a:4096")

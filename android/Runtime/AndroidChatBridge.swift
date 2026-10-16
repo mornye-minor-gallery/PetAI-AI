@@ -55,7 +55,7 @@ final class AndroidChatHost: @unchecked Sendable {
             platform: AndroidChatPlatform(paths: paths, defaultCharacterID: content.id),
             cacheDirectory: URL(fileURLWithPath: paths.cacheDirectory),
             supportDirectory: URL(fileURLWithPath: paths.supportDirectory),
-            backend: backend, engineIdentity: engineIdentity,
+            backend: backend, engineIdentity: engineIdentity, modelProfile: paths.chatModel,
             eventSink: { [weak self] in self?.emit($0) },
             log: { Logger(subsystem: "PetAI", category: "AndroidChat").notice("\($0, privacy: .public)") })
         configuration = json

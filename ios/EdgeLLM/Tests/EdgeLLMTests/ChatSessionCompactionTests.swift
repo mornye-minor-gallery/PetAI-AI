@@ -12,6 +12,33 @@ private func compactingConfiguration(enabled: Bool = true) -> SLMConfiguration {
             contextPolicy: .init(summaryEnabled: enabled, summaryTokens: 120, recentTurns: 3)))
 }
 
+@Test func memoryDeferredSummaryKeepsOriginalsAndRetriesBeforeAcceptingAnotherQuestion() async throws {
+    let admission = InferenceAdmissionProbe()
+    admission.block([.summary])
+    let fixture = try ChatControllerFixture(configuration: compactingConfiguration(),
+        checkInferenceAdmission: { try admission.check($0) })
+    defer { fixture.remove() }
+    await fixture.runtime.setResponse("save(P=0,E=0)\n" + String(repeating: "말", count: 90))
+    await fixture.controller.initialize()
+    for index in 0..<14 {
+        await fixture.controller.send(json: fixture.request("r\(index)", "질문 \(index)"))
+        if fixture.events.snapshot().contains(where: { $0.code == "inference_memory_insufficient" }) { break }
+    }
+    let before = try #require(try fixture.store.load())
+    #expect(before.chatTurns.count > 3)
+    #expect(before.summary == nil)
+    #expect(await fixture.runtime.summaryGenerationCount == 0)
+    #expect(fixture.events.snapshot().last?.type == "context_ready")
+    await fixture.controller.send(json: fixture.request("blocked", "새 질문"))
+    #expect(fixture.events.snapshot().last?.code == "inference_memory_insufficient")
+    #expect(try fixture.store.load()?.chatTurns.count == before.chatTurns.count)
+    admission.block([])
+    await fixture.controller.send(json: fixture.request("retry", "다시 질문"))
+    #expect(await fixture.runtime.summaryGenerationCount > 0)
+    #expect(try fixture.store.load()?.chatTurns.last?.requestID == "retry")
+    #expect(!fixture.events.snapshot().contains { $0.code == "summary_generation_failed" })
+}
+
 @Test func controllerCompactsAndSearchExcludesOnlyTheRetainedOriginalRequests() async throws {
     let fixture = try ChatControllerFixture(configuration: compactingConfiguration())
     defer { fixture.remove() }

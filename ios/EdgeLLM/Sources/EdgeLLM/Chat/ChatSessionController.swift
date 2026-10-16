@@ -43,6 +43,8 @@ public actor ChatSessionController {
     let memorySessionID = UUID().uuidString.lowercased()
     let logger: ChatLogger
     let diagnostics: ChatDiagnostics?
+    let checkInferenceAdmission: @Sendable (InferenceOperation) throws -> Void
+    var contextCompactionDeferred = false
 
     var state = State.modelRequired
     var activeRequestId: String?
@@ -75,7 +77,8 @@ public actor ChatSessionController {
                 eventSink: @escaping @Sendable (NativeChatEvent) -> Void,
                 log: @escaping @Sendable (String) -> Void = { _ in },
                 diagnostics: ChatDiagnostics? = nil,
-                toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) {
+                toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil,
+                checkInferenceAdmission: @escaping @Sendable (InferenceOperation) throws -> Void = { _ in }) {
         slmConfiguration = configuration
         dialoguePromptPolicy = DialoguePromptPolicy(memoryByteBudget: configuration.memory.promptByteBudget)
         self.runtime = runtime
@@ -86,6 +89,9 @@ public actor ChatSessionController {
         self.eventSink = eventSink
         logger = ChatLogger(write: log)
         self.diagnostics = diagnostics
+        // Hosts opt in with their OS policy. Android keeps its existing behavior
+        // until a separately measured Android policy is provided.
+        self.checkInferenceAdmission = checkInferenceAdmission
         let tools = CommonChatPlatformTools(platform: platform.tools)
         nativeToolAdapterHub = tools
         routedPersonaSession = RoutedPersonaSessionContext(maximumTurnCount: configuration.persona.recentTurnLimit)
@@ -171,7 +177,20 @@ public actor ChatSessionController {
         activeRequestId = request.requestId
         cancelRequested = false
         do {
+            try checkInferenceAdmission(.dialogue)
             try await slmConfiguration.dialogueBudget.limits?.validateQuestion(request.prompt, measurer: runtime)
+            // A deferred post-turn summary must finish before accepting another
+            // user turn. Until then the old summary and originals remain intact.
+            if contextCompactionDeferred, let template = lastDialogueTemplate {
+                try await compactDialogueContext(requestID: request.requestId, template: template,
+                    thinkingEnabled: lastDialogueThinking, admissionOnly: true)
+            }
+        } catch let error as InferenceMemoryDeferred {
+            state = .ready
+            activeRequestId = nil
+            cancelRequested = false
+            emitError(code: "inference_memory_insufficient", message: error.localizedDescription, requestId: request.requestId)
+            return
         } catch let error as DialogueInputLimitError {
             state = .ready
             activeRequestId = nil
@@ -270,6 +289,10 @@ public actor ChatSessionController {
             return
         } catch is CancellationError {
             await finishCancelledRequest(request.requestId)
+            return
+        } catch let error as InferenceMemoryDeferred {
+            await finishFailedRequest(request.requestId, code: "inference_memory_insufficient",
+                message: error.localizedDescription, recoverable: true)
             return
         } catch {
             logger.error("Dialogue preparation failed: \(error.localizedDescription)")
@@ -395,6 +418,7 @@ public actor ChatSessionController {
             await memoryService.close()
             routedPersonaPrompts = nil
             lastDialogueTemplate = nil
+            contextCompactionDeferred = false
             dialogueModelIdentifier = nil
             nativeToolRouter = nil
             routedPersonaSession.removeAll()

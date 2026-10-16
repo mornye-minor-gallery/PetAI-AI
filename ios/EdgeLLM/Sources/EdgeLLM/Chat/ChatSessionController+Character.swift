@@ -55,6 +55,7 @@ extension ChatSessionController {
         let previousStore = recentTurnStore
         let previousLoaded = recentTurnsLoaded
         let previousTemplate = lastDialogueTemplate
+        let previousCompactionDeferred = contextCompactionDeferred
         let previousThinking = lastDialogueThinking
         do {
             selectedCharacterID = characterID
@@ -65,6 +66,7 @@ extension ChatSessionController {
             recentTurnStore = store
             recentTurnsLoaded = true
             lastDialogueTemplate = nil
+            contextCompactionDeferred = false
             captionSource = nil
 
             if case .preparationDeferred = stateBeforeActivation {
@@ -72,12 +74,7 @@ extension ChatSessionController {
                 // Preserve the admission reason; asset download cannot resolve it.
                 state = stateBeforeActivation
             } else if let dialogueModelIdentifier {
-                if session.summary != nil &&
-                    (!slmConfiguration.dialogueBudget.contextPolicy.summaryEnabled ||
-                     session.summaryModelIdentifier != dialogueModelIdentifier) {
-                    try store.compact(in: &routedPersonaSession,
-                        retaining: session.contextEntries, summary: nil, modelIdentifier: nil)
-                }
+                try await reconcileSummary(modelIdentifier: dialogueModelIdentifier)
                 try await runtime.startConversation(configuration: chatConfiguration(
                     systemPrompt: routedPersonaPrompts?
                         .responseSystemPrompt(activeCard: nil,
@@ -110,6 +107,7 @@ extension ChatSessionController {
             recentTurnStore = previousStore
             recentTurnsLoaded = previousLoaded
             lastDialogueTemplate = previousTemplate
+            contextCompactionDeferred = previousCompactionDeferred
             lastDialogueThinking = previousThinking
             state = .failed
             logger.error("Character activation failed id=\(characterID) error=\(error.localizedDescription)")

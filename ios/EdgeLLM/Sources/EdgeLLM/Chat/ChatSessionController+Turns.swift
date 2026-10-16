@@ -202,6 +202,14 @@ extension ChatSessionController {
             do {
                 try await compactDialogueContext(requestID: requestID, template: template,
                     thinkingEnabled: lastDialogueThinking, alreadyAnnounced: true)
+            } catch let error as InferenceMemoryDeferred {
+                contextCompactionDeferred = true
+                state = .ready
+                activeRequestId = nil
+                cancelRequested = false
+                emit(type: "context_warning", requestId: requestID, code: "inference_memory_insufficient",
+                     message: error.localizedDescription)
+                emit(type: "context_ready", requestId: requestID)
             } catch { failContextPreparation(requestID, error: error) }
         }
         return result == .committed

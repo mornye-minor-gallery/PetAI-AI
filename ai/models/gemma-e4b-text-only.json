@@ -1,0 +1,28 @@
+{
+  "id": "gemma-e4b-text-only",
+  "recipe": "scripts/prepare-text-only-litertlm.py",
+  "recipe_sha256": "aaf9cac6e3069718009683dff10034d4e6e4243ac3bb739e7008e2d80a230c87",
+  "requirements": {"litert-lm": "0.13.1", "flatbuffers": "25.12.19"},
+  "command": "python scripts/prepare-text-only-litertlm.py SOURCE.litertlm gemma-4-E4B-it-text-only.litertlm",
+  "source": {
+    "bytes": 3659530240,
+    "sha256": "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0"
+  },
+  "output": {
+    "filename": "gemma-4-E4B-it-text-only.litertlm",
+    "bytes": 3317633552,
+    "sha256": "1469010f9d32b55e9f92d2e1dd4a4a198c30207fad4ced5098a5b568dc647262"
+  },
+  "retained_payloads": {
+    "llm_metadata": "00603838ac80fadd374ff3d7b6108cfa765bf1a76adfb9df95b3387d0d7e386f",
+    "sp_tokenizer": "e594c8a90eb08d8bda498ff4747977dc827ae0c3c56b5c0d41a605a22d02ef03",
+    "tf_lite_embedder": "94cf45ffd3d0dd7040d27b22e70845cf1054db90613bf31d8ffc1623d23d4a40",
+    "tf_lite_per_layer_embedder": "d35fe41db89fa0128f5da9530886a12581cee715369e1b9ed9a3644e43d16a6a",
+    "tf_lite_prefill_decode": "387aafcb8ef7736e415db56a538fcd2afd198f9899d593d056bc19e5a3eb1700",
+    "tf_lite_mtp_drafter": "d6b1b5e9ac298ae832cbf10f4810cf022d73fcea9c93f6905039a377e0be50ca"
+  },
+  "removed_model_types": [
+    "tf_lite_audio_encoder_hw", "tf_lite_audio_adapter", "tf_lite_end_of_audio",
+    "tf_lite_vision_encoder", "tf_lite_vision_adapter", "tf_lite_end_of_vision"
+  ]
+}

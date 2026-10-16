@@ -13,10 +13,10 @@ extension LiteRTLMRuntime {
     func makeCheckpointStore() throws -> KVCheckpointStore {
         try KVCheckpointStore(directory: runtimeCacheURL().appendingPathComponent("Session"))
     }
-    func prepareCheckpointStore(modelURL: URL) {
+    func prepareCheckpointStore(modelIdentity: String) {
         do {
             checkpointStore = try makeCheckpointStore()
-            checkpointModelIdentity = try KVCheckpointStore.modelIdentity(at: modelURL)
+            checkpointModelIdentity = modelIdentity
             logger.notice("KV checkpoint storage ready backend=\(self.backend.rawValue, privacy: .public)")
         } catch {
             // KV is a disposable acceleration cache, not user history. A storage

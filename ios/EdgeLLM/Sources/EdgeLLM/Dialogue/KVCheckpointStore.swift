@@ -55,8 +55,21 @@ public struct KVCheckpointStore: Sendable {
         let file = try FileHandle(forReadingFrom: url)
         defer { try? file.close() }
         var digest = SHA256()
-        while let chunk = try file.read(upToCount: 1024 * 1024), !chunk.isEmpty {
+        func consumeChunk() throws -> Bool {
+            guard let chunk = try file.read(upToCount: 1024 * 1024), !chunk.isEmpty else { return false }
             digest.update(data: chunk)
+            return true
+        }
+        while true {
+#if canImport(ObjectiveC)
+            // Foundation read buffers can survive until the enclosing task's
+            // pool drains. Release each chunk before the next read so model
+            // verification does not consume the headroom checked before loading.
+            let hasChunk = try autoreleasepool(invoking: consumeChunk)
+#else
+            let hasChunk = try consumeChunk()
+#endif
+            if !hasChunk { break }
         }
         return digest.finalize().map { String(format: "%02x", $0) }.joined()
     }

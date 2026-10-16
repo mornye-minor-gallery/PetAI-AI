@@ -22,6 +22,7 @@ extension ChatSessionController {
             var candidate: ChatMemoryCandidate?
             do {
                 try Task.checkCancellation()
+                try checkInferenceAdmission(.memoryCaption)
                 let output = try await runtime.generateIsolated(
                     systemPrompt: ChatMemoryCandidate.systemPrompt, userMessage: input,
                     sampling: nil,
@@ -29,6 +30,8 @@ extension ChatSessionController {
                 )
                 try Task.checkCancellation()
                 candidate = ChatMemoryCandidate.parse(output)
+            } catch is InferenceMemoryDeferred {
+                logger.notice("Memory caption deferred: insufficient memory")
             } catch {
                 // No retry, raw payload logging, chat error, token emission, or reward settlement.
             }

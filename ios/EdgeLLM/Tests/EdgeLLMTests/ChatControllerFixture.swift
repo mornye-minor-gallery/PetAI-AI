@@ -26,13 +26,14 @@ struct ChatControllerFixture {
     init(automaticallyFinalize: Bool = true, tools: (any ChatPlatformTools)? = nil,
          configuration: SLMConfiguration = .production,
          personaEnabled: Bool = true,
+         checkInferenceAdmission: @escaping @Sendable (InferenceOperation) throws -> Void = { _ in },
          log: @escaping @Sendable (String) -> Void = { _ in },
          toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("chat-controller-\(UUID())")
         store = .init(fileURL: directory.appendingPathComponent("recent.json"))
         controller = ChatSessionController(configuration: configuration, runtime: runtime, memory: memory,
             platform: ChatTestPlatform(store: store, toolAdapter: tools, personaEnabled: personaEnabled), eventSink: events.receive, log: log,
-            toolRouterArtifacts: toolRouterArtifacts)
+            toolRouterArtifacts: toolRouterArtifacts, checkInferenceAdmission: checkInferenceAdmission)
         if automaticallyFinalize {
             let controller = controller
             // Existing controller tests use a display host that accepts every delivered token.
@@ -86,6 +87,7 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     var response = "save(P=0,E=0)\n반가워."
     var continuation: AsyncThrowingStream<String, Error>.Continuation?
     func setHolding(_ value: Bool) { holdStream = value }
+    func finishStream() { continuation?.finish(); continuation = nil }
     func setResponse(_ value: String) { response = value }
     func setFunctionCall(_ value: NativeToolFunctionCall) { functionCall = value }
     func failDiary(with error: Error) { diaryFailure = error }
