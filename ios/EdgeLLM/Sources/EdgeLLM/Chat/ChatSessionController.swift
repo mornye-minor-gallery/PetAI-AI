@@ -76,6 +76,7 @@ public actor ChatSessionController {
                 platform: any ChatPlatformServices,
                 eventSink: @escaping @Sendable (NativeChatEvent) -> Void,
                 log: @escaping @Sendable (String) -> Void = { _ in },
+                publicLog: (@Sendable (String) -> Void)? = nil,
                 diagnostics: ChatDiagnostics? = nil,
                 toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil,
                 checkInferenceAdmission: @escaping @Sendable (InferenceOperation) throws -> Void = { _ in }) {
@@ -87,7 +88,9 @@ public actor ChatSessionController {
         self.platform = platform
         selectedCharacterID = platform.defaultCharacterID
         self.eventSink = eventSink
-        logger = ChatLogger(write: log)
+        // Hosts with privacy-redacting loggers supply a separate public sink. Plain-text
+        // hosts (Android and headless tests) already preserve safe messages in their normal sink.
+        logger = ChatLogger(write: log, writePublic: publicLog ?? log)
         self.diagnostics = diagnostics
         // Hosts opt in with their OS policy. Android keeps its existing behavior
         // until a separately measured Android policy is provided.

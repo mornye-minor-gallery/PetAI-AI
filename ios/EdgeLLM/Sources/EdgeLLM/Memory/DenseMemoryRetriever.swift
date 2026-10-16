@@ -56,7 +56,14 @@ public struct DenseMemoryRetriever: MemoryRetrieving {
       throw DenseMemoryRetrieverError.emptyQuery
     }
 
-    let queryVector = try await embedder.embedQuery(query)
+    let queryVector: [Float]
+    do {
+      queryVector = try await embedder.embedQuery(query)
+    } catch is CancellationError {
+      throw CancellationError()
+    } catch {
+      throw MemorySearchFailure.embeddingFailed
+    }
     guard queryVector.count == embedder.dimension else {
       throw DenseMemoryRetrieverError.invalidQueryDimension(
         expected: embedder.dimension,
@@ -68,10 +75,14 @@ public struct DenseMemoryRetriever: MemoryRetrieving {
         index: index
       )
     }
-    let candidates = try await candidateLoader.embeddingCandidates(
-      in: request.scope,
-      modelID: embedder.modelID
-    )
+    let candidates: [MemoryEmbeddingCandidate]
+    do {
+      candidates = try await candidateLoader.embeddingCandidates(in: request.scope, modelID: embedder.modelID)
+    } catch is CancellationError {
+      throw CancellationError()
+    } catch {
+      throw MemorySearchFailure.storeReadFailed
+    }
 
     var scoredCandidates: [ScoredCandidate] = []
     scoredCandidates.reserveCapacity(candidates.count)
@@ -87,10 +98,12 @@ public struct DenseMemoryRetriever: MemoryRetrieving {
         candidate.observation.sessionID
       )
     {
-      let score = try EmbeddingVectorMath.cosineSimilarity(
-        queryVector,
-        candidate.embedding.vector
-      )
+      let score: Float
+      do {
+        score = try EmbeddingVectorMath.cosineSimilarity(queryVector, candidate.embedding.vector)
+      } catch {
+        throw MemorySearchFailure.scoringFailed
+      }
       guard score >= request.minimumSimilarity else {
         continue
       }

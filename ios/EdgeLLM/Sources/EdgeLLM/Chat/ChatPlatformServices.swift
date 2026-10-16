@@ -112,7 +112,10 @@ public enum NativeToolConfirmationError: Error, Equatable {
 /// Lightweight operational logging; the host chooses the platform log destination.
 struct ChatLogger: Sendable {
     let write: @Sendable (String) -> Void
+    let writePublic: @Sendable (String) -> Void
     func notice(_ text: String) { write(text) }
     func debug(_ text: String) { write(text) }
     func error(_ text: String) { write(text) }
+    /// Only static messages and allowlisted diagnostic codes belong on this channel.
+    func publicError(_ text: String) { writePublic(text) }
 }

@@ -26,13 +26,17 @@ struct ChatControllerFixture {
     init(automaticallyFinalize: Bool = true, tools: (any ChatPlatformTools)? = nil,
          configuration: SLMConfiguration = .production,
          personaEnabled: Bool = true,
+         diagnostics: ChatDiagnostics? = nil,
          checkInferenceAdmission: @escaping @Sendable (InferenceOperation) throws -> Void = { _ in },
+         publicLog: (@Sendable (String) -> Void)? = nil,
          log: @escaping @Sendable (String) -> Void = { _ in },
          toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("chat-controller-\(UUID())")
         store = .init(fileURL: directory.appendingPathComponent("recent.json"))
         controller = ChatSessionController(configuration: configuration, runtime: runtime, memory: memory,
             platform: ChatTestPlatform(store: store, toolAdapter: tools, personaEnabled: personaEnabled), eventSink: events.receive, log: log,
+            publicLog: publicLog,
+            diagnostics: diagnostics,
             toolRouterArtifacts: toolRouterArtifacts, checkInferenceAdmission: checkInferenceAdmission)
         if automaticallyFinalize {
             let controller = controller
@@ -183,6 +187,10 @@ actor ChatTestMemory: ChatMemoryService {
     var classificationEmbedding = Array(repeating: Float(0), count: 768)
     var classificationCount = 0
     var classificationError: Error?
+    var recallError: Error?
+    var recallEngine: MemoryEngine?
+    func failRecall(with error: Error) { recallError = error }
+    func useRecallEngine(_ engine: MemoryEngine) { recallEngine = engine }
     func setClassificationEmbedding(_ value: [Float]) { classificationEmbedding = value }
     func failClassification(with error: Error) { classificationError = error }
     func setDiaryObservations(_ values: [MemoryObservation]) { diaryObservations = values }
@@ -191,9 +199,11 @@ actor ChatTestMemory: ChatMemoryService {
     var preparationCount = 0
     func prepare(modelURL: URL, tokenizerURL: URL) { preparationCount += 1 }
     func close() { if pendingWrite != nil { closedDuringWrite = true } }
-    func recall(_ request: MemorySearchRequest) -> [RetrievedMemoryObservation] {
+    func recall(_ request: MemorySearchRequest) async throws -> [RetrievedMemoryObservation] {
         lastExcluded = request.excludedTurnIDs
         recalledCharacterIDs.append(request.scope.characterID)
+        if let recallError { throw recallError }
+        if let recallEngine { return try await recallEngine.recall(request) }
         return []
     }
     func remember(_ request: MemoryWriteRequest, decision: MemoryGateDecision) async -> MemoryRememberResult {

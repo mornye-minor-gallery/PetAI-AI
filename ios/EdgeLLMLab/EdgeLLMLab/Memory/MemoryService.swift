@@ -190,7 +190,7 @@ actor MemoryService: ChatMemoryService {
     _ request: MemorySearchRequest
   ) async throws -> [RetrievedMemoryObservation] {
     let engine = try requirePrepared()
-    return await engine.recall(request)
+    return try await engine.recall(request)
   }
 
   func searchWorldInfo(entries: [WorldInfoEntry], newestMessages: [String], settings: WorldInfoVectorSettings) async throws -> [WorldInfoVectorMatch] {

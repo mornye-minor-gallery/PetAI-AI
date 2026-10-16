@@ -33,7 +33,6 @@ public actor MemoryEngine {
     private let classifier: any MemoryObservationClassifying
     private let embedder: (any TextEmbeddingProviding)?
     private let retriever: (any MemoryRetrieving)?
-    private let diagnostics: any MemoryDiagnostics
     private let securityRequirement: MemoryStoreSecurityRequirement
     private let makeObservationID: @Sendable () -> String
     private let makeGateResultID: @Sendable () -> String
@@ -46,7 +45,6 @@ public actor MemoryEngine {
         classifier: any MemoryObservationClassifying,
         embedder: (any TextEmbeddingProviding)? = nil,
         retriever: (any MemoryRetrieving)? = nil,
-        diagnostics: any MemoryDiagnostics = MemoryDebugDiagnostics(),
         securityRequirement: MemoryStoreSecurityRequirement =
             .encryptedOnDeviceOnly,
         makeObservationID: @escaping @Sendable () -> String = {
@@ -63,7 +61,6 @@ public actor MemoryEngine {
         self.classifier = classifier
         self.embedder = embedder
         self.retriever = retriever
-        self.diagnostics = diagnostics
         self.securityRequirement = securityRequirement
         self.makeObservationID = makeObservationID
         self.makeGateResultID = makeGateResultID
@@ -145,27 +142,15 @@ public actor MemoryEngine {
 
     public func recall(
         _ request: MemorySearchRequest
-    ) async -> [RetrievedMemoryObservation] {
+    ) async throws -> [RetrievedMemoryObservation] {
         guard request.topK > 0 else {
-            await diagnostics.logSearchFailure(
-                MemoryEngineError.invalidSearchLimit.localizedDescription
-            )
-            return []
+            throw MemoryEngineError.invalidSearchLimit
         }
-
         guard let retriever else {
-            await diagnostics.logSearchFailure(
-                "memory retriever is not configured"
-            )
-            return []
+            throw MemorySearchFailure.retrieverUnavailable
         }
-
-        do {
-            return try await retriever.search(request)
-        } catch {
-            await diagnostics.logSearchFailure(error.localizedDescription)
-            return []
-        }
+        // The caller decides whether to continue without memory. Empty results mean a successful search.
+        return try await retriever.search(request)
     }
 
     public func activeObservations(

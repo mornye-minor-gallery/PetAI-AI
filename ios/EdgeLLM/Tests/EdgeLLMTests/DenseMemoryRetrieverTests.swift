@@ -214,6 +214,18 @@ func denseRetrieverFiltersCandidatesBelowMinimumSimilarity() async throws {
   #expect(results.map(\.observation.id) == ["above-threshold"])
 }
 
+@Test
+func denseRetrieverRejectsMalformedStoredVectorsAsSearchFailure() async throws {
+  let scope = MemoryScope(userID: "synthetic-user", characterID: "test")
+  let loader = DenseTestCandidateLoader(candidates: [
+    makeCandidate(id: "invalid", sessionID: "test", scope: scope, vector: [1, 0])
+  ])
+  let retriever = DenseMemoryRetriever(candidateLoader: loader, embedder: DenseTestEmbedder())
+  await #expect(throws: MemorySearchFailure.scoringFailed) {
+    try await retriever.search(.init(scope: scope, query: "질문"))
+  }
+}
+
 private func makeCandidate(
   id: String,
   sessionID: String,
