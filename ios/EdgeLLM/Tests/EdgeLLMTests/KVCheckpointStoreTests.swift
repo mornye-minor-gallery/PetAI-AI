@@ -3,11 +3,38 @@ import Testing
 @testable import EdgeLLM
 
 struct KVCheckpointStoreTests {
-    @Test func identityBindsOnlyFormatModelAndContextCapacity() {
+    @Test func multiChunkModelIdentityMatchesIndependentDigest() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data(repeating: 0xa5, count: 2 * 1024 * 1024 + 17).write(to: url)
+        // Python hashlib over the same bytes; crosses two full read boundaries.
+        #expect(try KVCheckpointStore.modelIdentity(at: url) ==
+            "b3a820b5f06b74f17d7a159b51633d2191b463ee4dcee22a3f18722540adf4f1")
+        try Data().write(to: url)
+        #expect(try KVCheckpointStore.modelIdentity(at: url) ==
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        try FileManager.default.removeItem(at: url)
+        #expect(throws: (any Error).self) { try KVCheckpointStore.modelIdentity(at: url) }
+    }
+
+    @Test func identityBindsEngineGenerationModelAndContextCapacity() {
         let a = KVCheckpointStore.identity(modelIdentity: "a", contextTokens: 4096)
-        #expect(a == "app-kv-v3:a:4096")
+        #expect(a == "app-kv-v4:cpu:cpu-kv2-prefix-cursor1:a:4096")
+        #expect(a != KVCheckpointStore.identity(modelIdentity: "a", contextTokens: 4096, backend: "gpu"))
+        #expect(a != KVCheckpointStore.identity(modelIdentity: "a", contextTokens: 4096, engineIdentity: "next"))
         #expect(a != KVCheckpointStore.identity(modelIdentity: "b", contextTokens: 4096))
         #expect(a != KVCheckpointStore.identity(modelIdentity: "a", contextTokens: 8192))
+    }
+    @Test func rejectsCacheWrittenBeforePrefixCursorFixBeforeNativeRestore() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try KVCheckpointStore(directory: root)
+        try store.save(identity: "app-kv-v3:a:4096") { io in try io(nil, 0) }
+        #expect(throws: KVCheckpointError.self) {
+            try store.restore(identity: KVCheckpointStore.identity(modelIdentity: "a", contextTokens: 4096)) { _ in
+                Issue.record("A cache potentially overwritten at the wrong position must never reach native restore")
+            }
+        }
     }
     @Test func existenceAndIdempotentRemovalIncludeTemporaryFile() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -22,15 +49,26 @@ struct KVCheckpointStoreTests {
         #expect(!FileManager.default.fileExists(atPath: store.temporaryURL.path))
         try store.remove() // Idempotent deletion.
     }
+    @Test func priorCursorRevisionIsRejectedBeforeNativeRestore() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try KVCheckpointStore(directory: root)
+        try store.save(identity: "app-kv-v3:model:8192") { io in try io(nil, 0) }
+        #expect(throws: KVCheckpointError.self) {
+            try store.restore(identity: KVCheckpointStore.identity(modelIdentity: "model", contextTokens: 8192)) { _ in
+                Issue.record("old engine state must not reach native restore")
+            }
+        }
+    }
     @Test func modelIdentitySurvivesFileRecreation() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let model = root.appendingPathComponent("model")
         try Data("abc".utf8).write(to: model)
-        let first = KVCheckpointStore.modelIdentity(at: model)
-        #expect(first == "model")
-        #expect(first == KVCheckpointStore.modelIdentity(at: model))
+        let first = try KVCheckpointStore.modelIdentity(at: model)
+        #expect(first == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+        #expect(first == (try KVCheckpointStore.modelIdentity(at: model)))
         let store = try KVCheckpointStore(directory: root.appendingPathComponent("cache"))
         var bytes = [UInt8](repeating: 7, count: 64)
         try store.save(identity: first) { io in
@@ -38,7 +76,7 @@ struct KVCheckpointStoreTests {
             try io(nil, 0)
         }
         try Data("abc".utf8).write(to: model, options: .atomic)
-        #expect(first == KVCheckpointStore.modelIdentity(at: model))
+        #expect(first == (try KVCheckpointStore.modelIdentity(at: model)))
         let reopened = try KVCheckpointStore(directory: root.appendingPathComponent("cache"))
         bytes = [UInt8](repeating: 0, count: 64)
         try reopened.restore(identity: KVCheckpointStore.modelIdentity(at: model)) { io in

@@ -1,10 +1,10 @@
 import Foundation
 
-/// Local-only projection of an executed, user-confirmed HealthKit query. Never
+/// Local-only projection of an executed, user-confirmed full-day step query. Never
 /// construct this from assistant text, a proposal, or permission status alone.
 public struct HomeStepObservation: Encodable, Equatable, Sendable {
     public let schemaVersion = 1
-    public let source = "healthkit"
+    public let source: String
     // A decimal string distinguishes an explicit zero from a missing JsonUtility int.
     public let steps: String
     public let localDate: String
@@ -39,6 +39,16 @@ public struct HomeStepObservation: Encodable, Equatable, Sendable {
             count.rounded(.towardZero) == count
         else { return nil }
 
+        let source: String
+        switch data["source"] {
+        case nil, .string("healthkit"): source = "healthkit"
+        case .string("google_local_recording"):
+            guard data["partial"] == .bool(false),
+                  case .string(let raw)? = data["recordedFrom"],
+                  ISO8601DateFormatter().date(from: raw) == today else { return nil }
+            source = "google_local_recording"
+        default: return nil
+        }
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -49,6 +59,7 @@ public struct HomeStepObservation: Encodable, Equatable, Sendable {
         else { return nil }
 
         return Self(
+            source: source,
             steps: String(Int(count)),
             localDate: date,
             dayStartUnixSeconds: Int64(today.timeIntervalSince1970),

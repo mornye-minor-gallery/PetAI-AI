@@ -3,9 +3,11 @@ import XCTest
 @testable import EdgeLLM
 
 final class ChatTurnFinalizationTests: XCTestCase {
-    private func waitFor(_ type: String, in fixture: ChatControllerFixture) async throws {
+    private func waitFor(_ type: String, in fixture: ChatControllerFixture, requestID: String? = nil) async throws {
         for _ in 0..<1000 {
-            if fixture.events.snapshot().contains(where: { $0.type == type }) { return }
+            if fixture.events.snapshot().contains(where: {
+                $0.type == type && (requestID == nil || $0.requestId == requestID)
+            }) { return }
             try await Task.sleep(for: .milliseconds(1))
         }
         XCTFail("Missing event: \(type)")
@@ -16,6 +18,41 @@ final class ChatTurnFinalizationTests: XCTestCase {
                         cancelled: Bool, text: String) async throws {
         let data = try JSONEncoder().encode(NativeTurnDecision(requestId: id, cancelled: cancelled, text: text))
         await fixture.controller.finalizeTurn(json: String(decoding: data, as: UTF8.self))
+    }
+
+    func testOutputRejectionKeepsUserOnlyAndSkipsMemoryAndCheckpoint() async throws {
+        let fixture = try ChatControllerFixture(automaticallyFinalize: false)
+        defer { fixture.remove() }
+        await fixture.controller.initialize()
+        await fixture.runtime.setResponse("save(P=1,E=1)\n가상금칙")
+        let request = Task { await fixture.controller.send(json: fixture.request("race", "안녕")) }
+        try await waitFor("completion_pending", in: fixture, requestID: "race")
+        // Output rejection can arrive after decode ended, without a native cancel call.
+        try await decide(fixture, cancelled: true, text: "")
+        await request.value
+
+        let turn = try XCTUnwrap(fixture.store.load()?.chatTurns.last)
+        XCTAssertEqual(turn.status, .cancelled)
+        XCTAssertEqual(turn.userMessage, "안녕")
+        XCTAssertEqual(turn.assistantMessage, "")
+        XCTAssertEqual(try fixture.store.load()?.visibleMessages, 1)
+        let checkpoints = await fixture.runtime.checkpointCount
+        let writes = await fixture.memory.writeCount
+        XCTAssertEqual(checkpoints, 0)
+        XCTAssertEqual(writes, 0)
+        XCTAssertFalse(fixture.events.snapshot().contains { $0.type == "completed" })
+
+        await fixture.runtime.setResponse("save(P=0,E=0)\n반가워.")
+        let next = Task { await fixture.controller.send(json: fixture.request("next", "이어서")) }
+        try await waitFor("completion_pending", in: fixture, requestID: "next")
+        let history = await fixture.runtime.lastPreparedHistory
+        XCTAssertEqual(history.count, 1)
+        XCTAssertTrue(history.first?.text.hasPrefix("안녕\n") == true)
+        XCTAssertFalse(history.contains { $0.text.contains("가상금칙") })
+        XCTAssertEqual(history.map(\.role), [.user])
+        try await decide(fixture, id: "next", cancelled: false, text: "반가워.")
+        await next.value
+        XCTAssertEqual(try fixture.store.load()?.chatTurns.last?.status, .completed)
     }
 
     func testLateCompletionKeepsOnlyDisplayConfirmedPartialOrNoAnswer() async throws {

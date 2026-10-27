@@ -1,0 +1,238 @@
+--- a/runtime/executor/kv_checkpoint.cc
++++ b/runtime/executor/kv_checkpoint.cc
+@@ -9,16 +9,17 @@
+ namespace litert::lm {
+ absl::Status LlmLiteRtCompiledModelExecutorBase::TransferState(
+     bool (*transfer)(void*, size_t, void*), void* user_data, bool reading) {
+-  if (executor_settings_.GetBackend() != Backend::CPU || !state_ ||
++  const bool gpu = executor_settings_.GetBackend() == Backend::GPU;
++  if ((!gpu && executor_settings_.GetBackend() != Backend::CPU) || !state_ ||
+       llm_context_->runtime_config().output_heads.value_or(1) != 1 ||
+       llm_context_->processed_context().lora_id() || mtp_drafter_)
+-    return absl::UnimplementedError("KV checkpoint supports CPU batch1 without LoRA or drafter");
++    return absl::UnimplementedError("KV checkpoint supports CPU/GPU batch1 without LoRA or drafter");
+   if (reading && llm_context_->runtime_state().current_step != 0)
+     return absl::FailedPreconditionError("restore requires fresh executor");
+   checkpoint::Io io(transfer, user_data, reading);
+   const auto original_random = llm_context_->runtime_state().rand_gen;
+   auto run = [&]() -> absl::Status {
+-    if (!io.Expect(uint32_t{2}))
++    if (!io.Expect(uint32_t{gpu ? 4u : 2u}))
+       return absl::DataLossError("checkpoint format mismatch");
+     auto* state = static_cast<LitertState*>(state_.get());
+     if (state->GetBatchSize() != 1) return absl::UnimplementedError("batch1 required");
+@@ -55,26 +56,49 @@
+       auto value = out.str(); random_state.assign(value.begin(), value.end());
+     }
+     if (!io.Vector(random_state, 4096)) return absl::DataLossError("invalid random state");
+-    ABSL_ASSIGN_OR_RETURN(auto buffers, state->GetStateBuffers(*compiled_model_, signature));
+-    if (buffers.input_buffers.empty() ||
++    LitertState::StateBuffers buffers;
++    std::vector<std::pair<std::string, TensorBuffer*>> physical;
++    uint8_t bank_one_is_input = state->CheckpointBankOneIsInput();
++    if (gpu) {
++      if (!io.Expect(int32_t{static_cast<int>(state->CheckpointPolicy())}) ||
++          !io.Value(bank_one_is_input) || bank_one_is_input > 1)
++        return absl::DataLossError("GPU allocation policy/bank metadata mismatch");
++      physical = state->CheckpointBuffers();
++    } else {
++      ABSL_ASSIGN_OR_RETURN(buffers, state->GetStateBuffers(*compiled_model_, signature));
++    }
++    if (!gpu && (buffers.input_buffers.empty() ||
+         buffers.input_buffers.size() != buffers.output_buffers.size())
++       )
+       return absl::UnimplementedError("KV checkpoint requires inplace state");
+     if (!io.Expect(int32_t{state->GetBatchSize()}) || !io.Expect(int32_t{entries}) ||
+-        !io.Expect(uint64_t{buffers.input_buffers.size()}))
++        !io.Expect(uint64_t{gpu ? physical.size() : buffers.input_buffers.size()}))
+       return absl::DataLossError("state metadata mismatch or truncation");
+-    std::vector<std::string> names;
+-    for (const auto& [name, unused] : buffers.input_buffers) names.emplace_back(name);
+-    std::sort(names.begin(), names.end());
+-    for (const auto& name : names) {
+-      auto& buffer = buffers.input_buffers.at(name);
++    if (!gpu) for (auto& [name, buffer] : buffers.input_buffers)
++      physical.emplace_back(std::string(name), &buffer);
++    std::sort(physical.begin(), physical.end(), [](auto& a, auto& b) { return a.first < b.first; });
++    for (const auto& [name, pointer] : physical) {
++      auto& buffer = *pointer;
+       auto output = buffers.output_buffers.find(name);
+-      if (output == buffers.output_buffers.end() || buffer.Get() != output->second.Get())
++      if (!gpu && (output == buffers.output_buffers.end() || buffer.Get() != output->second.Get()))
+         return absl::UnimplementedError("KV checkpoint requires inplace state");
+       LITERT_ASSIGN_OR_RETURN(auto buffer_type, buffer.BufferType());
+-      if (buffer_type != TensorBufferType::kHostMemory)
++      if (!gpu && buffer_type != TensorBufferType::kHostMemory)
+         return absl::UnimplementedError("KV checkpoint requires host memory");
++      if (gpu && !io.Expect(int32_t{static_cast<int>(buffer_type)}))
++        return absl::DataLossError("GPU buffer representation mismatch");
+       LITERT_ASSIGN_OR_RETURN(auto type, buffer.TensorType());
+       LITERT_ASSIGN_OR_RETURN(auto size, buffer.PackedSize());
+-      if (type.Layout().HasStrides())
++      // Metal/OpenCL Lock/Unlock maps packed bytes, even when the hardware layout
++      // carries strides/padding. Size() is hardware storage, not mapped size.
++      // Host-memory locks do not perform that conversion, so retain its guard.
++      if (type.Layout().HasStrides() && !(gpu && (buffer.IsMetalMemory() || buffer.IsOpenClMemory())))
+         return absl::UnimplementedError("KV checkpoint requires packed tensor layout");
++      if (gpu) {
++        auto strides = type.Layout().Strides();
++        if (!io.Expect(uint64_t{strides.size()}))
++          return absl::DataLossError("GPU stride rank mismatch");
++        for (auto stride : strides) if (!io.Expect(uint32_t{stride}))
++          return absl::DataLossError("GPU stride mismatch");
++      }
+       auto dims = type.Layout().Dimensions();
+@@ -84,9 +108,42 @@
+       for (auto dim : dims) if (!io.Expect(int32_t{dim}))
+         return absl::DataLossError("tensor shape mismatch");
+       if (!io.Expect(uint64_t{size})) return absl::DataLossError("tensor size mismatch");
+-      LITERT_ASSIGN_OR_RETURN(auto locked, TensorBufferScopedLock::Create(
+-          buffer, reading ? TensorBuffer::LockMode::kWrite : TensorBuffer::LockMode::kRead));
+-      if (!io.Bytes(locked.second, size)) return absl::DataLossError("tensor transfer failed");
++      // Wait on the producer fence before mapping. Do not rely on elapsed time
++      // or on the host request having returned while GPU work is outstanding.
++      if (buffer.HasEvent()) {
++        auto event = buffer.GetEvent();
++        if (!event) return absl::AbortedError("checkpoint " + name +
++            " producer fence unavailable; discard engine: " + event.Error().Message());
++        auto waited = event->Wait();
++        if (!waited) return absl::AbortedError("checkpoint " + name +
++            " producer fence failed; discard engine: " + waited.Error().Message());
++      }
++      void* mapped = nullptr;
++      std::string mapping_error;
++      auto result = checkpoint::TransferMapped(
++          [&] {
++            auto locked = buffer.Lock(reading ? TensorBuffer::LockMode::kWrite
++                                              : TensorBuffer::LockMode::kRead);
++            if (!locked) {
++              mapping_error = locked.Error().Message();
++              return false;
++            }
++            mapped = *locked;
++            return true;
++          },
++          [&] { return io.Bytes(mapped, size); },
++          [&] {
++            auto unlocked = buffer.Unlock();
++            if (!unlocked) mapping_error = unlocked.Error().Message();
++            return bool(unlocked);
++          });
++      if (result == checkpoint::TransferResult::kUnlockFailed)
++        return absl::AbortedError("checkpoint " + name + " unlock/upload failed; discard engine: " + mapping_error);
++      if (result == checkpoint::TransferResult::kLockFailed)
++        return gpu ? absl::AbortedError("checkpoint " + name + " mapping failed; discard engine: " + mapping_error)
++                   : absl::UnavailableError("checkpoint " + name + " mapping failed: " + mapping_error);
++      if (result != checkpoint::TransferResult::kOk)
++        return absl::DataLossError("tensor transfer failed");
+     }
+     if (!io.Finish()) return absl::DataLossError("state transfer finalization failed");
+     if (reading) {
+@@ -106,11 +163,15 @@
+         if (!(in >> *runtime.rand_gen)) return absl::DataLossError("random state parse failed");
+       }
+       force_prepare_needed_ = true;
++      if (gpu) state->RestoreCheckpointBankOrder(bank_one_is_input);
+     }
+     return absl::OkStatus();
+   };
+   auto result = run();
+   if (reading && !result.ok()) {
++    // A partial GPU upload cannot be rolled back by clearing host memory.
++    // The caller must discard the whole engine before another request.
++    if (gpu) return absl::AbortedError("GPU restore failed; discard engine: " + result.ToString());
+     auto cleared = state_->Clear();
+     if (!cleared.ok()) return absl::AbortedError("checkpoint cleanup failed; discard engine");
+     llm_context_->processed_context().processed_tokens() = ProcessedTokens();
+--- a/runtime/executor/litert/state.h
++++ b/runtime/executor/litert/state.h
+@@ -28,6 +28,7 @@
+ #include "litert/cc/litert_environment.h"  // from @litert
+ #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+ #include "runtime/executor/state_interface.h"
++#include "runtime/executor/litert/checkpoint_buffers.h"
+ #include "runtime/proto/executor_metadata.pb.h"
+ 
+ namespace litert::lm {
+@@ -99,6 +100,17 @@
+   absl::StatusOr<StateBuffers> GetStateBuffers(
+       CompiledModel& compiled_model, absl::string_view signature_name);
+ 
++  // Borrow the physical banks without rotating them or preparing an execution.
++  // The session manager must hold exclusive ownership during a checkpoint.
++  auto CheckpointBuffers() {
++    return checkpoint::BankPointers(bank_1_state_buffers_, bank_2_state_buffers_);
++  }
++  AllocationPolicy CheckpointPolicy() const { return allocation_policy_; }
++  bool CheckpointBankOneIsInput() const { return bank_1_is_input_; }
++  void RestoreCheckpointBankOrder(bool first_is_input) {
++    bank_1_is_input_ = first_is_input;
++  }
++
+  private:
+   struct StateBuffer {
+     TensorBuffer buffer;
+--- a/runtime/executor/litert/BUILD
++++ b/runtime/executor/litert/BUILD
+@@ -26,7 +26,7 @@
+ cc_library(
+     name = "state",
+     srcs = ["state.cc"],
+-    hdrs = ["state.h"],
++    hdrs = ["state.h", "checkpoint_buffers.h"],
+     deps = [
+         "@com_google_absl//absl/container:flat_hash_map",
+         "@com_google_absl//absl/memory",
+--- a/c/kv_checkpoint.cc
++++ b/c/kv_checkpoint.cc
+@@ -1,10 +1,12 @@
+ #include "c/engine_internal.h"
+ #include "c/engine.h"
++#include "c/error_reporter_internal.h"
+ 
+ extern "C" int litert_lm_session_transfer_state(
+     LiteRtLmSession* session, LiteRtLmStateTransfer transfer, void* user_data,
+     bool reading) {
+   if (!session || !transfer) return 3;
+   auto status = session->session->TransferState(transfer, user_data, reading);
++  if (!status.ok()) litert::lm::c::SetLastError(status);
+   return static_cast<int>(status.code());
+ }
+--- /dev/null
++++ b/runtime/executor/litert/checkpoint_buffers.h
+@@ -0,0 +1,35 @@
++#pragma once
++#include <algorithm>
++#include <string>
++#include <utility>
++#include <vector>
++
++namespace litert::lm::checkpoint {
++// Deliberately independent of execution's GetStateBuffers: that API rotates
++// ping-pong banks and omits inputs in GPU-optimized inplace mode.
++template <class Bank, class OptionalBank>
++auto BankPointers(Bank& first, OptionalBank& second) {
++  using Buffer = decltype(first.begin()->second.buffer);
++  std::vector<std::pair<std::string, Buffer*>> result;
++  for (auto& [name, slot] : first)
++    result.emplace_back("bank1/" + name, &slot.buffer);
++  if (second) for (auto& [name, slot] : *second)
++    result.emplace_back("bank2/" + name, &slot.buffer);
++  std::sort(result.begin(), result.end(), [](auto& a, auto& b) {
++    return a.first < b.first;
++  });
++  return result;
++}
++
++enum class TransferResult { kOk, kLockFailed, kTransferFailed, kUnlockFailed };
++
++// Unlock can perform the actual CPU -> GPU upload. Its error must outrank an
++// I/O error: the caller must discard the engine when upload/unlock fails.
++template <class Lock, class Transfer, class Unlock>
++TransferResult TransferMapped(Lock lock, Transfer transfer, Unlock unlock) {
++  if (!lock()) return TransferResult::kLockFailed;
++  bool transferred = transfer();
++  if (!unlock()) return TransferResult::kUnlockFailed;
++  return transferred ? TransferResult::kOk : TransferResult::kTransferFailed;
++}
++}  // namespace litert::lm::checkpoint

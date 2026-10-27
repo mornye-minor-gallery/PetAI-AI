@@ -159,7 +159,7 @@ final class ChatSessionControllerTests: XCTestCase {
         XCTAssertEqual(checkpoints, 1)
     }
 
-    func testTwentyFirstAdmissionExcludesOnlyTheCurrentWindow() async throws {
+    func testShortDialogueUsesTheWholeRetainedContextForSearchExclusion() async throws {
         let fixture = try ChatControllerFixture()
         defer { fixture.remove() }
         await fixture.controller.initialize()
@@ -167,8 +167,8 @@ final class ChatSessionControllerTests: XCTestCase {
             await fixture.controller.send(json: fixture.request("turn-\(index)", "질문 \(index)"))
         }
         let excluded = await fixture.memory.lastExcluded
-        XCTAssertEqual(excluded, Set((2...21).map { "turn-\($0)" }))
+        XCTAssertEqual(excluded, Set((1...21).map { "turn-\($0)" }))
         let saved = try XCTUnwrap(fixture.store.load())
-        XCTAssertEqual(saved.chatTurns.map(\.requestID), (2...21).map { "turn-\($0)" })
+        XCTAssertEqual(saved.chatTurns.map(\.requestID), (1...21).map { "turn-\($0)" })
     }
 }

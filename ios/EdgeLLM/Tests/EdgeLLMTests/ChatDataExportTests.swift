@@ -2,6 +2,28 @@ import Foundation
 import Testing
 @testable import EdgeLLM
 
+@Test func chatExportIncludesTheRetainedSummary() throws {
+    var session = RoutedPersonaSessionContext()
+    try session.compact(retaining: [], summary: "지난 대화의 요약", modelIdentifier: "test")
+    let exported = try ChatDataExport(sessions: ["elena": session], activeMemories: [])
+    let json = try JSONSerialization.jsonObject(with: exported.jsonData()) as! [String: Any]
+    let conversations = json["conversations"] as! [[String: Any]]
+    #expect(conversations[0]["sessionSummary"] as? String == "지난 대화의 요약")
+}
+
+@Test func chatExportKeepsBothCharactersConversationsSeparate() throws {
+    var elena = RoutedPersonaSessionContext()
+    var lucia = RoutedPersonaSessionContext()
+    try elena.appendHomeLine(id: "home-elena", text: "잘 잤어?")
+    try lucia.appendHomeLine(id: "home-lucia", text: "일어났어?")
+    let exported = try ChatDataExport(sessions: ["lucia": lucia, "elena": elena], activeMemories: [])
+    let json = try JSONSerialization.jsonObject(with: exported.jsonData()) as! [String: Any]
+    let conversations = json["conversations"] as! [[String: Any]]
+    #expect(conversations.compactMap { $0["characterID"] as? String } == ["elena", "lucia"])
+    #expect(((conversations[0]["recentEntries"] as! [[String: Any]])[0]["id"] as? String) == "home-elena")
+    #expect(((conversations[1]["recentEntries"] as! [[String: Any]])[0]["id"] as? String) == "home-lucia")
+}
+
 @Test
 func chatDataExportKeepsOnlyRetainedTurnsAndActiveMemories() throws {
     var session = RoutedPersonaSessionContext(maximumTurnCount: 2)
@@ -22,13 +44,15 @@ func chatDataExportKeepsOnlyRetainedTurnsAndActiveMemories() throws {
             classifierVersion: "test")], createdAt: now)
     let diary = DailyDiary(characterID: "elena", localDate: "2026-09-27",
         title: "산책한 날", body: "산책했어요.", completedAt: now)
-    let exported = try ChatDataExport(recentEntries: session.recentEntries, activeMemories: [memory],
+    let exported = try ChatDataExport(sessions: ["elena": session], activeMemories: [memory],
         diaries: [diary], exportedAt: now)
     let json = try JSONSerialization.jsonObject(with: exported.jsonData()) as! [String: Any]
-    let turns = json["recentEntries"] as! [[String: Any]]
+    let conversations = json["conversations"] as! [[String: Any]]
+    let turns = conversations[0]["recentEntries"] as! [[String: Any]]
     let memories = json["longTermMemories"] as! [[String: Any]]
 
-    #expect(json["formatVersion"] as? Int == 3)
+    #expect(json["formatVersion"] as? Int == 5)
+    #expect(conversations[0]["characterID"] as? String == "elena")
     #expect((json["diaries"] as? [[String: Any]])?.first?["title"] as? String == "산책한 날")
     #expect(turns.map { $0["id"] as! String } == ["turn-3", "turn-4"])
     #expect(turns[1]["assistantMessage"] as? String == "좋아")
@@ -49,14 +73,14 @@ func chatDataExportSupportsLongTermOnlyAndEmptyAfterDeletion() throws {
         occurredAt: now, rawText: "등산 좋아해",
         labelEvidence: [.init(label: .event, score: nil, source: .gemmaHeader,
             classifierVersion: "test")], createdAt: now)
-    let one = try ChatDataExport(recentEntries: [], activeMemories: [memory], exportedAt: now)
+    let one = try ChatDataExport(sessions: [:], activeMemories: [memory], exportedAt: now)
     let oneJSON = try JSONSerialization.jsonObject(with: one.jsonData()) as! [String: Any]
-    #expect((oneJSON["recentEntries"] as! [Any]).isEmpty)
+    #expect((oneJSON["conversations"] as! [Any]).isEmpty)
     #expect((oneJSON["longTermMemories"] as! [Any]).count == 1)
 
-    let empty = try ChatDataExport(recentEntries: [], activeMemories: [], exportedAt: now)
+    let empty = try ChatDataExport(sessions: [:], activeMemories: [], exportedAt: now)
     let emptyJSON = try JSONSerialization.jsonObject(with: empty.jsonData()) as! [String: Any]
-    #expect((emptyJSON["recentEntries"] as! [Any]).isEmpty)
+    #expect((emptyJSON["conversations"] as! [Any]).isEmpty)
     #expect((emptyJSON["longTermMemories"] as! [Any]).isEmpty)
 }
 
@@ -66,9 +90,9 @@ func chatDataExportIncludesHomeLineInConversationOrder() throws {
     try session.appendHomeLine(id: "home-1", text: "밤에 안 잤구나?")
     _ = try session.beginRequest(requestID: "request-1", userMessage: "어떻게 알았어?")
     try session.finishRequest(requestID: "request-1", status: .completed, assistantMessage: "표정이 보여.")
-    let exported = try ChatDataExport(recentEntries: session.recentEntries, activeMemories: [])
+    let exported = try ChatDataExport(sessions: ["elena": session], activeMemories: [])
     let json = try JSONSerialization.jsonObject(with: exported.jsonData()) as! [String: Any]
-    let entries = json["recentEntries"] as! [[String: Any]]
+    let entries = (json["conversations"] as! [[String: Any]])[0]["recentEntries"] as! [[String: Any]]
     #expect(entries.map { $0["kind"] as! String } == ["homeLine", "request"])
     #expect(entries[0]["text"] as? String == "밤에 안 잤구나?")
     #expect(entries[1]["userMessage"] as? String == "어떻게 알았어?")
@@ -81,7 +105,7 @@ func chatDataExportRejectsMalformedActiveMemoryInsteadOfSilentlyOmittingIt() thr
         sequence: 0, scope: .init(userID: "local-user", characterID: "elena"),
         occurredAt: now, rawText: "기억", labelEvidence: [], createdAt: now)
     #expect(throws: ChatDataExportError.invalidMemory("broken")) {
-        try ChatDataExport(recentEntries: [], activeMemories: [malformed])
+        try ChatDataExport(sessions: [:], activeMemories: [malformed])
     }
 }
 

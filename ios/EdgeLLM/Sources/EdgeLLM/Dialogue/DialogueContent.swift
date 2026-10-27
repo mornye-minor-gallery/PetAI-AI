@@ -54,7 +54,40 @@ public struct DialogueContent: Codable, Equatable, Sendable {
         try load(data: Data(contentsOf: url))
     }
 
+    public static func fileURL(for characterID: String, in directory: URL) throws -> URL {
+        let id = try DialogueCharacterID(characterID).value
+        let primary = directory.appendingPathComponent("dialogue-content.json")
+        if FileManager.default.fileExists(atPath: primary.path),
+           try load(url: primary).id == id { return primary }
+        let secondary = directory.appendingPathComponent("dialogue-content.\(id).json")
+        guard FileManager.default.fileExists(atPath: secondary.path) else {
+            throw SelectionError.characterNotConfigured
+        }
+        try load(url: secondary).validateSelection(characterID: id)
+        return secondary
+    }
+
+    public static func resourceSuffix(for url: URL) -> String {
+        let name = url.deletingPathExtension().lastPathComponent
+        return name == "dialogue-content" ? "" : String(name.dropFirst("dialogue-content".count))
+    }
+
     public static func bundled() throws -> Self { try load(url: bundledURL()) }
+
+    public static func bundledURL(characterID: String) throws -> URL {
+        let id = try DialogueCharacterID(characterID).value
+        for bundle in [Bundle.main, Bundle(for: DialogueContentBundleToken.self)] {
+            for subdirectory in ["EdgeLLMPrompts", nil] as [String?] {
+                if let primary = bundle.url(forResource: "dialogue-content", withExtension: "json", subdirectory: subdirectory),
+                   try load(url: primary).id == id { return primary }
+                if let secondary = bundle.url(forResource: "dialogue-content.\(id)", withExtension: "json", subdirectory: subdirectory) {
+                    try load(url: secondary).validateSelection(characterID: id)
+                    return secondary
+                }
+            }
+        }
+        throw SelectionError.characterNotConfigured
+    }
 
     public static func bundledURL() throws -> URL {
         // Unity copies resources into its framework, the lab app into its main bundle.

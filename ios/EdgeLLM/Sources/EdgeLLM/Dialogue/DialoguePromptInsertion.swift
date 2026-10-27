@@ -7,7 +7,7 @@ public enum DialoguePromptRole: String, Codable, Sendable {
 /// Main-prompt anchors retain system delivery after history. In-chat blocks retain
 /// their existing user-text delivery and depth; requested roles remain metadata.
 public struct DialoguePromptInsertion: Codable, Equatable, Sendable {
-    public enum Source: String, Codable, Sendable { case authorsNote, worldInfo, nameRule }
+    public enum Source: String, Codable, Sendable { case authorsNote, worldInfo, nameRule, topic }
     public enum Placement: String, Codable, Sendable { case beforeCurrent, afterCurrent, beforeSystem, afterSystem, inChat, beforePersona, afterPersona }
 
     public let id: String

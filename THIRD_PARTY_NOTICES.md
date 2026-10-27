@@ -8,6 +8,7 @@ PetAI 팀이 작성한 코드에는 현재 포괄적인 재사용 라이선스�
 | 입력 필터 후보 수집 | Korcen(MIT), LDNOOBW English(CC BY 4.0) | [고정 출처와 생성 절차](ai/guardrails/input_filter_generator/README.md)를 제공합니다. 원본 목록·검수 결과·제품 필터는 배포하지 않습니다. |
 | 가드레일 평가 데이터·채점기·후보 모델 | [고정 출처와 라이선스](ai/guardrail/contracts/sources.lock.json) | 다운로드·평가 코드와 집계 보고서를 제공합니다. 코퍼스 원문·가중치·생성 응답은 배포하지 않습니다. |
 | LiteRT-LM Swift 연결 코드 | [Google LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM), Apache-2.0 | [라이선스](ios/ThirdParty/LiteRTLM/LICENSE)와 원본 저작권 공지를 보존합니다. |
+| XNNPACK 채널별 스케일 패치 | [Google XNNPACK](https://github.com/google/XNNPACK/commit/c72e2a4ae0efb7c648f73835e9a0133e7bf21a23), BSD-3-Clause | 공식 수정의 backport를 포함하며 [원문 라이선스](ios/ThirdParty/LiteRTLM/LICENSE-XNNPACK)를 보존합니다. |
 | EmbeddingGemma 네이티브 어댑터의 참고 구현 | [Google LiteRT samples](https://github.com/google-ai-edge/litert-samples), Apache-2.0 | [라이선스](ios/ThirdParty/EmbeddingGemmaNative/LICENSE)를 포함합니다. |
 | LongMemEval | [데이터 카드](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned), [상위 프로젝트](https://github.com/xiaowu0162/LongMemEval), MIT | [라이선스 원문](third_party/notices/LongMemEval-LICENSE)을 포함합니다. 원본 전체 데이터는 배포하지 않으며, EdgeMemBench의 선택·정리·주석 방식은 해당 문서에 기록합니다. |
 | 3i4k | [공식 데이터 저장소](https://github.com/warnikchow/3i4k), CC-BY-SA-4.0 | 원문·변형 데이터는 배포하지 않습니다. 데이터 준비 코드를 포함하며, 결과를 재배포할 때는 원출처의 조건을 따릅니다. |

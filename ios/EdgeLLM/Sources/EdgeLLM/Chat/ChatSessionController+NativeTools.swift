@@ -92,7 +92,7 @@ extension ChatSessionController {
                     } catch {
                         logger.error("native_tool_result_format_failed tool=\(envelope.tool.rawValue) error=\(error)")
                         // Only a committed OS side effect needs a success fallback to avoid duplicate retries.
-                        guard draft.tool.requiresConfirmation else { throw error }
+                        guard draft.tool.hasDeviceSideEffects else { throw error }
                         visibleText = formatter.unformattedSuccessText(for: envelope.tool)
                     }
                     await finishNativeToolRequest(
@@ -101,8 +101,10 @@ extension ChatSessionController {
                         homeSteps: HomeStepObservation.make(
                             envelope: envelope, proposal: confirmed
                         ),
-                        committedTool: draft.tool.requiresConfirmation
+                        committedTool: draft.tool.hasDeviceSideEffects
                     )
+                } else if envelope.status == .cancelled {
+                    await finishCancelledRequest(requestID)
                 } else {
                     await finishNativeToolFailure(
                         requestID: requestID,
@@ -185,6 +187,7 @@ extension ChatSessionController {
         message: String = "요청을 처리하지 못했어요. 다시 시도해 주세요."
     ) async {
         guard activeRequestId == requestID else { return }
+        guard !cancelRequested else { await finishCancelledRequest(requestID); return }
         await finishFailedRequest(requestID,
             code: code.rawValue,
             message: message)

@@ -51,7 +51,7 @@ import Testing
         activeCard: nil, userProfileContext: UserProfileContext(characterName: "루미"),
         configuration: .init(enforceCharacterName: true, memoryClassification: true)
     )
-    #expect(result.contains("캐릭터의 이름은 \"루미\"이다"))
+    #expect(result.contains("너의 이름은 \"루미\"이다"))
     #expect(result.contains(MemoryTaggedChatPrompt.wrappedAxesV1))
 }
 

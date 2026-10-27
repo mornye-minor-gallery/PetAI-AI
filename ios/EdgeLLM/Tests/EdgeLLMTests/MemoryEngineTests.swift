@@ -158,18 +158,6 @@ private struct ClassifierTestEmbedder:
     }
 }
 
-private actor RecordingMemoryDiagnostics: MemoryDiagnostics {
-    private var messages: [String] = []
-
-    func logSearchFailure(_ message: String) async {
-        messages.append(message)
-    }
-
-    func recordedMessages() -> [String] {
-        messages
-    }
-}
-
 private actor SuspendingInitializationMemoryStore:
     MemoryObservationStoring
 {
@@ -496,17 +484,16 @@ func closeInvalidatesSuspendedPrepareContinuation() async {
 }
 
 @Test
-func retrievalFailureIsLoggedAndReturnsNoMemory() async {
+func retrievalFailureReachesTheCaller() async {
     let store = RecordingMemoryStore()
-    let diagnostics = RecordingMemoryDiagnostics()
     let engine = MemoryEngine(
         store: store,
         classifier: FixedMemoryClassifier(decision: gateDecision(.none)),
-        retriever: FailingMemoryRetriever(),
-        diagnostics: diagnostics
+        retriever: FailingMemoryRetriever()
     )
 
-    let results = await engine.recall(
+    await #expect(throws: FailingMemoryRetriever.SearchFailure.self) {
+      _ = try await engine.recall(
         MemorySearchRequest(
             scope: MemoryScope(
                 userID: "local-user",
@@ -514,10 +501,8 @@ func retrievalFailureIsLoggedAndReturnsNoMemory() async {
             ),
             query: "내가 좋아하는 과일이 뭐였지?"
         )
-    )
-
-    #expect(results.isEmpty)
-    #expect(await diagnostics.recordedMessages().count == 1)
+      )
+    }
 }
 
 @Test

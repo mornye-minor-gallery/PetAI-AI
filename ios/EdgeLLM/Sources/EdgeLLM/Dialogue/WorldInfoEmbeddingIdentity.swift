@@ -18,9 +18,21 @@ public enum WorldInfoEmbeddingIdentity {
         let handle = try FileHandle(forReadingFrom:url)
         defer { try? handle.close() }
         var hash = SHA256()
-        while let chunk = try handle.read(upToCount:1_048_576), !chunk.isEmpty {
+        func consumeChunk() throws -> Bool {
+            guard let chunk = try handle.read(upToCount:1_048_576), !chunk.isEmpty else { return false }
             try Task.checkCancellation()
             hash.update(data:chunk)
+            return true
+        }
+        while true {
+#if canImport(ObjectiveC)
+            // Foundation's temporary NSData buffers otherwise survive until the
+            // enclosing pool drains, retaining a model-sized copy during hashing.
+            let hasChunk = try autoreleasepool(invoking: consumeChunk)
+#else
+            let hasChunk = try consumeChunk()
+#endif
+            if !hasChunk { break }
         }
         return hash.finalize().map { String(format:"%02x",$0) }.joined()
     }

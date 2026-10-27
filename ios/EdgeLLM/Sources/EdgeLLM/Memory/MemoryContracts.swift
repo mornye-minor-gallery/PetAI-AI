@@ -78,20 +78,7 @@ public protocol MemoryEmbeddingCandidateLoading: Sendable {
 }
 
 public protocol MemoryRetrieving: Sendable {
+    /// An empty result is successful. Search failures propagate to the caller.
     func search(_ request: MemorySearchRequest) async throws
         -> [RetrievedMemoryObservation]
-}
-
-public protocol MemoryDiagnostics: Sendable {
-    func logSearchFailure(_ message: String) async
-}
-
-public struct MemoryDebugDiagnostics: MemoryDiagnostics {
-    public init() {}
-
-    public func logSearchFailure(_ message: String) async {
-#if DEBUG
-        print("[EdgeMem] retrieval failed: \(message)")
-#endif
-    }
 }

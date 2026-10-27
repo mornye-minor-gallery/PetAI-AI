@@ -47,6 +47,13 @@ def main() -> int:
             ("guardrail-adapter", ["swift", "test", "--package-path", "ai/guardrail/swift/ProductPromptAdapter"], ROOT),
             ("eval-worker-build", ["swift", "build", "--package-path", "ai/beolmuri-eval/swift"], ROOT),
             ("beolmuri-eval", [sys.executable, "-m", "pytest", "-q", "--import-mode=importlib", "tests"], ROOT / "ai/beolmuri-eval"),
+            ("native-prefill", ["bash", "scripts/test-litertlm-prefill.sh"], ROOT),
+            ("android-backend", ["bash", "scripts/test-android-backend-selection.sh"], ROOT),
+            ("android-time-zone", ["bash", "scripts/test-android-time-zone.sh"], ROOT),
+            ("android-alarms", ["bash", "scripts/test-android-alarms.sh"], ROOT),
+            ("android-calendar", ["bash", "scripts/test-android-calendar.sh"], ROOT),
+            ("android-notifications", ["bash", "scripts/test-android-notifications.sh"], ROOT),
+            ("android-steps", ["bash", "scripts/test-android-steps.sh"], ROOT),
             ("native-tokenization", ["bash", "scripts/test-litertlm-tokenization.sh"], ROOT),
             ("native-tool-factory", ["bash", "scripts/test-native-tool-factory.sh"], ROOT),
         ]

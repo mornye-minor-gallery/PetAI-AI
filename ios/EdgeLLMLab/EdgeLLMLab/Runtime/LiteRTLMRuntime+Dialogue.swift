@@ -6,7 +6,7 @@ import EdgeLLM
 import LiteRTLM
 #endif
 
-private extension DialoguePromptMessage {
+extension DialoguePromptMessage {
     var nativeMessage: Message {
         let nativeRole: Role
         switch role {
@@ -37,9 +37,21 @@ private struct LiteRTLMDialogueMeasurer: DialogueTokenMeasuring {
 }
 
 extension LiteRTLMRuntime {
-    func requireNativeIdle() throws {
+    func dialogueConversationConfiguration(thinkingEnabled: Bool) -> ConversationConfiguration {
+        let sampling = slmConfiguration.generation.responseSampling
+        return .init(temperature: conversationConfiguration?.temperature ?? sampling.temperature,
+                     topK: conversationConfiguration?.topK ?? sampling.samplerTopK,
+                     topP: conversationConfiguration?.topP ?? sampling.topP,
+                     maxOutputTokens: slmConfiguration.dialogueBudget.outputTokens, thinkingEnabled: thinkingEnabled)
+    }
+
+    func requireNativeIdle(allowInvalidatedEngine: Bool = false) throws {
         guard activeGenerationID == nil, !isPreparingInput, currentState != .generating, currentState != .preparingModel else {
             throw RuntimeError.runtimeBusy
+        }
+        if !allowInvalidatedEngine, engine?.health.requiresRecreation == true {
+            currentState = .failed(message: RuntimeError.engineRequiresReload.localizedDescription)
+            throw RuntimeError.engineRequiresReload
         }
     }
 
@@ -58,19 +70,16 @@ extension LiteRTLMRuntime {
         defer { isPreparingInput = false }
         let budget = slmConfiguration.dialogueBudget
         let prepared = try await DialoguePromptComposer.prepare(input: input, policy: policy,
-            tokenBudget: budget, measurer: LiteRTLMDialogueMeasurer(engine: engine, thinkingEnabled: thinkingEnabled))
+            tokenBudget: budget, measurer: LiteRTLMDialogueMeasurer(engine: engine, thinkingEnabled: thinkingEnabled), allowContextOverflow: true)
         try Task.checkCancellation()
         guard !cancelRequested else { throw RuntimeError.generationCancelled }
-        let sampling = slmConfiguration.generation.responseSampling
 #if RESOURCE_BENCH
         RuntimeResourceTrace.mark("dialogue.budget", [
             "context_tokens": String(budget.contextTokens),
             "output_tokens": String(budget.outputTokens)
         ])
 #endif
-        try await reuseCachedConversation(configuration: .init(
-            temperature: sampling.temperature, topK: sampling.samplerTopK, topP: sampling.topP,
-            maxOutputTokens: budget.outputTokens, thinkingEnabled: thinkingEnabled),
+        try await reuseCachedConversation(configuration: dialogueConversationConfiguration(thinkingEnabled: thinkingEnabled),
             initialMessages: prepared.modelInput.initialMessages.map(\.nativeMessage))
         try Task.checkCancellation()
         guard !cancelRequested else { throw RuntimeError.generationCancelled }

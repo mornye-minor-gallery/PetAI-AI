@@ -3,6 +3,7 @@ import Foundation
 public enum RuntimeError: Error, Equatable, Sendable {
     case modelFileMissing(path: String)
     case modelNotPrepared
+    case engineRequiresReload
     case conversationNotStarted
     case runtimeBusy
     case emptyPrompt
@@ -20,6 +21,8 @@ extension RuntimeError: LocalizedError {
             "Model file was not found at: \(path)"
         case .modelNotPrepared:
             "The model is not prepared."
+        case .engineRequiresReload:
+            "The inference engine must be reloaded after a native state transfer failure."
         case .conversationNotStarted:
             "A conversation has not been started."
         case .runtimeBusy:

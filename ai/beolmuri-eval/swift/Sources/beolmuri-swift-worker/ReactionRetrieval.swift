@@ -18,24 +18,33 @@ actor ReactionRetrieval {
         }
         var trace: [String: Any] = ["reactions": options.reactions, "world_lore": options.worldLore]
         var match: ReactionFrameIndex.Match?
-        if let index = resources.index {
-            let query = ReactionFrameIndex.query(history: history, current: message)
+        if let index = resources.index, let gate = resources.queryGate {
             let started = ProcessInfo.processInfo.systemUptime
-            try Worker.emit(["id": requestID, "protocol_version": 1, "status": "embedding_required", "text": query])
-            guard let line = readLine() else { throw RetrievalError.disconnected }
-            let response = try JSONDecoder().decode(Response.self, from: Data(line.utf8))
-            guard response.id == requestID, response.protocol_version == 1, response.status == "embedding_result" else { throw RetrievalError.protocolMismatch }
-            if let error = response.error { throw RetrievalError.native(error) }
-            guard let vector = response.vector, let identity = response.identity else { throw RetrievalError.protocolMismatch }
+            let current = try embedding(message, requestID: requestID)
+            let messageCount = try gate.select(current: message, embedding: current.vector,
+                                               embeddingIdentity: current.identity)
+            let query = ReactionFrameIndex.query(history: history, current: message, messageCount: messageCount)
+            let result = query == message ? current : try embedding(query, requestID: requestID)
             trace["embedding_ms"] = (ProcessInfo.processInfo.systemUptime - started) * 1000
-            let found = try index.search(query: vector, embeddingIdentity: identity)
+            let found = try index.search(query: result.vector, embeddingIdentity: result.identity)
             match = found
             trace["selected_id"] = found.frame.id; trace["score"] = found.score
             trace["example_row"] = found.exampleRow; trace["search_ms"] = found.searchMilliseconds
-            trace["query"] = query; trace["query_messages"] = min(3, history.count + 1)
-            trace["embedding_identity"] = identity
+            trace["query"] = query; trace["query_messages"] = min(messageCount.rawValue, history.count + 1)
+            trace["embedding_identity"] = result.identity
         }
         return (resources.worldInfo(base: base, match: match), try JSONSerialization.data(withJSONObject: trace))
+    }
+    private func embedding(_ text: String, requestID: String) throws -> (vector: [Float], identity: String) {
+        try Worker.emit(["id": requestID, "protocol_version": 1, "status": "embedding_required", "text": text])
+        guard let line = readLine() else { throw RetrievalError.disconnected }
+        let response = try JSONDecoder().decode(Response.self, from: Data(line.utf8))
+        guard response.id == requestID, response.protocol_version == 1, response.status == "embedding_result" else {
+            throw RetrievalError.protocolMismatch
+        }
+        if let error = response.error { throw RetrievalError.native(error) }
+        guard let vector = response.vector, let identity = response.identity else { throw RetrievalError.protocolMismatch }
+        return (vector, identity)
     }
     private struct Response: Decodable {
         let id: String; let protocol_version: Int; let status: String

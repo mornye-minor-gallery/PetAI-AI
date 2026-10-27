@@ -2,6 +2,16 @@ import Foundation
 
 // Prompt preparation is separate from Unity event delivery and tool execution.
 extension ChatSessionController {
+    func configuredDialogue() -> (prompts: RoutedPersonaPromptSet, policy: DialoguePromptPolicy) {
+        if let prompts = routedPersonaPrompts { return (prompts, dialoguePromptPolicy) }
+        // Disabling persona changes fixed instructions, not ownership of history
+        // or token limits. Both development modes use the same composition path.
+        var persona = dialoguePromptPolicy.persona
+        persona.includePersona = false
+        persona.enforceCharacterName = false
+        return (.init(core: ""), .init(persona: persona, memoryByteBudget: dialoguePromptPolicy.memoryByteBudget))
+    }
+
     func prepareRoutedPersonaGeneration(
         requestID: String,
         userMessage: String,
@@ -11,24 +21,27 @@ extension ChatSessionController {
         session: DialogueSessionSnapshot,
         worldContext: WorldInfoContext = .init()
     ) async throws -> (prompt: String, worldInfo: WorldInfoTransaction?) {
-        guard let prompts = routedPersonaPrompts else {
-            return (userProfileContext.promptSection()
-                + "\n\n" + MemoryPromptBuilder.build(
-                    userMessage: userMessage, memories: recalledMemories,
-                    tokenBudget: dialoguePromptPolicy.memoryByteBudget), nil)
-        }
+        let (prompts, policy) = configuredDialogue()
 
-        let scene = try await routeSceneWithEmbedding(userMessage)
+        let scene = PersonaSceneRoute.general
 
         var reactionMatch: ReactionFrameIndex.Match?
-        if let index = dialogueRetrieval?.index {
-            let query = ReactionFrameIndex.query(history: session.history.map(\.text), current: userMessage)
+        if let index = dialogueRetrieval?.index, let gate = dialogueRetrieval?.queryGate {
             let started = ProcessInfo.processInfo.systemUptime
-            let vector = try await memoryService.embedWorldInfoQuery(query)
-            let embeddingMS = (ProcessInfo.processInfo.systemUptime - started) * 1000
-            let match = try index.search(query: vector, embeddingIdentity: await memoryService.searchEmbeddingIdentity())
+            let currentVector = try await memoryService.embedWorldInfoQuery(userMessage)
+            let currentEmbeddingMS = (ProcessInfo.processInfo.systemUptime - started) * 1000
+            let identity = try await memoryService.searchEmbeddingIdentity()
+            let gateStarted = ProcessInfo.processInfo.systemUptime
+            let messageCount = try gate.select(current: userMessage, embedding: currentVector,
+                                               embeddingIdentity: identity)
+            let gateMS = (ProcessInfo.processInfo.systemUptime - gateStarted) * 1000
+            let query = ReactionFrameIndex.query(history: session.history.map(\.text), current: userMessage,
+                                                 messageCount: messageCount)
+            let vector = query == userMessage ? currentVector : try await memoryService.embedWorldInfoQuery(query)
+            let totalMS = (ProcessInfo.processInfo.systemUptime - started) * 1000
+            let match = try index.search(query: vector, embeddingIdentity: identity)
             reactionMatch = match
-            logger.notice("Reaction frame id=\(match.frame.id) score=\(match.score) embeddingMS=\(embeddingMS) searchMS=\(match.searchMilliseconds)")
+            logger.notice("Reaction frame id=\(match.frame.id) queryMessages=\(min(messageCount.rawValue, session.history.count + 1)) embeddingCalls=\(query == userMessage ? 1 : 2) score=\(match.score) currentEmbeddingMS=\(currentEmbeddingMS) gateMS=\(gateMS) retrievalMS=\(totalMS) searchMS=\(match.searchMilliseconds)")
         }
         let worldInfo = dialogueRetrieval?.worldInfo(base: slmConfiguration.worldInfo, match: reactionMatch) ?? slmConfiguration.worldInfo
         var worldContext = worldContext
@@ -45,13 +58,17 @@ extension ChatSessionController {
         }
         authoredText.runtime["isMobile"] = .bool(true)
         let prepared = try await runtime.prepareDialogue(
-            input: DialoguePromptInput(persona: prompts, activeCard: prompts.card(scene: scene),
+            input: DialoguePromptInput(persona: prompts, activeCard: nil,
                 profile: userProfileContext, history: session.history,
                 memories: recalledMemories, currentMessage: userMessage,
-                session: session, authorsNote: slmConfiguration.authorsNote, worldInfo: worldInfo, worldInfoContext: worldContext, exampleDialogue: dialogueContent?.exampleDialogue ?? "", authoredText: authoredText),
-            policy: dialoguePromptPolicy,
+                session: session, authorsNote: slmConfiguration.authorsNote, worldInfo: worldInfo, worldInfoContext: worldContext, exampleDialogue: platform.personaEnabled ? dialogueContent?.exampleDialogue ?? "" : "", authoredText: authoredText,
+                reactionEntryID: reactionMatch?.frame.entry.id,
+                topicGuidance: session.topicContext?.promptText),
+            policy: policy,
             thinkingEnabled: thinkingEnabled
         )
+        lastDialogueTemplate = prepared.contextTemplate
+        lastDialogueThinking = thinkingEnabled
         diagnostics?.prepared(requestID, scene, recalledMemories.count, prepared)
         if let world = prepared.trace.worldInfo {
             let selected = world.entries.filter { $0.reason == .selected }.count
@@ -73,56 +90,6 @@ extension ChatSessionController {
             "Dialogue composition placement=\(prepared.trace.nameRulePlacement.rawValue) historyMessages=\(prepared.trace.historyMessages) insertedMemories=\(prepared.trace.insertedMemoryCount) memoryBytes=\(prepared.trace.insertedMemoryBytes) userBytes=\(prepared.trace.userBytes)"
         )
         return (prepared.modelInput.currentUserMessage, prepared.worldInfoTransaction)
-    }
-
-    func routeSceneWithEmbedding(
-        _ userMessage: String
-    ) async throws -> PersonaSceneRoute {
-        guard let router = embeddingSceneRouter else {
-            logger.error(
-                "Embedding scene router is unavailable; using GENERAL"
-            )
-            return .general
-        }
-
-        let startedAt = ProcessInfo.processInfo.systemUptime
-        diagnostics?.mark("scene.route.begin", [:])
-        do {
-            let query = try await memoryService.embedClassification(
-                userMessage
-            )
-            let result = try router.route(query)
-            let elapsed = ProcessInfo.processInfo.systemUptime - startedAt
-            logger.notice(
-                "Embedding scene selected scene=\(result.scene.rawValue) reason=\(result.reason.rawValue) score=\(result.score) threshold=\(result.threshold) margin=\(result.normalizedMargin) accepted=\(result.acceptedRouteCount) elapsed=\(String(describing: elapsed))"
-            )
-            diagnostics?.mark("scene.route.exit", [
-                "scene": result.scene.rawValue,
-                "status": "selected"
-            ])
-            return result.scene
-        } catch is CancellationError {
-            if cancelRequested {
-                throw RuntimeError.generationCancelled
-            }
-            logger.error(
-                "Embedding scene routing was cancelled unexpectedly; using GENERAL"
-            )
-            diagnostics?.mark("scene.route.exit", [
-                "scene": PersonaSceneRoute.general.rawValue,
-                "status": "cancelled_fallback"
-            ])
-            return .general
-        } catch {
-            logger.error(
-                "Embedding scene routing failed; using GENERAL error=\(error.localizedDescription)"
-            )
-            diagnostics?.mark("scene.route.exit", [
-                "scene": PersonaSceneRoute.general.rawValue,
-                "status": "error_fallback"
-            ])
-            return .general
-        }
     }
 
 }

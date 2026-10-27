@@ -27,7 +27,9 @@ EdgeLLMLab 빌드는 같은 이름의 Xcode 빌드 설정을 받는다. 원본 Y
 
 `DialogueContent.promptSet`은 페르소나·현재 상황·지식을 구역별로 조립하고,
 `exampleDialogue`는 예시를 실제 대화 이력과 구분해 전달한다. 앱은 해당 파일의
-이름을 사용하며 다른 캐릭터를 선택하면 `character_not_configured`를 보고한다.
+이름을 사용한다. 다중 캐릭터 호스트는 `dialogue-content.<id>.json`을 공급하고
+`activateCharacter`로 해당 ID를 선택한다. 파일이 없거나 ID가 다르면
+`character_not_configured`를 보고한다.
 기억은 콘텐츠 `id`로 범위를 나누고 기존 일반 대화의 기억을 자동 이관하지 않는다.
 콘텐츠가 없거나 읽을 수 없으면 `persona_content_unavailable`이다.
 
@@ -82,23 +84,35 @@ try session.finishRequest(requestID: requestID, status: .completed,
 포함한 위치다. 취소·오류로 답변이 없더라도 사용자 발화는 다음 프롬프트에 남는다.
 부분 답변은 중단 상태를 표시하지만 월드 정보 상태와 장기기억 저장 대상이 되지
 않는다. 평가 워커는 완료된 교환을 원자적으로 넣는 기존 `snapshot/commit` 경로를
-계속 사용한다. 버전 2 체크포인트는 중단 턴을 보존하며 버전 1을 읽을 수 있다.
+계속 사용한다. 버전 4 체크포인트는 중단 턴과 요약을 보존하며 버전 1~3도 읽을 수 있다.
 
 `appendExchange`는 완료된 평가 이력 공급에 사용한다. 실제 앱에서는 요청 ID로
 스트리밍과 종료를 소유하며, 오래된 요청의 토큰과 종료는 거부한다. 앱 재실행을
-넘는 최근 문맥은 `Application Support/PetAI/ChatSession/recent-turns.json`에
-저장한다. 로그인 계정이 아니라 기기를 기준으로 공유하며 백업에서 제외한다.
-같은 기기의 여러 계정이 한 캐릭터와의 대화를 이어 쓰는 정책이므로 계정별 파일을
-만들지 않는다. 그 대신 새 계정으로 로그인해도 이전 대화를 볼 수 있다는 점을
-감수하며, 다른 기기와 자동으로 동기화하지 않는다.
+넘는 기록은 호스트의 지원 디렉터리 아래 `characters/<id>/recent-turns.json`에
+저장한다. 계정별·서버 동기화 정책은 이 파일 저장소가 제공하지 않는다.
 요청을 받아들일 때 사용자 발화를 먼저 저장하고 완료·취소·오류 때 확정된 턴을
 다시 저장한다. 생성 중 토큰은 파일에 쓰지 않으므로 강제 종료 뒤에는 해당 요청을
 답변 없는 중단 턴으로 복원한다. 정상 종료된 부분 답변은 보존한다. 최근 20턴 밖으로
 밀린 비장기기억 발화는 이 파일에 남지 않는다. 저장 실패를 빈 문맥으로 숨기지
 않으며, 월드 정보 준비 결과는 답변이 정상 완료될 때만 반영한다.
-현재 요청이 최근 20턴의 한 자리를 차지하므로 프롬프트에는 이전 대화 최대 19턴을
-넣는다. 이 최근 턴들의 요청 ID는 EdgeMem 검색에서 제외한다. 밖으로 밀려난 P·E
+최근 기록 보관 한도는 20턴이다. 실제 프롬프트 문맥은 별도로 관리하며 토큰
+예산을 넘으면 요약과 최근 요청으로 줄인다. 이 최근 턴들의 요청 ID는 EdgeMem 검색에서 제외한다. 밖으로 밀려난 P·E
 기억은 삭제하지 않으며, 관련성이 있으면 다음 검색부터 다시 가져올 수 있다.
+
+## 문맥 요약과 세션 전환
+
+기본 설정은 문맥 4096토큰, 출력 512토큰, 요약 상한 500토큰이다. 질문은
+300토큰·500 Unicode scalar 이하로 받는다. 실제 값은
+[`slm-runtime-defaults.json`](Sources/EdgeLLM/Resources/slm-runtime-defaults.json)에 있다.
+
+`DialogueContextCompactor`는 질문과 출력 공간을 남기고 최근 최대 3턴과 요약을
+배치한다. 최종 모델 템플릿을 다시 측정해 상한을 확인한다. 요약 생성만 실패하면
+`context_warning`을 보내고 최근 대화로 이어간다. 저장·prefill 실패는
+`context_failed`로 노출하며 다음 요청 전에 엔진과 문맥을 다시 준비한다.
+
+캐릭터 전환은 생성·요약·내보내기 중에 거절한다. 대상 콘텐츠와 저장 기록을 먼저
+읽고 추론 모델을 내리지 않은 채 새 대화를 준비한다. 각 캐릭터의 대화 기록과
+World Info 상태를 분리하며, EdgeMem 검색은 해당 콘텐츠 ID의 범위를 사용한다.
 
 ## 토큰 예산
 
@@ -258,12 +272,11 @@ before-examples, after-examples, outlet이다. 같은 depth/role은 한 블록�
 기간 기준은 잘린 최근 이력 길이가 아니라 누적 메시지 번호다. 준비·검색·취소는 상태를
 바꾸지 않으며 앱은 보이는 답변이 성공한 뒤 한 번만 commit한다. 동일 요청 재시도는
 같은 난수 선택을 재현하고, 성공한 턴 다음에는 앱 seed를 전진시킨다. 기간 상태와
-변수는 현재 대화 세션에 속하며 앱 재시작 후 디스크 복원을 추가하지 않았다.
+변수는 캐릭터별 대화 체크포인트에 함께 저장한다.
 
 벡터 설정을 켠 앱은 최근 N개 메시지로 query embedding, 로어북 본문으로 document
 embedding을 만들고 코사인 유사도·상한으로 선택한다. 초기 query=2/최대5/threshold=.25는
-원본 확장 기본값이지 제품 최적값이 아니다. 현재 문서 벡터는 요청마다 계산하며 지속
-인덱스는 없다. 평가 worker는 명시적인 vectorMatches fixture를 받으며 자체 임베딩 추론을
+원본 확장 기본값이지 제품 최적값이 아니다. 문서 벡터는 내용이 바뀌었을 때 다시 계산하고 파일 인덱스로 저장한다. 평가 worker는 명시적인 vectorMatches fixture를 받으며 자체 임베딩 추론을
 하지 않는다. 게임 입력·성공 후 관찰 이벤트는 `WorldInfoSettings`와 `WorldInfoEngine`에서 정의한다.
 
 추적에는 매칭 키, 선택/탈락 이유, 후보 토큰, 목적지와 삽입 여부가 들어간다.
@@ -331,6 +344,19 @@ swift test --package-path ios/EdgeLLM
 
 ### 외부 반응풀 리소스
 
-`DialogueContent.retrieval`의 `reactions`와 `worldLore`로 독립적으로 활성화합니다. `dialogue-content.json`과 같은 디렉터리에 `reaction-frames.json`, `reaction-vectors.f32`, `dialogue-lore.json`을 둡니다. 랩 빌드는 `PETAI_DIALOGUE_CONTENT` 파일의 동반 자료를 함께 복사합니다. 캐릭터 자료는 호출 측에서 준비합니다.
+`DialogueContent.retrieval`의 `reactions`와 `worldLore`로 독립적으로 활성화한다.
+반응 검색에는 `reaction-frames.json`, `reaction-vectors.f32`,
+`reaction-query-gate.json`, `reaction-query-prototypes.f32`가 필요하다.
+세계관 검색은 `dialogue-lore.json`을 읽는다. 파일은 콘텐츠와 같은 디렉터리에
+두며, 추가 캐릭터는 `.캐릭터ID` 접미사를 각 확장자 앞에 붙인다.
+랩 빌드는 `PETAI_DIALOGUE_CONTENT`의 기본 동반 파일을 함께 복사한다.
 
-`ReactionFrameIndex`는 예시 벡터를 한 번 로드하고 매 발화마다 최근 3개 메시지의 질의 벡터로 최상위 반응 하나를 선택합니다. `DialogueRetrievalResources`는 선택한 목표·응답 형태·대화 예시 한 쌍을 World Info의 깊이 0 배치로 전달합니다. 세계관은 키워드 검색과 별도 예산을 유지합니다. 앱의 도구 라우팅 이후 일반 대화 경로에서만 호출하며 EdgeMem 회수 경로와 독립적입니다. 인덱스 누락·벡터 손상·임베딩 식별자 불일치는 오류로 노출합니다.
+`ReactionQueryGate`는 현재 발화의 임베딩과 텍스트 특징으로 검색에 사용할
+메시지 수를 1개 또는 3개로 선택한다. `ReactionFrameIndex`가 최상위 반응을
+찾으면 목표·응답 형태·대화 예시 한 쌍을 World Info의 깊이 0 위치에 전달한다.
+도구 라우팅 이후 일반 대화에서 호출하며 EdgeMem 검색과 별도로 동작한다.
+
+게이트 로더는 메타데이터의 정책 ID와 반응 인덱스·프로토타입 해시를 확인한다.
+파일 누락·벡터 손상·임베딩 식별자 불일치는 오류다. 이 저장소에는 게이트의
+소비 코드와 합성 테스트를 포함한다. 제품 코퍼스·프로토타입·실험 원자료는
+공급하지 않으므로 공개 검사 결과로 제품 반응 품질을 판단할 수 없다.

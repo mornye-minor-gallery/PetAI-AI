@@ -28,16 +28,28 @@ def load_production_runtime_defaults():
     path = production_runtime_defaults_path()
     raw = path.read_bytes()
     document = json.loads(raw, object_pairs_hook=unique_fields)
-    if set(document) != {"version", "runtime", "prompt_budget"} or document["version"] != 1:
+    if set(document) != {"version", "runtime", "prompt_budget", "context_management"} or document["version"] != 1:
         raise ValueError(f"{path}: unsupported runtime defaults document")
     runtime, budget = document["runtime"], document["prompt_budget"]
-    if set(runtime) != {"max_num_tokens"} or set(budget) != {"memory_tokens", "output_tokens"}:
+    fields = {"memory_tokens", "output_tokens", "fixed_tokens", "lore_tokens", "topic_tokens",
+              "state_tokens", "question_tokens", "question_characters"}
+    if set(runtime) != {"max_num_tokens"} or set(budget) != fields:
         raise ValueError(f"{path}: unexpected runtime defaults fields")
     maximum, memory, output = runtime["max_num_tokens"], budget["memory_tokens"], budget["output_tokens"]
     if (type(maximum) is not int or type(memory) is not int or type(output) is not int
             or maximum <= 0 or memory < 0 or output <= 0 or output >= maximum):
         raise ValueError(f"{path}: invalid runtime token budget")
-    return path, raw, maximum, budget
+    if any(type(budget[key]) is not int or budget[key] <= 0 for key in fields - {"memory_tokens"}):
+        raise ValueError(f"{path}: invalid component token budget")
+    policy = document["context_management"]
+    if (set(policy) != {"summary_enabled", "summary_tokens", "recent_turns"}
+            or type(policy["summary_enabled"]) is not bool
+            or type(policy["summary_tokens"]) is not int or policy["summary_tokens"] <= 0
+            or type(policy["recent_turns"]) is not int or policy["recent_turns"] < 0):
+        raise ValueError(f"{path}: invalid context management policy")
+    # Evaluation variants keep their aggregate-only contract; production section
+    # limits are enforced by the live runtime, not silently added to old experiments.
+    return path, raw, maximum, {"memory_tokens": memory, "output_tokens": output}
 
 
 def unique_fields(pairs):
@@ -230,7 +242,8 @@ def load_plan(path=None, *, variant=None, repeats=None, limit_pairs=None, timeou
         retrieval["directory"] = str(directory)
         names = []
         if retrieval["reactions"]:
-            names += ["reaction-frames.json", "reaction-vectors.f32"]
+            names += ["reaction-frames.json", "reaction-vectors.f32",
+                      "reaction-query-gate.json", "reaction-query-prototypes.f32"]
         if retrieval["worldLore"]:
             names += ["dialogue-lore.json"]
         for name in names:
@@ -306,7 +319,9 @@ def verify_snapshot(directory, metadata):
     for name, expected in metadata.items():
         if name not in required | {"history.json", "memories.json", "character.yaml", "situation.yaml",
                                    "slm-runtime-defaults.json",
-                                   "reaction-frames.json", "reaction-vectors.f32", "dialogue-lore.json"} and not re.fullmatch(r"lorebook-[0-9a-f]{64}\.(json|png)", name):
+                                   "reaction-frames.json", "reaction-vectors.f32",
+                                   "reaction-query-gate.json", "reaction-query-prototypes.f32",
+                                   "dialogue-lore.json"} and not re.fullmatch(r"lorebook-[0-9a-f]{64}\.(json|png)", name):
             raise ValueError("unknown snapshot entry")
         actual = hashlib.sha256((Path(directory) / "inputs" / name).read_bytes()).hexdigest()
         if actual != expected["sha256"]:

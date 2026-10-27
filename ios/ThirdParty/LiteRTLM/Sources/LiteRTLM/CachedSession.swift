@@ -10,7 +10,7 @@ public struct CachedSessionTrace: Sendable {
 }
 
 /// Text-only full-prompt replacement using the existing Session C API.
-/// Rewind moves the cursor, not the KV buffers. In v0.17.1 CPU,
+/// Rewind moves the cursor, not the KV buffers. The pinned native
 /// ResourceManager::LockedLlmExecutor::Prefill removes matching tokens before
 /// calling the executor. Always submit the FULL input; even an identical or
 /// shorter request must rewind so the previous generated suffix is discarded.
@@ -28,10 +28,10 @@ public final class CachedSession: TextSession, @unchecked Sendable {
     private var trace: CachedSessionTrace?
     private var hasNativeInput = false
     private var hasPrefilledPrefix = false
-    private var requiresEngineRecreation = false
     public let id = UUID().uuidString
 
     init(engine: Engine, engineHandle: OpaquePointer, sampler: SamplerConfig, maxOutputTokens: Int) throws {
+        try engine.health.requireUsable()
         guard maxOutputTokens > 0, let limit = Int32(exactly: maxOutputTokens),
               let topK = Int32(exactly: sampler.topK), let seed = Int32(exactly: sampler.seed),
               let config = litert_lm_session_config_create() else { throw CachedSessionError.configuration }
@@ -69,7 +69,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
     public func replaceInput(systemPrompt: String?, initialMessages: [Message] = []) throws {
         try lock.withLock {
             guard !lifetime.isActive else { throw CachedSessionError.busy }
-            guard !requiresEngineRecreation else { throw CachedSessionError.checkpoint(10) }
+            try engine.health.requireUsable()
             self.systemPrompt = systemPrompt; self.initialMessages = initialMessages
             history = []; trace = nil
         }
@@ -83,7 +83,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
             let context = StateTransferContext(transfer)
             try lock.withLock {
                 guard !lifetime.isActive else { throw CachedSessionError.busy }
-                guard !requiresEngineRecreation else { throw CachedSessionError.checkpoint(10) }
+                try engine.health.requireUsable()
                 if reading {
                     guard !hasNativeInput else { throw CachedSessionError.busy }
                 } else {
@@ -91,14 +91,19 @@ public final class CachedSession: TextSession, @unchecked Sendable {
                         throw CachedSessionError.checkpoint(9)
                     }
                 }
+                litert_lm_clear_last_error()
                 let status = litert_lm_session_transfer_state(handle, stateTransferCallback,
                     Unmanaged.passUnretained(context).toOpaque(), reading)
+                // C errors are thread-local. Copy before crossing any await.
+                let detail = status == 0 ? nil : litert_lm_get_last_error_message().map { String(cString: $0) }
                 if reading {
                     prefix.invalidate()
-                    if status == 10 { requiresEngineRecreation = true }
                     if status == 0 { hasNativeInput = true }
                 }
-                if status == 10 { throw CachedSessionError.checkpoint(10) }
+                if status == 10 {
+                    engine.health.invalidate(detail)
+                    throw CachedSessionError.checkpoint(10)
+                }
                 if let error = context.error { throw error }
                 guard status == 0 else { throw CachedSessionError.checkpoint(Int(status)) }
             }
@@ -125,7 +130,7 @@ public final class CachedSession: TextSession, @unchecked Sendable {
             ? String(prefix.dropFirst(startToken.count)) : prefix
         try lock.withLock {
             guard !lifetime.isActive, !hasNativeInput else { throw CachedSessionError.busy }
-            guard !requiresEngineRecreation else { throw CachedSessionError.checkpoint(10) }
+            try engine.health.requireUsable()
             let input = nativeText.withCString {
                 litert_lm_input_data_create(kLiteRtLmInputDataTypeText, $0, nativeText.utf8.count)
             }
@@ -145,6 +150,36 @@ public final class CachedSession: TextSession, @unchecked Sendable {
             userPrompt: prompt, thinkingEnabled: thinkingEnabled)
     }
 
+    /// Rebuild a complete ordered input without decoding an assistant response.
+    public func prefillInput(_ prompt: String, thinkingEnabled: Bool) async throws {
+        try engine.health.requireUsable()
+        guard lock.withLock({ lifetime.tryBegin() }) else { throw CachedSessionError.busy }
+        lock.withLock { hasPrefilledPrefix = false; trace = nil }
+        defer { lifetime.finish() }
+        let rendered = try await render(prompt, thinkingEnabled: thinkingEnabled)
+        guard rendered.contains("<|turn>model") else { throw CachedSessionError.unsupportedTemplate }
+        let bos = try await engine.startTokenText()
+        let nativeText = !bos.isEmpty && rendered.hasPrefix(bos) ? String(rendered.dropFirst(bos.count)) : rendered
+        let tokens = try await engine.tokenIDs(bos + nativeText)
+        try lock.withLock {
+            guard !lifetime.isCancellationRequested else { throw CancellationError() }
+            guard litert_lm_session_rewind_to_step(handle, 0) == 0 else { throw CachedSessionError.rewind }
+            let input = nativeText.withCString {
+                litert_lm_input_data_create(kLiteRtLmInputDataTypeText, $0, nativeText.utf8.count)
+            }
+            guard let input else { throw CachedSessionError.input }
+            defer { litert_lm_input_data_delete(input) }
+            var pointer: OpaquePointer? = input
+            let status = litert_lm_session_run_prefill(handle, &pointer, 1)
+            guard status == 0 else { prefix.invalidate(); throw CachedSessionError.start(Int(status)) }
+            trace = .init(sessionID: id, inputTokens: tokens.count,
+                          matchingInputPrefixTokens: prefix.prepare(tokens), finishReason: "prefill")
+            prefix.commit(tokens)
+            hasNativeInput = true
+            hasPrefilledPrefix = true
+        }
+    }
+
     public func measureInput(_ prompt: String, thinkingEnabled: Bool) async throws -> Int {
         let rendered = try await render(prompt, thinkingEnabled: thinkingEnabled)
         return try await engine.countTokens(rendered)
@@ -154,7 +189,9 @@ public final class CachedSession: TextSession, @unchecked Sendable {
         guard maxOutputTokens == self.maxOutputTokens else {
             return AsyncThrowingStream { $0.finish(throwing: CachedSessionError.configuration) }
         }
-        guard lock.withLock({ !requiresEngineRecreation && lifetime.tryBegin() }) else {
+        do { try engine.health.requireUsable() }
+        catch { return AsyncThrowingStream { $0.finish(throwing: error) } }
+        guard lock.withLock({ lifetime.tryBegin() }) else {
             return AsyncThrowingStream { $0.finish(throwing: CachedSessionError.busy) }
         }
         lock.withLock { hasPrefilledPrefix = false }
@@ -249,7 +286,7 @@ private let stateTransferCallback: @convention(c) (UnsafeMutableRawPointer?, Int
 public enum CachedSessionError: Error, LocalizedError {
     case checkpoint(Int)
     case configuration, busy, rewind, input, start(Int), native(String)
-    case tokenCountUnavailable, unsupportedTemplate, unsupportedBackend
+    case tokenCountUnavailable, unsupportedTemplate
     public var errorDescription: String? {
         switch self {
         case .checkpoint(let code): return "Native KV checkpoint failed (\(code))."
@@ -260,7 +297,6 @@ public enum CachedSessionError: Error, LocalizedError {
         case .start(let code): return "Native cached stream admission failed (\(code))."
         case .native(let message): return message
         case .tokenCountUnavailable: return "Session C API does not expose the current KV token count."
-        case .unsupportedBackend: return "Cached Session C adapter currently supports the CPU backend."
         case .unsupportedTemplate: return "Cached text output framing currently requires the Gemma 4 template."
         }
     }

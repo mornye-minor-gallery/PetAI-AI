@@ -9,6 +9,9 @@ uv sync --frozen
 uv run --frozen python scripts/check.py --swift
 ```
 
+Android 도구의 순수 로직 검사에는 JDK 17 이상이 필요합니다. 이 명령은 JVM·Swift·Python 검사와 네이티브 설정 stub을 실행합니다. 네이티브 프레임워크 헤더가 필요한 수명 검사는 아래 프레임워크 준비 후 `bash scripts/test-litertlm-cached-session.sh`로 실행합니다.
+
+
 Python 평가기와 Swift 계약 검사는 모델이나 네이티브 추론 바이너리 없이 실행합니다.
 
 ## 네이티브 바이너리 준비

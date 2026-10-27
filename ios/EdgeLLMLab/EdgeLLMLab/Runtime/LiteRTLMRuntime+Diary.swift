@@ -44,15 +44,16 @@ extension LiteRTLMRuntime {
             let store = try makeDiaryCheckpointStore()
             let promptDigest = SHA256.hash(data: Data(systemPrompt.utf8)).map { String(format: "%02x", $0) }.joined()
             let identity = KVCheckpointStore.identity(modelIdentity: modelIdentity,
-                contextTokens: slmConfiguration.dialogueBudget.contextTokens) + ":diary-prefix-v1:" + promptDigest
+                contextTokens: slmConfiguration.dialogueBudget.contextTokens,
+                backend: backend.rawValue, engineIdentity: engineIdentity) + ":diary-prefix-v1:" + promptDigest
             if store.exists {
                 do {
                     try store.restore(identity: identity) { try session.transferState(reading: true, transfer: $0) }
                     logger.notice("Diary fixed-prefix checkpoint restored")
                 } catch {
                     logger.error("Diary prefix restore rejected: \(error.localizedDescription, privacy: .public)")
-                    try store.remove()
-                    if case CachedSessionError.checkpoint(10) = error { throw error }
+                    removeRejectedCheckpoint(store)
+                    if engine.health.requiresRecreation { throw RuntimeError.engineRequiresReload }
                     try await session.primeSystemPrompt(systemPrompt, thinkingEnabled: false)
                     try store.save(identity: identity) { try session.transferState(reading: false, transfer: $0) }
                 }
@@ -74,17 +75,13 @@ extension LiteRTLMRuntime {
             if let activeNativeConversation { await activeNativeConversation.waitUntilIdle() }
             let wasCancelled = cancelRequested || error is CancellationError
             finishIsolatedGeneration(id: generationID)
+            if engine.health.requiresRecreation { throw RuntimeError.engineRequiresReload }
             if wasCancelled { throw RuntimeError.generationCancelled }
             throw error
         }
     }
 
     func makeDiaryCheckpointStore() throws -> KVCheckpointStore {
-        if let cacheDirectory {
-            return try KVCheckpointStore(directory: cacheDirectory.appendingPathComponent("DiaryPrefix"))
-        }
-        let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask,
-            appropriateFor: nil, create: true)
-        return try KVCheckpointStore(directory: caches.appendingPathComponent("LiteRTLM/DiaryPrefix"))
+        try KVCheckpointStore(directory: runtimeCacheURL().appendingPathComponent("DiaryPrefix"))
     }
 }

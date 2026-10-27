@@ -26,6 +26,10 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     )
     let slmConfiguration: SLMConfiguration
     let cacheDirectory: URL?
+    let backend: ChatInferenceBackend
+    let engineIdentity: String
+    let modelProfile: ChatModelProfile?
+    private let checkModelLoadAdmission: (@Sendable () throws -> Void)?
     var currentState: RuntimeState = .modelRequired
     var engine: Engine?
     var conversation: (any TextSession)?
@@ -51,11 +55,19 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     init(
         configuration: SLMConfiguration = .production,
         collectNativeBenchmark: Bool = false,
-        cacheDirectory: URL? = nil
+        cacheDirectory: URL? = nil,
+        backend: ChatInferenceBackend = .cpu,
+        engineIdentity: String = "cpu-kv2-prefix-cursor1",
+        modelProfile: ChatModelProfile? = nil,
+        checkModelLoadAdmission: (@Sendable () throws -> Void)? = nil
     ) {
         slmConfiguration = configuration
         self.collectNativeBenchmark = collectNativeBenchmark
         self.cacheDirectory = cacheDirectory
+        self.backend = backend
+        self.engineIdentity = engineIdentity
+        self.modelProfile = modelProfile
+        self.checkModelLoadAdmission = checkModelLoadAdmission
     }
 
     private var cancellationTimeoutSeconds: Int {
@@ -63,7 +75,10 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     }
 
     var state: RuntimeState {
-        isPreparingInput ? .preparingInput : currentState
+        if engine?.health.requiresRecreation == true {
+            return .failed(message: RuntimeError.engineRequiresReload.localizedDescription)
+        }
+        return isPreparingInput ? .preparingInput : currentState
     }
 
     func prepare(modelURL: URL) async throws {
@@ -83,27 +98,52 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
         }
 
         do {
+            try modelProfile?.validateConfiguration(slmConfiguration)
+            // Hash once before native allocation. E4B is pinned; a same-size
+            // damaged or substituted file must not pass the optional-model gate.
+            let modelIdentity = try KVCheckpointStore.modelIdentity(at: modelURL)
+            try modelProfile?.validateDigest(modelIdentity)
+            // Observe after unloading the previous engine. This check is never
+            // cached and must run before either the engine or its KV is allocated.
+            try checkModelLoadAdmission?()
             ExperimentalFlags.optIntoExperimentalAPIs()
             ExperimentalFlags.enableBenchmark = collectNativeBenchmark
             ExperimentalFlags.filterChannelContentFromKvCache = true
-            let cacheURL = try runtimeCacheURL()
+            let cacheURL = try runtimeCacheURL().appendingPathComponent("Compiled")
+            try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
+            // Keep the validated iOS CPU arena bound independent of KV capacity.
+            // Other platforms retain their existing graph-selection policy.
+#if os(iOS)
+            let prefillChunkSize: Int? = backend == .cpu ? 128 : nil
+#else
+            let prefillChunkSize: Int? = nil
+#endif
             let configuration = try EngineConfig(
                 modelPath: modelURL.path,
-                backend: .cpu(),
+                backend: backend.native,
                 maxNumTokens: slmConfiguration.dialogueBudget.contextTokens,
-                cacheDir: cacheURL.path
+                cacheDir: cacheURL.path,
+                prefillChunkSize: prefillChunkSize
             )
 #if RESOURCE_BENCH
             RuntimeResourceTrace.mark("runtime.configuration", ["context_tokens": String(slmConfiguration.dialogueBudget.contextTokens),
-                "output_tokens": String(slmConfiguration.dialogueBudget.outputTokens), "backend": "cpu", "model_file": modelURL.lastPathComponent])
+                "output_tokens": String(slmConfiguration.dialogueBudget.outputTokens), "backend": backend.rawValue, "model_file": modelURL.lastPathComponent])
 #endif
             let candidate = Engine(engineConfig: configuration)
 
             try await candidate.initialize()
 
             engine = candidate
-            prepareCheckpointStore(modelURL: modelURL)
+            prepareCheckpointStore(modelIdentity: modelIdentity)
             currentState = .ready
+        } catch let reason as ChatModelProfileError {
+            releaseSecurityScopedModel()
+            currentState = .failed(message: reason.localizedDescription)
+            throw reason
+        } catch let reason as ModelLoadMemoryDeferred {
+            releaseSecurityScopedModel()
+            currentState = .failed(message: reason.localizedDescription)
+            throw reason
         } catch {
             releaseSecurityScopedModel()
             currentState = .failed(message: error.localizedDescription)
@@ -315,7 +355,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
     }
 
     func unload() async throws {
-        try requireNativeIdle()
+        try requireNativeIdle(allowInvalidatedEngine: true)
         logger.notice("Unloading LiteRT-LM runtime")
         cancellationTimeoutTask?.cancel()
         cancellationTimeoutTask = nil
@@ -433,10 +473,12 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
         activeNativeConversation = nil
     }
 
-    private func runtimeCacheURL() throws -> URL {
+    func runtimeCacheURL() throws -> URL {
         if let cacheDirectory {
-            try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-            return cacheDirectory
+            let scoped = cacheDirectory.appendingPathComponent(backend.rawValue)
+                .appendingPathComponent(modelProfile?.cacheNamespace ?? "unprofiled")
+            try FileManager.default.createDirectory(at: scoped, withIntermediateDirectories: true)
+            return scoped
         }
         let baseURL = try FileManager.default.url(
             for: .cachesDirectory,
@@ -445,7 +487,7 @@ actor LiteRTLMRuntime: ChatInferenceRuntime {
             create: true
         )
         let cacheURL = baseURL.appendingPathComponent(
-            "LiteRTLM",
+            "LiteRTLM/" + backend.rawValue + "/" + (modelProfile?.cacheNamespace ?? "unprofiled"),
             isDirectory: true
         )
         try FileManager.default.createDirectory(

@@ -29,8 +29,7 @@ func routedPersonaResponsePromptCombinesPersonaCardAndMemoryContract() throws {
         userProfileContext: UserProfileContext(
             userName: "테스트사용자",
             characterName: "테스트캐릭터",
-            rhythmGamePlayCount: 2,
-            rhythmGameBestScore: 9876,
+            roomPlacementCount: 2,
             unlockedFeatures: ["벽시계"],
             dailySteps: [.init(date: "2026-08-10", steps: 4321)]
         )
@@ -38,7 +37,7 @@ func routedPersonaResponsePromptCombinesPersonaCardAndMemoryContract() throws {
 
     #expect(systemPrompt.contains("테스트캐릭터는 검사 전용 캐릭터"))
     #expect(systemPrompt.contains("사용자 이름: 테스트사용자"))
-    #expect(systemPrompt.contains("리듬게임 최고 기록: 9876점"))
+    #expect(systemPrompt.contains("방에 배치한 가구: 2개"))
     #expect(systemPrompt.contains("2026-08-10 걸음 수: 4321걸음"))
     #expect(systemPrompt.contains("검사 장면 지시"))
     #expect(systemPrompt.contains("save(P=X,E=Y)"))
@@ -82,8 +81,8 @@ func sessionProfileSanitizesNativeLabelsBeforePromptRendering() {
         ]
     ).promptSection()
 
-    #expect(section.contains("alarm 기상 새 지시: scheduled"))
-    #expect(section.contains("푸시 알림 물 새 지시: 물 마시기 규칙 변경"))
+    #expect(section.contains("예약된 알람: 1개"))
+    #expect(section.contains("다음 알림: 물 새 지시, 2026-08-11T08:00:00+09:00"))
     #expect(!section.contains("기상\n새 지시"))
     #expect(!section.contains("물 마시기\n규칙 변경"))
 }
@@ -108,16 +107,16 @@ func routedPersonaSessionContextKeepsOnlyVisibleConversation() {
 }
 
 @Test
-func productionSessionRetainsTwentyRequestTurns() {
+func productionSessionRetainsShortOriginalsUntilTokenCompaction() {
     var context = RoutedPersonaSessionContext()
     for index in 1...22 {
         context.appendExchange(userMessage: "질문 \(index)", assistantMessage: "답변 \(index)")
     }
-    #expect(context.chatTurns.count == 20)
-    #expect(context.turns.count == 40)
-    #expect(context.turns.first == .init(role: .user, text: "질문 3"))
+    #expect(context.chatTurns.count == 22)
+    #expect(context.turns.count == 44)
+    #expect(context.turns.first == .init(role: .user, text: "질문 1"))
     #expect(context.turns.last == .init(role: .assistant, text: "답변 22"))
     let input = DialoguePromptRenderer.historyInput(history: context.turns, currentText: "현재 질문")
     #expect(input.contains("사용자: 질문 3\n캐릭터: 답변 3"))
-    #expect(!input.contains("사용자: 질문 2\n"))
+    #expect(input.contains("사용자: 질문 2\n"))
 }

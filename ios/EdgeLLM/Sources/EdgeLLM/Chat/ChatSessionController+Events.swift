@@ -14,13 +14,17 @@ extension ChatSessionController {
             emit(type: "loading")
         case .ready:
             emit(type: "ready")
-        case .generating:
+        case .admitting, .generating:
             emit(type: "generating", requestId: activeRequestId)
+        case .compacting:
+            emit(type: "context_compacting", requestId: activeRequestId, message: "대화를 정리하고 있어요")
         case .failed:
             emitError(
                 code: "runtime_failed",
                 message: "The native chat runtime must be initialized again."
             )
+        case .preparationDeferred(let reason):
+            emitError(code: "model_memory_insufficient", message: reason.localizedDescription)
         }
     }
 
@@ -49,7 +53,9 @@ extension ChatSessionController {
                 worldInfoAutomation: worldInfoAutomation,
                 recentEntries: recentEntries,
                 diary: diary,
-                diaries: diaries
+                diaries: diaries,
+                questionCharacters: type == "ready" ? slmConfiguration.dialogueBudget.limits?.questionCharacters : nil,
+                questionTokens: type == "ready" ? slmConfiguration.dialogueBudget.limits?.questionTokens : nil
             )
         )
     }

@@ -28,7 +28,7 @@ Android 패키지 의존성은 `android/Package.resolved`를 사용합니다.
 1. 빌드에 사용한 개발 커밋을 확인하고, 공개본의 AI 코드와 대조합니다.
 2. `source-<앱버전>-<플랫폼>-<빌드번호>` 태그 이름을 정하고, `publication.json`의 `distribution.app_releases`에 아래 항목을 기록합니다.
 3. 해당 기록을 커밋한 공개 소스에 태그를 만들고 GitHub Release를 게시합니다.
-4. 앱 고지와 스토어 등록 정보의 소스 주소를 해당 태그의 GitHub Release로 연결합니다.
+4. 앱 고지와 스토어 등록 정보는 이 저장소의 [Release 목록](https://github.com/mornye-minor-gallery/PetAI-AI/releases)을 가리킵니다. Release 이름과 태그에 앱 버전·플랫폼·빌드 번호가 있으므로, 사용자는 설치한 버전의 소스를 그 목록에서 고릅니다.
 
 | 항목 | 기록할 값 |
 | --- | --- |

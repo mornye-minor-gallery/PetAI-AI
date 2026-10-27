@@ -28,6 +28,7 @@ import CLiteRTLM
 /// try await engine.initialize()
 /// ```
 public actor Engine {
+  public nonisolated let health = NativeEngineHealth()
   private let logger = Logger(
     subsystem: "com.google.odml.litertlm.swift",
     category: "Engine"
@@ -68,6 +69,7 @@ public actor Engine {
 
   private func initializeInternal(benchmarkPrefillTokens: Int?, benchmarkDecodeTokens: Int?) throws
   {
+    try health.requireUsable()
     if isInitialized() {
       throw LiteRTLMError.engine(.alreadyInitialized)
     }
@@ -92,6 +94,7 @@ public actor Engine {
     if let cacheDir = engineConfig.cacheDir {
       litert_lm_engine_settings_set_cache_dir(settings, cacheDir)
     }
+    EnginePrefillSettings.apply(engineConfig.prefillChunkSize, to: settings)
     if let loraRank = engineConfig.loraRank {
       litert_lm_engine_settings_set_lora_rank(settings, Int32(loraRank))
       if loraRank > 0 {
@@ -148,6 +151,7 @@ public actor Engine {
   /// - Throws: A `LiteRTLMError` if the conversation creation fails.
   ///
   public func createConversation(with config: ConversationConfig? = nil) throws -> Conversation {
+    try health.requireUsable()
     guard isInitialized() else {
       throw LiteRTLMError.engine(.notInitialized)
     }
@@ -288,12 +292,13 @@ public actor Engine {
 
   /// Creates one raw text session. KV buffers remain native-owned for its lifetime.
   public func createCachedSession(sampler: SamplerConfig, maxOutputTokens: Int) throws -> CachedSession {
+    try health.requireUsable()
     guard let handle else { throw LiteRTLMError.engine(.notInitialized) }
-    guard case .cpu = engineConfig.backend else { throw CachedSessionError.unsupportedBackend }
     return try CachedSession(engine: self, engineHandle: handle, sampler: sampler, maxOutputTokens: maxOutputTokens)
   }
 
   func startTokenText() throws -> String {
+    try health.requireUsable()
     guard let handle else { throw LiteRTLMError.engine(.notInitialized) }
     guard let token = litert_lm_engine_get_start_token(handle) else { return "" }
     defer { litert_lm_token_union_delete(token) }
@@ -312,13 +317,15 @@ public actor Engine {
   }
 
   func tokenIDs(_ text: String) throws -> [Int32] {
-    try NativeTokenization.tokens(text, engine: handle)
+    try health.requireUsable()
+    return try NativeTokenization.tokens(text, engine: handle)
   }
 
   /// The temporary Conversation only renders the official template: no prefill,
   /// decode, or context switch. Never maintain its KV alongside the raw session.
   func renderTextRequest(systemPrompt: String?, history: [Message], userPrompt: String,
                          thinkingEnabled: Bool) throws -> String {
+    try health.requireUsable()
     guard let handle else { throw LiteRTLMError.engine(.notInitialized) }
     // Ordered rendering may include request-local system turns after history.
     // Keep createConversation's public single-system validation unchanged.
@@ -330,7 +337,8 @@ public actor Engine {
 
   /// Counts tokens with the tokenizer owned by this initialized engine.
   public func countTokens(_ text: String) throws -> Int {
-    try NativeTokenization.count(text, engine: handle)
+    try health.requireUsable()
+    return try NativeTokenization.count(text, engine: handle)
   }
 
   /// Measures a fresh text request without mutating a live conversation.

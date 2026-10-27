@@ -24,13 +24,20 @@ struct ChatControllerFixture {
     let controller: ChatSessionController
 
     init(automaticallyFinalize: Bool = true, tools: (any ChatPlatformTools)? = nil,
+         configuration: SLMConfiguration = .production,
+         personaEnabled: Bool = true,
+         diagnostics: ChatDiagnostics? = nil,
+         checkInferenceAdmission: @escaping @Sendable (InferenceOperation) throws -> Void = { _ in },
+         publicLog: (@Sendable (String) -> Void)? = nil,
          log: @escaping @Sendable (String) -> Void = { _ in },
          toolRouterArtifacts: NativeToolRouterArtifactRegistry? = nil) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("chat-controller-\(UUID())")
         store = .init(fileURL: directory.appendingPathComponent("recent.json"))
-        controller = ChatSessionController(runtime: runtime, memory: memory,
-            platform: ChatTestPlatform(store: store, toolAdapter: tools), eventSink: events.receive, log: log,
-            toolRouterArtifacts: toolRouterArtifacts)
+        controller = ChatSessionController(configuration: configuration, runtime: runtime, memory: memory,
+            platform: ChatTestPlatform(store: store, toolAdapter: tools, personaEnabled: personaEnabled), eventSink: events.receive, log: log,
+            publicLog: publicLog,
+            diagnostics: diagnostics,
+            toolRouterArtifacts: toolRouterArtifacts, checkInferenceAdmission: checkInferenceAdmission)
         if automaticallyFinalize {
             let controller = controller
             // Existing controller tests use a display host that accepts every delivered token.
@@ -45,35 +52,76 @@ struct ChatControllerFixture {
         }
     }
     func remove() { try? FileManager.default.removeItem(at: directory) }
-    func request(_ id: String, _ text: String, allowedTools: [NativeToolKind] = []) -> String {
+    func request(_ id: String, _ text: String, allowedTools: [NativeToolKind] = [],
+                 characterID: String = "test") -> String {
         let access = allowedTools.map { ["tool": $0.rawValue, "unlockSource": "test", "unlocked": true] as [String: Any] }
         let payload: [String: Any] = ["requestId": id, "prompt": text, "thinkingEnabled": false,
-            "userProfileContext": ["characterId": "test", "userName": "", "rhythmGamePlayCount": 0,
-                "rhythmGameBestScore": 0, "toolAccess": access]]
+            "userProfileContext": ["characterId": characterID, "userName": "", "roomPlacementCount": 0, "toolAccess": access]]
         return String(decoding: try! JSONSerialization.data(withJSONObject: payload), as: UTF8.self)
     }
 }
 
 actor ChatTestRuntime: ChatInferenceRuntime {
+    nonisolated let identifier = "synthetic-chat-tokenizer"
     var state: RuntimeState = .ready
     var generationCount = 0
+    var modelPreparationCount = 0
+    var modelLoadFailure: ModelLoadMemoryDeferred?
+    func setModelLoadFailure(_ value: ModelLoadMemoryDeferred?) { modelLoadFailure = value }
     var functionCallCount = 0
     var functionCall: NativeToolFunctionCall?
     var diaryGenerationCount = 0
     var diaryFailure: Error?
     var checkpointCount = 0
+    var checkpointFailure: Error?
+    var summaryGenerationCount = 0
+    var summaryInput = ""
+    var summaryResponse = "짧게 정리한 대화입니다."
+    var summaryFailure: Error?
+    var prefillFailure: Error?
+    var preparationBudget: DialogueTokenBudget?
+    var preparationFailure: Error?
+    var prefillStarted = false
+    var holdPrefill = false
+    private var prefillWaiter: CheckedContinuation<Void, Never>?
+    private var prefillContinuation: CheckedContinuation<Void, Never>?
+    var prefilledInputs: [DialogueModelInput] = []
+    var lastPreparedHistory: [RoutedPersonaSessionContext.Turn] = []
     var holdStream = false
     var response = "save(P=0,E=0)\n반가워."
     var continuation: AsyncThrowingStream<String, Error>.Continuation?
     func setHolding(_ value: Bool) { holdStream = value }
+    func finishStream() { continuation?.finish(); continuation = nil }
     func setResponse(_ value: String) { response = value }
     func setFunctionCall(_ value: NativeToolFunctionCall) { functionCall = value }
     func failDiary(with error: Error) { diaryFailure = error }
-    func prepare(modelURL: URL) {}
+    func failCheckpoint(with error: Error) { checkpointFailure = error }
+    func failSummary(with error: Error) { summaryFailure = error }
+    func failPrefill(with error: Error) { prefillFailure = error }
+    func failPreparation(with error: Error) { preparationFailure = error }
+    func clearPreparationFailure() { preparationFailure = nil }
+    func usePreparationBudget(_ budget: DialogueTokenBudget) { preparationBudget = budget }
+    func holdPrefills() { holdPrefill = true }
+    func waitForPrefill() async {
+        if prefillStarted { return }
+        await withCheckedContinuation { prefillWaiter = $0 }
+    }
+    func finishPrefill() { prefillContinuation?.resume(); prefillContinuation = nil; holdPrefill = false }
+    func setSummary(_ text: String) { summaryResponse = text }
+    func prepare(modelURL: URL) throws {
+        modelPreparationCount += 1
+        if let modelLoadFailure { throw modelLoadFailure }
+    }
     func startConversation(configuration: ConversationConfiguration) {}
     func prepareDialogue(input: DialoguePromptInput, policy: DialoguePromptPolicy,
-                         thinkingEnabled: Bool) throws -> PreparedDialogue {
-        try DialoguePromptComposer.prepare(input: input, policy: policy)
+                         thinkingEnabled: Bool) async throws -> PreparedDialogue {
+        if let preparationFailure { throw preparationFailure }
+        lastPreparedHistory = input.history
+        if let preparationBudget {
+            return try await DialoguePromptComposer.prepare(input: input, policy: policy,
+                tokenBudget: preparationBudget, measurer: self, allowContextOverflow: true)
+        }
+        return try DialoguePromptComposer.prepare(input: input, policy: policy)
     }
     func generateStream(prompt: String) -> AsyncThrowingStream<String, Error> {
         generationCount += 1
@@ -101,14 +149,34 @@ actor ChatTestRuntime: ChatInferenceRuntime {
     func cancel() { continuation?.finish(throwing: CancellationError()); continuation = nil }
     func resetConversation() {}
     func unload() {}
-    func saveCompletedDialogueCheckpoint() { checkpointCount += 1 }
+    func saveCompletedDialogueCheckpoint() throws {
+        checkpointCount += 1
+        if let checkpointFailure { throw checkpointFailure }
+    }
     func eraseCheckpoint() {}
+    func countTokens(_ text: String) -> Int { text.count }
+    func measureInput(_ input: DialogueModelInput) -> Int {
+        input.messages.reduce(17) { $0 + $1.text.count + 7 }
+    }
+    func generateDialogueSummary(_ text: String, maximumTokens: Int) throws -> String {
+        summaryGenerationCount += 1; summaryInput = text
+        if let summaryFailure { throw summaryFailure }
+        return summaryResponse
+    }
+    func prefillDialogueContext(_ input: DialogueModelInput, thinkingEnabled: Bool) async throws {
+        if let prefillFailure { throw prefillFailure }
+        prefillStarted = true
+        prefillWaiter?.resume(); prefillWaiter = nil
+        if holdPrefill { await withCheckedContinuation { prefillContinuation = $0 } }
+        prefilledInputs.append(input)
+    }
 }
 
 actor ChatTestMemory: ChatMemoryService {
     nonisolated let modelID = "litert-community/embeddinggemma-300m-seq256-mixed-precision"
     nonisolated let dimension = 768
     var lastExcluded: Set<String> = []
+    var recalledCharacterIDs: [String] = []
     var holdWrite = false
     var writeStarted = false
     var writeCount = 0
@@ -119,15 +187,23 @@ actor ChatTestMemory: ChatMemoryService {
     var classificationEmbedding = Array(repeating: Float(0), count: 768)
     var classificationCount = 0
     var classificationError: Error?
+    var recallError: Error?
+    var recallEngine: MemoryEngine?
+    func failRecall(with error: Error) { recallError = error }
+    func useRecallEngine(_ engine: MemoryEngine) { recallEngine = engine }
     func setClassificationEmbedding(_ value: [Float]) { classificationEmbedding = value }
     func failClassification(with error: Error) { classificationError = error }
     func setDiaryObservations(_ values: [MemoryObservation]) { diaryObservations = values }
     func holdWrites() { holdWrite = true }
     func finishWrite() { pendingWrite?.resume(); pendingWrite = nil }
-    func prepare(modelURL: URL, tokenizerURL: URL) {}
+    var preparationCount = 0
+    func prepare(modelURL: URL, tokenizerURL: URL) { preparationCount += 1 }
     func close() { if pendingWrite != nil { closedDuringWrite = true } }
-    func recall(_ request: MemorySearchRequest) -> [RetrievedMemoryObservation] {
+    func recall(_ request: MemorySearchRequest) async throws -> [RetrievedMemoryObservation] {
         lastExcluded = request.excludedTurnIDs
+        recalledCharacterIDs.append(request.scope.characterID)
+        if let recallError { throw recallError }
+        if let recallEngine { return try await recallEngine.recall(request) }
         return []
     }
     func remember(_ request: MemoryWriteRequest, decision: MemoryGateDecision) async -> MemoryRememberResult {
@@ -166,8 +242,9 @@ actor ChatTestMemory: ChatMemoryService {
 
 struct ChatTestPlatform: ChatPlatformServices, ChatPlatformTools {
     let store: DialogueSessionFileStore
+    let defaultCharacterID = "test"
     var toolAdapter: (any ChatPlatformTools)? = nil
-    var personaEnabled: Bool { true }
+    var personaEnabled = true
     var tools: any ChatPlatformTools { toolAdapter ?? self }
     var supportedTools: Set<NativeToolKind> { [] }
     var unsupportedMessage: String { "Android에서는 준비 중인 기능입니다." }
@@ -182,9 +259,20 @@ struct ChatTestPlatform: ChatPlatformServices, ChatPlatformTools {
     }
     func selectAsset(_ kind: NativeAssetKind) throws -> URL { throw UnityBridgeError.modelSelectionCancelled }
     func importAsset(_ url: URL, kind: NativeAssetKind) {}
-    func recentTurnStore() -> DialogueSessionFileStore { store }
-    func loadContent() throws -> ChatContentResources {
-        .init(content: try .load(data: Data(#"{"id":"test","name":"별","persona":"대화 시험용 캐릭터."}"#.utf8)))
+    func recentTurnStore(characterID: String) throws -> DialogueSessionFileStore {
+        if characterID == "test" { return store }
+        return try .character(characterID, in: store.fileURL.deletingLastPathComponent())
+    }
+    func storedCharacterIDs() throws -> [String] {
+        let others = try DialogueSessionFileStore.existingCharacterIDs(in: store.fileURL.deletingLastPathComponent())
+        return (FileManager.default.fileExists(atPath: store.fileURL.path) ? ["test"] : []) + others
+    }
+    func loadContent(characterID: String) throws -> ChatContentResources {
+        guard ["test", "lucia"].contains(characterID) else {
+            throw DialogueContent.SelectionError.characterNotConfigured
+        }
+        let text = characterID == "test" ? "대화 시험용 캐릭터." : "두 번째 시험용 캐릭터."
+        return .init(content: try .load(data: Data("{\"id\":\"\(characterID)\",\"name\":\"별\",\"persona\":\"\(text)\"}".utf8)))
     }
     func share(_ file: URL) {}
     func showExportError(_ message: String) {}

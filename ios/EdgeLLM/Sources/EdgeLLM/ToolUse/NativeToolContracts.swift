@@ -11,6 +11,15 @@ public enum NativeToolKind: String, CaseIterable, Codable, Sendable {
     case getCurrentTime = "get_current_time"
 
     public var requiresConfirmation: Bool { self != .getCurrentTime }
+
+    /// Confirmation can authorize a read; it does not mean a device write occurred.
+    /// Only a committed write must still be reported after a late cancellation.
+    public var hasDeviceSideEffects: Bool {
+        switch self {
+        case .createAlarm, .createTimer, .scheduleLocalNotification, .createCalendarEvent: true
+        case .getStepCount, .listAlarms, .getCalendarEvents, .getCurrentTime: false
+        }
+    }
 }
 
 public enum NativeToolRoute: Equatable, Sendable {

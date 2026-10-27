@@ -7,8 +7,10 @@ public protocol ChatPlatformServices: Sendable {
     func resolveModelAssets() async throws -> RuntimeModelAssets
     func selectAsset(_ kind: NativeAssetKind) async throws -> URL
     func importAsset(_ url: URL, kind: NativeAssetKind) async throws
-    func loadContent() throws -> ChatContentResources
-    func recentTurnStore() throws -> DialogueSessionFileStore
+    var defaultCharacterID: String { get }
+    func loadContent(characterID: String) throws -> ChatContentResources
+    func recentTurnStore(characterID: String) throws -> DialogueSessionFileStore
+    func storedCharacterIDs() throws -> [String]
     var personaEnabled: Bool { get }
     var tools: any ChatPlatformTools { get }
     func share(_ file: URL) async throws
@@ -23,7 +25,14 @@ public protocol ChatPlatformTools: Sendable {
     func enrich(_ base: UserProfileContext, allowedTools: Set<NativeToolKind>) async -> UserProfileContext
     func confirm(_ draft: NativeToolProposal) async throws -> NativeToolProposal
     func cancelConfirmation() async
+    func cancelExecution(requestID: String) async
     func execute(_ proposal: ValidatedToolProposal) async throws -> JSONValue
+}
+
+public extension ChatPlatformTools {
+    /// Hosts without cancellable OS reads finish the query; the controller still
+    /// discards its result. This hook must never undo a committed device write.
+    func cancelExecution(requestID: String) async {}
 }
 
 public struct ChatContentResources: Sendable {
@@ -35,7 +44,7 @@ public struct ChatContentResources: Sendable {
     }
 }
 
-public protocol ChatInferenceRuntime: LLMRuntime, NativeToolProposalGenerating {
+public protocol ChatInferenceRuntime: LLMRuntime, NativeToolProposalGenerating, DialogueTokenMeasuring {
     func prepareDialogue(input: DialoguePromptInput, policy: DialoguePromptPolicy,
                          thinkingEnabled: Bool) async throws -> PreparedDialogue
     func generateStream(prompt: String, thinkingEnabled: Bool) async throws -> AsyncThrowingStream<String, Error>
@@ -44,7 +53,9 @@ public protocol ChatInferenceRuntime: LLMRuntime, NativeToolProposalGenerating {
                           thinkingEnabled: Bool?, maxOutputTokens: Int?) async throws -> String
     func generateDiary(systemPrompt: String, userMessage: String) async throws -> String
     func countDiaryInputTokens(systemPrompt: String, userMessage: String) async throws -> Int
-    func saveCompletedDialogueCheckpoint() async
+    func saveCompletedDialogueCheckpoint() async throws
+    func generateDialogueSummary(_ text: String, maximumTokens: Int) async throws -> String
+    func prefillDialogueContext(_ input: DialogueModelInput, thinkingEnabled: Bool) async throws
     func eraseCheckpoint() async throws
 }
 
@@ -101,7 +112,10 @@ public enum NativeToolConfirmationError: Error, Equatable {
 /// Lightweight operational logging; the host chooses the platform log destination.
 struct ChatLogger: Sendable {
     let write: @Sendable (String) -> Void
+    let writePublic: @Sendable (String) -> Void
     func notice(_ text: String) { write(text) }
     func debug(_ text: String) { write(text) }
     func error(_ text: String) { write(text) }
+    /// Only static messages and allowlisted diagnostic codes belong on this channel.
+    func publicError(_ text: String) { writePublic(text) }
 }

@@ -22,6 +22,7 @@ extension ChatSessionController {
             var candidate: ChatMemoryCandidate?
             do {
                 try Task.checkCancellation()
+                try checkInferenceAdmission(.memoryCaption)
                 let output = try await runtime.generateIsolated(
                     systemPrompt: ChatMemoryCandidate.systemPrompt, userMessage: input,
                     sampling: nil,
@@ -29,6 +30,8 @@ extension ChatSessionController {
                 )
                 try Task.checkCancellation()
                 candidate = ChatMemoryCandidate.parse(output)
+            } catch is InferenceMemoryDeferred {
+                logger.notice("Memory caption deferred: insufficient memory")
             } catch {
                 // No retry, raw payload logging, chat error, token emission, or reward settlement.
             }
@@ -73,11 +76,15 @@ extension ChatSessionController {
             ])
             return memories
         } catch {
-            logger.error(
-                "Memory recall failed; chat continues without recalled context: \(error.localizedDescription)"
+            let failureCode = MemorySearchFailure.diagnosticCode(for: error)
+            // Recall is optional context: preserve the conversation, but never report this as a successful empty search.
+            // Log only allowlisted codes; error descriptions may contain private input or database paths.
+            logger.publicError(
+                "Memory recall failed; chat continues without recalled context: code=\(failureCode)"
             )
             diagnostics?.mark("memory.recall.exit", [
-                "status": "error",
+                "status": error is CancellationError ? "cancelled" : "error",
+                "failure_code": failureCode,
                 "recalled_memory_count": "0"
             ])
             return []

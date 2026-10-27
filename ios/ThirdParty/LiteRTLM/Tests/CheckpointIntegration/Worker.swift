@@ -2,15 +2,38 @@ import Foundation
 import EdgeLLM
 import LiteRTLM
 import Fixtures
+import CLiteRTLM
 
 typealias Request = DialogueModelInput
 struct Result: Codable {
     let mode: String; let scenario: String; let output: String; let finish: String
     let inputTokens: Int; let seconds: Double; let firstVisibleSeconds: Double?
+    let backend: String; let contextTokens: Int
+    var failedEngineRejected: Bool = false
 }
-enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObserved }
+enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObserved, failedEngineReused }
 
 @main struct Worker {
+    static func transfer(_ session: CachedSession, reading: Bool,
+                         callback: (UnsafeMutableRawPointer?, Int) throws -> Void) throws {
+        do { try session.transferState(reading: reading, transfer: callback) }
+        catch {
+            // The native detail is thread-local: read it here, before any await.
+            let detail = litert_lm_get_last_error_message().map { String(cString: $0) } ?? "unavailable"
+            print("CHECKPOINT ERROR reading=\(reading) detail=\(detail)"); fflush(stdout)
+            throw error
+        }
+    }
+    static func runtime(model: String, backend: Backend, context: Int, directory: String) async throws -> (Engine, CachedSession) {
+        try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        let engine = Engine(engineConfig: try .init(modelPath: model, backend: backend,
+            maxNumTokens: context, cacheDir: directory))
+        print("STAGE initialize backend=\(backend.rawValue) context=\(context)"); fflush(stdout)
+        try await engine.initialize()
+        let session = try await engine.createCachedSession(sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 42), maxOutputTokens: 64)
+        print("STAGE ready"); fflush(stdout)
+        return (engine, session)
+    }
     static func write<T: Encodable>(_ value: T, _ path: String) throws {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(value).write(to: URL(fileURLWithPath: path), options: .atomic)
@@ -36,7 +59,7 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
                 text += visible
                 if cancel && !cancelled && !text.isEmpty {
                     if let busyPath {
-                        do { try KVCheckpointStore(directory: URL(fileURLWithPath: busyPath)).save(identity: "integration-model-settings") { try session.transferState(reading: false, transfer: $0) }; throw WorkerError.busySaveAccepted }
+                        do { try KVCheckpointStore(directory: URL(fileURLWithPath: busyPath)).save(identity: "integration-model-settings") { try transfer(session, reading: false, callback: $0) }; throw WorkerError.busySaveAccepted }
                         catch CachedSessionError.busy {}
                     }
                     try session.cancel(); cancelled = true
@@ -54,13 +77,18 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
     }
     static func main() async throws {
         let args = CommandLine.arguments
-        guard args.count == 5 else { throw WorkerError.arguments }
+        guard args.count == 7, let backend = Backend(rawValue: args[5]),
+              let contextTokens = Int(args[6]), contextTokens > 0 else { throw WorkerError.arguments }
         let mode = args[1], model = args[2], dir = args[3], scenario = args[4]
-        let engine = Engine(engineConfig: try .init(modelPath: model, backend: .cpu(), maxNumTokens: 4096, cacheDir: ":nocache"))
-        print("STAGE initialize", terminator: "\n"); fflush(stdout)
-        try await engine.initialize()
-        let session = try await engine.createCachedSession(sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 42), maxOutputTokens: 64)
-        print("STAGE ready"); fflush(stdout)
+        ExperimentalFlags.optIntoExperimentalAPIs()
+        ExperimentalFlags.enableSpeculativeDecoding = false
+        guard ExperimentalFlags.enableSpeculativeDecoding == false else { throw WorkerError.arguments }
+        // Compile-cache files are shared by sequential workers, never by backends.
+        let compileCache = URL(fileURLWithPath: dir).deletingLastPathComponent()
+            .appendingPathComponent("compile-" + backend.rawValue).path
+        var (engine, session) = try await runtime(model: model, backend: backend,
+            context: contextTokens, directory: compileCache)
+        var failedEngineRejected = false
         let store = try KVCheckpointStore(directory: URL(fileURLWithPath: dir + "/cache"))
         let cache = store.fileURL.path
         if mode == "seed" {
@@ -72,11 +100,12 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
             guard !reply.isEmpty else { throw WorkerError.empty }
             try context.finishRequest(requestID: "seed", status: .completed, assistantMessage: reply)
             let saveStart = Date()
-            try store.save(identity: "integration-model-settings") { try session.transferState(reading: false, transfer: $0) }
+            try store.save(identity: "integration-model-settings") { try transfer(session, reading: false, callback: $0) }
             print("STAGE saved seconds=\(Date().timeIntervalSince(saveStart))"); fflush(stdout)
             try write(Result(mode: mode, scenario: scenario, output: reply,
                 finish: session.latestCacheTrace()?.finishReason ?? "unknown", inputTokens: session.latestCacheTrace()?.inputTokens ?? -1,
-                seconds: seconds, firstVisibleSeconds: first), dir + "/seed.json")
+                seconds: seconds, firstVisibleSeconds: first, backend: backend.rawValue,
+                contextTokens: contextTokens), dir + "/seed.json")
             if scenario == "cancelled" || scenario == "failed" {
                 let interrupted = "주말에 등산을 같이 가자. 코스를 길게 설명해줘."
                 let prompt = try AppFixtures.prepare(context, id: "interrupted", message: interrupted, dynamic: false)
@@ -98,7 +127,8 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
             let (warm, warmSeconds, warmFirst) = try await generate(session, next.modelInput)
             try write(Result(mode: "warm", scenario: scenario, output: warm,
                 finish: session.latestCacheTrace()?.finishReason ?? "unknown", inputTokens: session.latestCacheTrace()?.inputTokens ?? -1,
-                seconds: warmSeconds, firstVisibleSeconds: warmFirst), dir + "/warm.json")
+                seconds: warmSeconds, firstVisibleSeconds: warmFirst, backend: backend.rawValue,
+                contextTokens: contextTokens), dir + "/warm.json")
         } else {
             let request = try JSONDecoder().decode(Request.self, from: Data(contentsOf: URL(fileURLWithPath: dir + "/request.json")))
             if mode == "reference" {
@@ -109,7 +139,7 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
                 _ = try await generate(session, seed.modelInput)
             }
             if mode == "restore" {
-                let start = Date(); try store.restore(identity: "integration-model-settings") { try session.transferState(reading: true, transfer: $0) }
+                let start = Date(); try store.restore(identity: "integration-model-settings") { try transfer(session, reading: true, callback: $0) }
                 print("STAGE restored seconds=\(Date().timeIntervalSince(start))"); fflush(stdout)
             } else if ["corrupt", "incompatible", "truncated", "old-format"].contains(mode) {
                 let damagedStore = try KVCheckpointStore(directory: URL(fileURLWithPath: dir + "/damaged-" + mode))
@@ -136,20 +166,39 @@ enum WorkerError: Error { case arguments, empty, busySaveAccepted, cancelNotObse
                     try file.close()
                 }
                 do {
-                    try damagedStore.restore(identity: mode == "incompatible" ? "wrong-model" : "integration-model-settings") { try session.transferState(reading: true, transfer: $0) }
+                    try damagedStore.restore(identity: mode == "incompatible" ? "wrong-model" : "integration-model-settings") { try transfer(session, reading: true, callback: $0) }
                     throw WorkerError.busySaveAccepted
                 } catch KVCheckpointError.invalidData {
                     guard mode != "old-format" else { throw KVCheckpointError.invalidData }
                 } catch CachedSessionError.checkpoint(15) {
                     guard mode == "old-format" else { throw CachedSessionError.checkpoint(15) }
+                } catch CachedSessionError.checkpoint(10) {
+                    guard backend == .gpu, engine.health.requiresRecreation else {
+                        throw CachedSessionError.checkpoint(10)
+                    }
+                    // Real GPU restore errors must poison existing and future
+                    // sessions. Recomputing on the damaged engine is not recovery.
+                    do {
+                        _ = try await generate(session, request)
+                        throw WorkerError.failedEngineReused
+                    } catch CachedSessionError.checkpoint(10) {}
+                    do {
+                        _ = try await engine.createCachedSession(sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 42), maxOutputTokens: 64)
+                        throw WorkerError.failedEngineReused
+                    } catch CachedSessionError.checkpoint(10) {}
+                    failedEngineRejected = true
+                    print("STAGE failed engine rejected; recreating"); fflush(stdout)
+                    (engine, session) = try await runtime(model: model, backend: backend,
+                        context: contextTokens, directory: compileCache)
                 }
                 try FileManager.default.removeItem(atPath: damaged)
-                print("STAGE rejected cache; recomputing with cleared executor")
+                print("STAGE rejected cache; recomputing with usable executor")
             } else if mode != "cold" && mode != "reference" { throw WorkerError.arguments }
             let (reply, seconds, first) = try await generate(session, request)
             try write(Result(mode: mode, scenario: scenario, output: reply,
                 finish: session.latestCacheTrace()?.finishReason ?? "unknown", inputTokens: session.latestCacheTrace()?.inputTokens ?? -1,
-                seconds: seconds, firstVisibleSeconds: first), dir + "/\(mode).json")
+                seconds: seconds, firstVisibleSeconds: first, backend: backend.rawValue,
+                contextTokens: contextTokens, failedEngineRejected: failedEngineRejected), dir + "/\(mode).json")
         }
         print("STAGE finished"); fflush(stdout)
     }

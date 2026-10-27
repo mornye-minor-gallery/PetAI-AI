@@ -4,7 +4,18 @@
     "max_num_tokens": 4096
   },
   "prompt_budget": {
-    "memory_tokens": 2048,
-    "output_tokens": 1024
+    "memory_tokens": 512,
+    "output_tokens": 512,
+    "fixed_tokens": 1024,
+    "lore_tokens": 512,
+    "topic_tokens": 512,
+    "state_tokens": 256,
+    "question_tokens": 300,
+    "question_characters": 500
+  },
+  "context_management": {
+    "summary_enabled": true,
+    "summary_tokens": 500,
+    "recent_turns": 3
   }
 }

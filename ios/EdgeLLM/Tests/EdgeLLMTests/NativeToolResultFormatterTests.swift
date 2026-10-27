@@ -159,7 +159,7 @@ func stepCountFormatterDoesNotClaimPermissionWasDenied() throws {
 
     #expect(
         try NativeToolResultFormatter().visibleText(for: envelope)
-            == "걸음 수 데이터를 확인할 수 없어요. 건강 앱에서 접근 권한과 데이터 상태를 확인해 주세요."
+            == "해당 기간의 걸음 기록을 확인할 수 없어요. 걸음 기록 설정과 조회 기간을 확인해 주세요."
     )
 }
 
@@ -252,4 +252,85 @@ private func alarmResult(_ timestamp: String) -> NativeToolExecutionEnvelope {
     .init(requestID: "alarm", tool: .createAlarm, status: .success, data: .object([
         "label": .string("내일 아침 알람"), "scheduledAt": .string(timestamp),
     ]))
+}
+
+// MARK: - 권한 때문에 차단된 알람은 정상 예약처럼 말하지 않는다 (#368)
+
+private func alarmListEnvelope(
+    alarms: [JSONValue], authorized: Bool? = nil
+) -> NativeToolExecutionEnvelope {
+    var object: [String: JSONValue] = ["alarms": .array(alarms)]
+    if let authorized { object["authorized"] = .bool(authorized) }
+    return NativeToolExecutionEnvelope(
+        requestID: "list", tool: .listAlarms, status: .success, data: .object(object))
+}
+
+private func listedAlarm(_ label: String, kind: String = "alarm", state: String = "scheduled") -> JSONValue {
+    .object([
+        "id": .string("id-\(label)"), "kind": .string(kind), "label": .string(label),
+        "state": .string(state), "scheduledAt": .string("2026-08-05T07:00:00+09:00"),
+    ])
+}
+
+@Test
+func authorizedAlarmListKeepsTheExistingText() throws {
+    let formatter = NativeToolResultFormatter()
+    let text = try formatter.visibleText(for: alarmListEnvelope(
+        alarms: [listedAlarm("아침 운동"), listedAlarm("스트레칭", kind: "timer", state: "countdown")],
+        authorized: true))
+    #expect(text == "• 아침 운동 (알람)\n• 스트레칭 (타이머)")
+}
+
+@Test
+func alarmListWithoutAuthorizationFieldKeepsTheExistingText() throws {
+    // iOS checks authorization before listing and does not send the field.
+    let formatter = NativeToolResultFormatter()
+    let text = try formatter.visibleText(for: alarmListEnvelope(alarms: [listedAlarm("아침 운동")]))
+    #expect(text == "• 아침 운동 (알람)")
+}
+
+@Test
+func revokedPermissionExplainsThatListedAlarmsWillNotRing() throws {
+    let formatter = NativeToolResultFormatter()
+    let text = try formatter.visibleText(for: alarmListEnvelope(
+        alarms: [listedAlarm("아침 운동", state: "blocked"), listedAlarm("회의", state: "blocked")],
+        authorized: false))
+    #expect(text == """
+        알람 권한이 꺼져 있어서 지금은 울리지 않아요. 설정에서 권한을 켜면 다시 울려요.
+        • 아침 운동 (알람) — 울리지 않아요
+        • 회의 (알람) — 울리지 않아요
+        """)
+}
+
+@Test
+func revokedPermissionMarksEveryListedAlarmEvenBeforeItsRecordIsBlocked() throws {
+    // The permission flag is read live; a record may still say "scheduled" until reconciled.
+    let formatter = NativeToolResultFormatter()
+    let text = try formatter.visibleText(for: alarmListEnvelope(
+        alarms: [listedAlarm("아침 운동")], authorized: false))
+    #expect(text.hasPrefix("알람 권한이 꺼져 있어서"))
+    #expect(text.contains("• 아침 운동 (알람) — 울리지 않아요"))
+}
+
+@Test
+func mixedActiveAndBlockedAlarmsMarkOnlyTheBlockedOnes() throws {
+    let formatter = NativeToolResultFormatter()
+    let text = try formatter.visibleText(for: alarmListEnvelope(
+        alarms: [listedAlarm("아침 운동"), listedAlarm("회의", state: "blocked")], authorized: true))
+    #expect(text == "• 아침 운동 (알람)\n• 회의 (알람) — 울리지 않아요")
+}
+
+@Test
+func emptyListWithoutPermissionStillWarnsAboutNewAlarms() throws {
+    let formatter = NativeToolResultFormatter()
+    let text = try formatter.visibleText(for: alarmListEnvelope(alarms: [], authorized: false))
+    #expect(text == "설정된 PetAI 알람이나 타이머가 없어요. 알람 권한이 꺼져 있어서 새로 맞춰도 울리지 않을 수 있어요.")
+}
+
+@Test
+func listAfterPermissionIsRestoredReadsAsNormalAgain() throws {
+    let formatter = NativeToolResultFormatter()
+    let text = try formatter.visibleText(for: alarmListEnvelope(
+        alarms: [listedAlarm("아침 운동"), listedAlarm("회의")], authorized: true))
+    #expect(text == "• 아침 운동 (알람)\n• 회의 (알람)")
 }

@@ -59,6 +59,26 @@ final class ChatSessionDiaryTests: XCTestCase {
         XCTAssertEqual(event.message, "일기를 만들지 못했어요. 다시 시도해 주세요.")
     }
 
+    func testFatalDiaryFailureBlocksFollowingDialogue() async throws {
+        let fixture = try ChatControllerFixture()
+        defer { fixture.remove() }
+        await fixture.controller.initialize()
+        let day = try DailyDiaryDay("2026-09-27")
+        let evidence = MemoryObservation(id: "observation", turnID: "turn", sessionID: "session",
+            sequence: 1, scope: MemoryScope(userID: "local-user", characterID: "test"),
+            occurredAt: day.start.addingTimeInterval(3600), rawText: "산책했어요.",
+            labelEvidence: [], createdAt: day.start)
+        await fixture.memory.setDiaryObservations([evidence])
+        await fixture.runtime.failDiary(with: RuntimeError.engineRequiresReload)
+        await fixture.controller.requestDiary(requestId: "fatal", localDate: day.key)
+        _ = try await terminalEvent("fatal", in: fixture.events)
+        await fixture.controller.send(json: fixture.request("blocked", "안녕"))
+        let count = await fixture.runtime.generationCount
+        XCTAssertEqual(count, 0)
+        XCTAssertTrue(fixture.events.snapshot().contains { $0.type == "context_failed" })
+        XCTAssertEqual(fixture.events.snapshot().last?.code, "runtime_not_ready")
+    }
+
     private func terminalEvent(_ requestID: String, in events: ChatEventRecorder) async throws -> NativeChatEvent {
         for _ in 0..<1_000 {
             if let event = events.snapshot().last(where: {

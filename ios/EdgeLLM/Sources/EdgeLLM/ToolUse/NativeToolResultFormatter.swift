@@ -21,7 +21,7 @@ public struct NativeToolResultFormatter: Sendable {
             if envelope.tool == .getStepCount,
                envelope.errorCode == .dataUnavailable
             {
-                return "걸음 수 데이터를 확인할 수 없어요. 건강 앱에서 접근 권한과 데이터 상태를 확인해 주세요."
+                return "해당 기간의 걸음 기록을 확인할 수 없어요. 걸음 기록 설정과 조회 기간을 확인해 주세요."
             }
             if envelope.tool == .createCalendarEvent,
                envelope.errorCode == .dataUnavailable
@@ -63,8 +63,17 @@ public struct NativeToolResultFormatter: Sendable {
             if case .object(let object)? = envelope.data,
                case .array(let alarms)? = object["alarms"]
             {
+                // Android reports the live permission flag and keeps blocked records in the list
+                // (the OS cancels the real schedule when permission is revoked). Without this the
+                // chat would present alarms that can no longer ring as scheduled. iOS checks
+                // authorization before listing and omits the field, so its text is unchanged.
+                // Records are only described, never removed: the management screen still shows them.
+                var permissionRevoked = false
+                if case .bool(false)? = object["authorized"] { permissionRevoked = true }
                 guard !alarms.isEmpty else {
-                    return "설정된 PetAI 알람이나 타이머가 없어요."
+                    return permissionRevoked
+                        ? "설정된 PetAI 알람이나 타이머가 없어요. 알람 권한이 꺼져 있어서 새로 맞춰도 울리지 않을 수 있어요."
+                        : "설정된 PetAI 알람이나 타이머가 없어요."
                 }
                 let lines = alarms.compactMap { value -> String? in
                     guard
@@ -75,10 +84,18 @@ public struct NativeToolResultFormatter: Sendable {
                         return nil
                     }
                     let type = kind == "timer" ? "타이머" : "알람"
-                    return "• \(label) (\(type))"
+                    var blocked = false
+                    if case .string("blocked")? = alarm["state"] { blocked = true }
+                    // The flag is read live, so a record can still say "scheduled" until reconciled.
+                    return permissionRevoked || blocked
+                        ? "• \(label) (\(type)) — 울리지 않아요"
+                        : "• \(label) (\(type))"
                 }
                 if !lines.isEmpty {
-                    return lines.joined(separator: "\n")
+                    let list = lines.joined(separator: "\n")
+                    return permissionRevoked
+                        ? "알람 권한이 꺼져 있어서 지금은 울리지 않아요. 설정에서 권한을 켜면 다시 울려요.\n" + list
+                        : list
                 }
             }
 
@@ -115,6 +132,9 @@ public struct NativeToolResultFormatter: Sendable {
             return "요청을 완료했어요."
         }
 
+        if object["source"] == .string("google_local_recording") {
+            return try LocalStepResultFormatter.text(object, now: dateTime.now)
+        }
         if aggregation == StepCountAggregation.total.rawValue,
            case .number(let total)? = object["totalSteps"]
         {

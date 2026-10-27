@@ -142,31 +142,22 @@ public actor NativeToolProposalCoordinator {
                 status: .success,
                 data: data
             )
-        } catch let code as NativeToolErrorCode {
-            requests[requestID] = NativeToolRequestSnapshot(
-                proposal: proposal,
-                state: .failed,
-                hasExecuted: true,
-                errorCode: code
-            )
-            return NativeToolExecutionEnvelope(
-                requestID: requestID,
-                tool: proposal.tool,
-                status: .failure,
-                errorCode: code
-            )
         } catch {
+            let code = (error as? NativeToolErrorCode)
+                ?? ((error is CancellationError || (error as? NativeToolConfirmationError) == .cancelled)
+                    ? .cancelledByUser : .nativeFailure)
+            let cancelled = code == .cancelledByUser
             requests[requestID] = NativeToolRequestSnapshot(
                 proposal: proposal,
-                state: .failed,
+                state: cancelled ? .cancelled : .failed,
                 hasExecuted: true,
-                errorCode: .nativeFailure
+                errorCode: code
             )
             return NativeToolExecutionEnvelope(
                 requestID: requestID,
                 tool: proposal.tool,
-                status: .failure,
-                errorCode: .nativeFailure
+                status: cancelled ? .cancelled : .failure,
+                errorCode: code
             )
         }
     }

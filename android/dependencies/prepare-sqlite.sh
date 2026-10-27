@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repo=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
+repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 artifacts="$repo/android/.artifacts"
 archive="$artifacts/sqlite-amalgamation-3530400.zip"
 mkdir -p "$artifacts"
@@ -15,5 +15,5 @@ target="$artifacts/sqlite-package"
 mkdir -p "$target/Sources/SQLite3/include"
 cp "$artifacts/sqlite-amalgamation-3530400/sqlite3.c" "$target/Sources/SQLite3/"
 cp "$artifacts/sqlite-amalgamation-3530400/sqlite3.h" "$target/Sources/SQLite3/include/"
-cp "$repo/android/poc/swift-android/SQLitePackage.swift" "$target/Package.swift"
+cp "$repo/android/dependencies/SQLitePackage.swift" "$target/Package.swift"
 printf 'SQLite 3.53.4 source verified and prepared.\n'

@@ -2,6 +2,27 @@ import Foundation
 import CLiteRTLM
 
 extension LifecycleTests {
+    static func compactionPrefillTests() async throws {
+        let session = try CachedSession(engine: Engine(), engineHandle: OpaquePointer(bitPattern: 1)!,
+            sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
+        try session.replaceInput(systemPrompt: nil, initialMessages: [
+            Message("고정 지침", role: .system), Message("요약과 최근 원문", role: .user),
+            Message("현재 상태", role: .system)])
+        let before = test_prefill_count()
+        try await session.prefillInput("회수 기억", thinkingEnabled: false)
+        precondition(test_prefill_count() == before + 1)
+        let input = String(cString: test_prefill())
+        precondition(input.hasPrefix("<|turn>system\n고정 지침<turn|>\n<|turn>user\n요약과 최근 원문"))
+        precondition(input.contains("<|turn>system\n현재 상태"))
+        precondition(session.latestCacheTrace()?.finishReason == "prefill")
+        try session.transferState(reading: false) { _, _ in }
+        try session.replaceInput(systemPrompt: nil, initialMessages: [Message("고정 지침", role: .system)])
+        _ = try await run(session, "다음 질문")
+        precondition(String(cString: test_input()).contains("다음 질문"))
+        precondition(session.latestCacheTrace()?.finishReason == "stop")
+        print("compaction prefill boundary tests passed")
+    }
+
     static func checkpointTests() async throws {
         let prefix = try CachedSession(engine: Engine(), engineHandle: OpaquePointer(bitPattern: 1)!,
             sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
@@ -66,6 +87,31 @@ extension LifecycleTests {
         test_set_checkpoint_error(0)
         do { try poisoned.replaceInput(systemPrompt: "fixed"); preconditionFailure("poisoned session reused") }
         catch CachedSessionError.checkpoint(10) {}
+        let sharedEngine = Engine()
+        let sibling = try CachedSession(engine: sharedEngine, engineHandle: OpaquePointer(bitPattern: 1)!,
+            sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
+        let failedSave = try CachedSession(engine: sharedEngine, engineHandle: OpaquePointer(bitPattern: 1)!,
+            sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
+        try failedSave.replaceInput(systemPrompt: "fixed")
+        _ = try await run(failedSave, "completed before GPU transfer failure")
+        test_set_checkpoint_error(10)
+        do { try failedSave.transferState(reading: false) { _, _ in }; preconditionFailure("fatal save hidden") }
+        catch CachedSessionError.checkpoint(10) {}
+        test_set_checkpoint_error(0)
+        do { try failedSave.replaceInput(systemPrompt: "fixed"); preconditionFailure("fatal save reused engine") }
+        catch CachedSessionError.checkpoint(10) {}
+        precondition(sharedEngine.health.failureDetail == "injected buffer transfer failure")
+        do { try sibling.replaceInput(systemPrompt: "fixed"); preconditionFailure("sibling reused failed executor") }
+        catch CachedSessionError.checkpoint(10) {}
+        do { try sibling.transferState(reading: true) { _, _ in }; preconditionFailure("failed executor restored") }
+        catch CachedSessionError.checkpoint(10) {}
+        do { _ = try await run(sibling, "blocked"); preconditionFailure("failed executor streamed") }
+        catch CachedSessionError.checkpoint(10) {}
+        do {
+            _ = try CachedSession(engine: sharedEngine, engineHandle: OpaquePointer(bitPattern: 1)!,
+                sampler: .init(topK: 1, topP: 1, temperature: 0, seed: 0), maxOutputTokens: 32)
+            preconditionFailure("new session reused failed executor")
+        } catch CachedSessionError.checkpoint(10) {}
         print("checkpoint admission and recovery tests passed")
     }
 }

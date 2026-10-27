@@ -1,12 +1,11 @@
 import Foundation
 
 enum RecentTurnStorageError: LocalizedError {
-    case notLoaded, incompatibleLimit
+    case notLoaded
 
     var errorDescription: String? {
         switch self {
         case .notLoaded: "Recent chat turn storage has not been loaded."
-        case .incompatibleLimit: "Saved recent chat turn limit differs from this app build."
         }
     }
 }
@@ -18,12 +17,9 @@ extension ChatSessionController {
             return true
         }
         do {
-            let store = try platform.recentTurnStore()
-            let saved = try store.load() ?? RoutedPersonaSessionContext(
+            let store = try platform.recentTurnStore(characterID: selectedCharacterID)
+            let saved = try store.load(maximumTurnCount: slmConfiguration.persona.recentTurnLimit) ?? RoutedPersonaSessionContext(
                 maximumTurnCount: slmConfiguration.persona.recentTurnLimit)
-            guard saved.maximumTurnCount == slmConfiguration.persona.recentTurnLimit else {
-                throw RecentTurnStorageError.incompatibleLimit
-            }
             routedPersonaSession = saved
             recentTurnStore = store
             recentTurnsLoaded = true
@@ -44,16 +40,25 @@ extension ChatSessionController {
             emit(type: "home_line_failed", code: "invalid_home_line", message: "홈 대사를 읽지 못했습니다.")
             return
         }
-        guard recentTurnsLoaded, let recentTurnStore,
+        // Recording authored home text needs the store, not a loaded model.
+        guard state.permitsHistoryRecording, characterActivationTask == nil,
+              recentTurnsLoaded, let recentTurnStore,
               activeRequestId == nil, dialogueTasks.isEmpty, !isCommittingTurn, !dataExportInProgress,
               maintenanceRequestID == nil, !isUnloading else {
             emit(type: "home_line_failed", requestId: request.id,
                  code: "runtime_busy", message: "대화가 끝난 뒤 홈 대사를 다시 눌러 주세요.")
             return
         }
+        if let topic = request.topic {
+            guard topic.isValid, let content = dialogueContent, topic.characterID == content.id else {
+                emit(type: "home_line_failed", requestId: request.id,
+                    code: "invalid_topic_character", message: "화두의 캐릭터 설정이 대화 설정과 다릅니다.")
+                return
+            }
+        }
         do {
             try recentTurnStore.recordHomeLine(in: &routedPersonaSession,
-                id: request.id, text: request.text)
+                id: request.id, text: request.text, topic: request.topic)
             emit(type: "home_line_recorded", requestId: request.id, text: request.text)
         } catch {
             logger.error("Could not persist home line error=\(error.localizedDescription)")
@@ -104,7 +109,7 @@ extension ChatSessionController {
     func finishFailedRequest(_ requestID: String, code: String, message: String,
                              recoverable: Bool = true) async {
         guard activeRequestId == requestID else { return }
-        if cancelRequested {
+        if cancelRequested && recoverable {
             await finishCancelledRequest(requestID)
             return
         }
@@ -159,16 +164,54 @@ extension ChatSessionController {
         // Commit user-visible history first. Keep request admission closed until
         // KV persistence ends; cancellation after this commit cannot undo the turn.
         if result == .committed && checkpointDialogue {
-            await runtime.saveCompletedDialogueCheckpoint()
+            do { try await runtime.saveCompletedDialogueCheckpoint() }
+            catch {
+                // The visible turn is already durable. A failed engine blocks
+                // the next request, but must not relabel this turn as failed.
+                emit(type: "completed", requestId: requestID, text: visibleText, homeSteps: homeSteps, presentation: presentation)
+                failContextPreparation(requestID, error: error)
+                return true
+            }
         }
-        state = .ready
-        activeRequestId = nil
-        cancelRequested = false
         if let captionUserMessage {
             captionSource = (requestID, captionUserMessage, visibleText)
         }
+        let compact: Bool
+        do {
+            if let template = lastDialogueTemplate {
+                compact = try await DialogueContextCompactor.requiresCompaction(template: template,
+                    entries: routedPersonaSession.contextEntries, summary: routedPersonaSession.summary,
+                    budget: slmConfiguration.dialogueBudget, measurer: runtime)
+            } else { compact = false }
+        } catch {
+            emit(type: "completed", requestId: requestID, text: visibleText, homeSteps: homeSteps, presentation: presentation)
+            failContextPreparation(requestID, error: error)
+            return result == .committed
+        }
+        if compact {
+            state = .compacting
+            emit(type: "context_compacting", requestId: requestID, message: "대화를 정리하고 있어요")
+        } else {
+            state = .ready
+            activeRequestId = nil
+            cancelRequested = false
+        }
         emit(type: "completed", requestId: requestID, text: visibleText,
              homeSteps: homeSteps, presentation: presentation)
+        if compact, let template = lastDialogueTemplate {
+            do {
+                try await compactDialogueContext(requestID: requestID, template: template,
+                    thinkingEnabled: lastDialogueThinking, alreadyAnnounced: true)
+            } catch let error as InferenceMemoryDeferred {
+                contextCompactionDeferred = true
+                state = .ready
+                activeRequestId = nil
+                cancelRequested = false
+                emit(type: "context_warning", requestId: requestID, code: "inference_memory_insufficient",
+                     message: error.localizedDescription)
+                emit(type: "context_ready", requestId: requestID)
+            } catch { failContextPreparation(requestID, error: error) }
+        }
         return result == .committed
     }
 

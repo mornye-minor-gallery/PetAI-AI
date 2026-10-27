@@ -10,6 +10,71 @@ final class DialogueSessionFileStoreTests: XCTestCase {
         return DialogueSessionFileStore(fileURL: directory.appendingPathComponent("recent-turns.json"))
     }
 
+    func testCharacterStoresKeepRecentTurnsAndSummariesSeparate() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("character-chat-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let elena = try DialogueSessionFileStore.character("elena", in: root)
+        let lucia = try DialogueSessionFileStore.character("lucia", in: root)
+        var first = RoutedPersonaSessionContext(maximumTurnCount: 20)
+        try elena.recordHomeLine(in: &first, id: "elena-home", text: "엘레나의 말")
+        let firstEntries = first.recentEntries
+        try elena.compact(in: &first, retaining: firstEntries,
+            summary: "엘레나 요약", modelIdentifier: "test-model")
+        var second = RoutedPersonaSessionContext(maximumTurnCount: 20)
+        try lucia.recordHomeLine(in: &second, id: "lucia-home", text: "루시아의 말")
+        let secondEntries = second.recentEntries
+        try lucia.compact(in: &second, retaining: secondEntries,
+            summary: "루시아 요약", modelIdentifier: "test-model")
+        XCTAssertEqual(try elena.load()?.recentEntries.map(\.id), ["elena-home"])
+        XCTAssertEqual(try lucia.load()?.recentEntries.map(\.id), ["lucia-home"])
+        XCTAssertEqual(try elena.load()?.summary, "엘레나 요약")
+        XCTAssertEqual(try lucia.load()?.summary, "루시아 요약")
+    }
+
+    func testFirstCharacterAdoptsExistingRecentTurnsWithoutOverwritingThem() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("character-chat-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let legacy = root.appendingPathComponent("recent-turns.json")
+        var session = RoutedPersonaSessionContext(maximumTurnCount: 20)
+        try DialogueSessionFileStore(fileURL: legacy).recordHomeLine(in: &session, id: "old", text: "기존 대화")
+        let elena = try DialogueSessionFileStore.character("elena", in: root, legacyFileURL: legacy)
+        XCTAssertEqual(try elena.load()?.recentEntries.map(\.id), ["old"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacy.path))
+        XCTAssertNil(try DialogueSessionFileStore.character("lucia", in: root, legacyFileURL: legacy).load())
+    }
+
+    func testCharacterStoreRejectsCheckpointBelongingToAnotherCharacter() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("character-chat-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let elena = try DialogueSessionFileStore.character("elena", in: root)
+        let lucia = try DialogueSessionFileStore.character("lucia", in: root)
+        try elena.save(RoutedPersonaSessionContext())
+        try FileManager.default.createDirectory(at: lucia.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: elena.fileURL, to: lucia.fileURL)
+        XCTAssertThrowsError(try lucia.load())
+    }
+
+    func testExportEnumerationFindsBothCharacterStoresAndMigratesLegacy() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("character-chat-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let legacy = root.appendingPathComponent("recent-turns.json")
+        try DialogueSessionFileStore(fileURL: legacy).save(RoutedPersonaSessionContext())
+        try DialogueSessionFileStore.character("lucia", in: root).save(RoutedPersonaSessionContext())
+        XCTAssertEqual(try DialogueSessionFileStore.existingCharacterIDs(in: root, legacyFileURL: legacy),
+                       ["elena", "lucia"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacy.path))
+    }
+
+    func testConflictingLegacyAndCharacterStoreAreNotSilentlyCollapsed() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("character-chat-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let legacy = root.appendingPathComponent("recent-turns.json")
+        try DialogueSessionFileStore(fileURL: legacy).save(RoutedPersonaSessionContext())
+        try DialogueSessionFileStore.character("elena", in: root).save(RoutedPersonaSessionContext())
+        XCTAssertThrowsError(try DialogueSessionFileStore.existingCharacterIDs(in: root, legacyFileURL: legacy))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: legacy.path))
+    }
+
     func testHomeLineIsDurableBeforeTheNextRequest() throws {
         let store = temporaryStore()
         var session = RoutedPersonaSessionContext(maximumTurnCount: 20)

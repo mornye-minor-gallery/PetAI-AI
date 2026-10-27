@@ -3,7 +3,7 @@
 import PackageDescription
 import Foundation
 
-let android = ProcessInfo.processInfo.environment["PETAI_ANDROID_CORE_POC"] == "1"
+let android = ProcessInfo.processInfo.environment["PETAI_ANDROID_BUILD"] == "1"
 let source = ProcessInfo.processInfo.environment["PETAI_LITERTLM_SOURCE_DIR"] ?? ""
 let library = ProcessInfo.processInfo.environment["PETAI_LITERTLM_LIBRARY_DIR"] ?? ""
 if android && (source.isEmpty || library.isEmpty) {

@@ -23,8 +23,7 @@ public enum AppFixtures {
             labelEvidence: [MemoryLabelEvidence](), createdAt: date)
         return try DialoguePromptComposer.prepare(input: .init(
             persona: .init(core: core), activeCard: dynamic ? "지금은 밤이고 비가 온다." : "지금은 맑은 아침이다.",
-            profile: .init(userName: "테스터", rhythmGamePlayCount: 1,
-                           rhythmGameBestScore: dynamic ? 9000 : 1000),
+            profile: .init(userName: "테스터", roomPlacementCount: dynamic ? 9 : 1),
             history: snapshot.history, memories: [.init(observation: observation, score: 0.9, rank: 1)],
             currentMessage: message, session: snapshot))
     }

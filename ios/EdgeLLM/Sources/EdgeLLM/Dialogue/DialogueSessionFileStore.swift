@@ -4,9 +4,30 @@ import Foundation
 /// only the bounded prompt window and its clocks. Login does not select a file.
 public struct DialogueSessionFileStore: Sendable {
     public let fileURL: URL
+    private let characterID: String?
+    private let acceptsUnscopedCheckpoint: Bool
 
-    public init(fileURL: URL) {
+    public init(fileURL: URL, characterID: String? = nil, acceptsUnscopedCheckpoint: Bool = false) {
         self.fileURL = fileURL
+        self.characterID = characterID
+        self.acceptsUnscopedCheckpoint = acceptsUnscopedCheckpoint
+    }
+
+    public static func character(_ id: String, in directory: URL,
+                                 legacyFileURL: URL? = nil, legacyCharacterID: String = "elena") throws -> Self {
+        let id = try DialogueCharacterID(id).value
+        let target = directory.appendingPathComponent("characters", isDirectory: true)
+            .appendingPathComponent(id, isDirectory: true).appendingPathComponent("recent-turns.json")
+        if id == legacyCharacterID, let legacyFileURL,
+           FileManager.default.fileExists(atPath: legacyFileURL.path) {
+            guard !FileManager.default.fileExists(atPath: target.path) else {
+                throw DialogueSessionError.invalidCheckpoint
+            }
+            try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            // Both files are in the same app-private volume. Rename leaves one authoritative copy.
+            try FileManager.default.moveItem(at: legacyFileURL, to: target)
+        }
+        return Self(fileURL: target, characterID: id, acceptsUnscopedCheckpoint: id == legacyCharacterID)
     }
 
     public static func deviceLocal() throws -> Self {
@@ -15,11 +36,34 @@ public struct DialogueSessionFileStore: Sendable {
         return Self(fileURL: support.appendingPathComponent("PetAI/ChatSession/recent-turns.json"))
     }
 
-    public func load() throws -> RoutedPersonaSessionContext? {
+    /// Enumerates only device-local conversations that have a durable checkpoint.
+    public static func existingCharacterIDs(in directory: URL,
+                                            legacyFileURL: URL? = nil,
+                                            legacyCharacterID: String = "elena") throws -> [String] {
+        if let legacyFileURL {
+            _ = try character(legacyCharacterID, in: directory, legacyFileURL: legacyFileURL,
+                              legacyCharacterID: legacyCharacterID)
+        }
+        let root = directory.appendingPathComponent("characters", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: root.path) else { return [] }
+        return try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey])
+            .filter { try $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true }
+            .compactMap { url -> String? in
+                let id = try DialogueCharacterID(url.lastPathComponent).value
+                return FileManager.default.fileExists(atPath: url.appendingPathComponent("recent-turns.json").path)
+                    ? id : nil
+            }.sorted()
+    }
+
+    public func load(maximumTurnCount: Int? = nil) throws -> RoutedPersonaSessionContext? {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         let checkpoint = try JSONDecoder().decode(DialogueSessionCheckpoint.self,
             from: Data(contentsOf: fileURL))
-        let session = try RoutedPersonaSessionContext(checkpoint: checkpoint)
+        if let characterID, checkpoint.characterID != characterID,
+           !(acceptsUnscopedCheckpoint && checkpoint.characterID == nil) {
+            throw DialogueSessionError.invalidCheckpoint
+        }
+        let session = try RoutedPersonaSessionContext(checkpoint: checkpoint, maximumTurnCount: maximumTurnCount)
         let entries = session.recentEntries
         guard entries.allSatisfy({ entry in
             switch entry {
@@ -37,9 +81,9 @@ public struct DialogueSessionFileStore: Sendable {
 
     @discardableResult
     public func recordHomeLine(in session: inout RoutedPersonaSessionContext,
-                               id: String, text: String) throws -> RoutedPersonaSessionContext.CommitResult {
+                               id: String, text: String, topic: HomeTopicContext? = nil) throws -> RoutedPersonaSessionContext.CommitResult {
         var candidate = session
-        let result = try candidate.appendHomeLine(id: id, text: text)
+        let result = try candidate.appendHomeLine(id: id, text: text, topic: topic)
         if result == .committed {
             try save(candidate)
             session = candidate
@@ -77,9 +121,19 @@ public struct DialogueSessionFileStore: Sendable {
         let directory = fileURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try excludeFromBackup(directory)
-        let data = try JSONEncoder().encode(session.checkpoint())
+        var checkpoint = session.checkpoint()
+        checkpoint.characterID = characterID
+        let data = try JSONEncoder().encode(checkpoint)
         // A process killed during a write keeps either the old or new checkpoint.
         try data.write(to: fileURL, options: .atomic)
+    }
+
+    public func compact(in session: inout RoutedPersonaSessionContext,
+                        retaining entries: [RecentDialogueEntry], summary: String?, modelIdentifier: String?) throws {
+        var candidate = session
+        try candidate.compact(retaining: entries, summary: summary, modelIdentifier: modelIdentifier)
+        try save(candidate)
+        session = candidate
     }
 
     public func remove() throws {

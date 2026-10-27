@@ -21,6 +21,8 @@ public struct DialoguePromptInput: Sendable {
     public let worldInfoContext: WorldInfoContext
     public let authoredText: DialogueTextSettings
     public let exampleDialogue: String
+    public let reactionEntryID: String?
+    public let topicGuidance: String?
 
     public init(persona: RoutedPersonaPromptSet, activeCard: String? = nil,
                 profile: UserProfileContext = .init(),
@@ -28,7 +30,8 @@ public struct DialoguePromptInput: Sendable {
                 memories: [RetrievedMemoryObservation] = [], currentMessage: String,
                 insertions: [DialoguePromptInsertion] = [], session: DialogueSessionSnapshot? = nil,
                 authorsNote: AuthorsNoteSettings? = nil, worldInfo: WorldInfoSettings? = nil,
-                worldInfoContext: WorldInfoContext = .init(), exampleDialogue: String = "", authoredText: DialogueTextSettings = .init()) {
+                worldInfoContext: WorldInfoContext = .init(), exampleDialogue: String = "", authoredText: DialogueTextSettings = .init(),
+                reactionEntryID: String? = nil, topicGuidance: String? = nil) {
         self.authoredText = authoredText
         self.persona = persona
         self.activeCard = activeCard
@@ -42,6 +45,7 @@ public struct DialoguePromptInput: Sendable {
         self.worldInfo = worldInfo
         self.worldInfoContext = worldInfoContext
         self.exampleDialogue = exampleDialogue
+        self.reactionEntryID = reactionEntryID; self.topicGuidance = topicGuidance
     }
 }
 
@@ -101,6 +105,7 @@ public struct DialoguePromptTrace: Codable, Equatable, Sendable {
 
 public struct PreparedDialogue: Sendable {
     public let modelInput: DialogueModelInput
+    public let contextTemplate: DialogueContextTemplate
     /// Role-grouped diagnostic views. Native adapters must use modelInput order.
     public var systemText: String { modelInput.messages.filter { $0.role == .system }.map(\.text).joined(separator: "\n\n") }
     public var userText: String { modelInput.messages.filter { $0.role == .user }.map(\.text).joined(separator: "\n\n") }
@@ -118,6 +123,7 @@ public struct PreparedDialogue: Sendable {
         var updated = trace
         updated.tokenBudget = tokenTrace
         return .init(modelInput: modelInput,
+            contextTemplate: contextTemplate,
             unpositionedUserPrompt: unpositionedUserPrompt, memoryAugmentedInput: memoryAugmentedInput,
             nameInstruction: nameInstruction, responseConfiguration: responseConfiguration, trace: updated, worldInfoTransaction: worldInfoTransaction, tokenSections: tokenSections)
     }

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source_base": "27b742513543a3e5b8cda8e34107117e468fd9ee",
-  "source_head": "dd05224a15cff3937bd2bb929b4d10a0feae90fa",
+  "source_head": "05c44bbf3d20a79e294baf59a3b523a18a79aa15",
   "public_base": "316d252582e543bf401591c7808db5d9ea6f409d",
   "method": "Curated path patches; source author and author date retained. Public integration changes follow the replayed commits.",
   "commits": [
@@ -140,11 +140,103 @@
     {
       "source": "186122bd3c33f4f07c047e13b023f63c44fc6049",
       "public": "f364d69970774a08bdad402f0c911e8cd4b6455d"
+    },
+    {
+      "source": "2ab9647a8f09762d6fefc34a7d0c68cd292c5e07",
+      "public": "9eb8a422a056cee7284b8c4062428f015d48f6dd"
+    },
+    {
+      "source": "994bbfc3638ac3777f6d5bfa1bbe475281212c5a",
+      "public": "a9217fff393dbf33319825594eafcbe74a7bd039"
+    },
+    {
+      "source": "0dff873b4dffb9221e9d5c4441325fc8973600b8",
+      "public": "aebceed1a3ac0d9e4217ed521205488e9b722045"
+    },
+    {
+      "source": "b420e75051b40535cdffd90825bfb1c72e086b66",
+      "public": "4f7f784acb282026aad46f1a8d9428d1b744ee1a"
+    },
+    {
+      "source": "10d5e5bdca6b21526296f5f4019fc061ebdaa8b9",
+      "public": "616be8c5009c7f1def3940582012a32f430e73d8"
+    },
+    {
+      "source": "495af63a7b30475903e8428292bd06cef788ed92",
+      "public": "ea59f41d13b724cb7e9e5ed61a9271fc8e9119d0"
+    },
+    {
+      "source": "b9a0b32a6d337d56230d81e3cc5fa4230fcf7c89",
+      "public": "a0ff333703579c8b02fc5e3784e6e03dd9eb92da"
+    },
+    {
+      "source": "8823e019edc03d00134c9db224ae3d1c4f7237c1",
+      "public": "c38a70cd3a14b7cf16d8c5402156b50dc1bc8b70"
+    },
+    {
+      "source": "309dc42767fe22391c198b2b67456e8700ac5eda",
+      "public": "cd288c302610e7be980df21411e4ab53761e25aa"
+    },
+    {
+      "source": "5756d4f1e6a22d82285ccc603adafdb3645e05a3",
+      "public": "789f41557636b1c5488c7bfcf91c5d863c003d2d"
+    },
+    {
+      "source": "dfcc6062ddcd2056867a4583ed34b77c7def734a",
+      "public": "2efb9a416437628a1120da3125dc56b02e145193"
+    },
+    {
+      "source": "c9ccce74919bcc15f986929265bc12f6e31d7d75",
+      "public": "e91b196c01ccd52ecdd1f64b4c465d7484ef9b3e"
+    },
+    {
+      "source": "9a48e819dd76a34feb23736585cf8a4390c43cfa",
+      "public": "7c5708d9697cf79940e4e6916255dc0d805fb847"
+    },
+    {
+      "source": "e682e9983a1cad0581d2840f8545bebfb9f98726",
+      "public": "4d9a97afe1c759741994c37fda141574d12c2add"
+    },
+    {
+      "source": "5c78b78a24ea04e753f8d353252babc74cb21f59",
+      "public": "efaafb0593d1b37434bd7384dcfb24dd785dc949"
+    },
+    {
+      "source": "e921f7837118136a23827ceabab46e7d314e9907",
+      "public": "3d829e29d161a65f669971c170ea70deb2bf451e"
+    },
+    {
+      "source": "5756d4f1e6a22d82285ccc603adafdb3645e05a3",
+      "public": "bb8992c8dedfc3ffea2b78af19b51ad04b890a78"
+    },
+    {
+      "source": "5756d4f1e6a22d82285ccc603adafdb3645e05a3",
+      "public": "4587abcd65dae13035bd134d92239a03f24d1147"
+    },
+    {
+      "source": "e682e9983a1cad0581d2840f8545bebfb9f98726",
+      "public": "308f1fa08f64ee364843db1c4227b8be4d4dfa4b"
+    },
+    {
+      "source": "afb632e4f0be048d40407d6ef2e9a4c6c1ee4215",
+      "public": "95c7ab4ab8a86935f2e5814f7f6f4f587ab17cd6"
+    },
+    {
+      "source": "f46ecc10251fa1d63f2a7c9b71dc5b9abfd4ea87",
+      "public": "1185ac846e1f431cd706b0ed8fe7f5a541b69388"
+    },
+    {
+      "source": "6b6feaf80dcfa05f0f16734abe280abf27eb6084",
+      "public": "900fc93e8881c9abce3f4eb2be169517e7d6870b"
+    },
+    {
+      "source": "5d8bfda3ce1c43465d06933c32cb745c02fe5431",
+      "public": "c11b9214534c394a2508e236c9fbff5ca2c67054"
     }
   ],
   "distribution": {
     "scope": "ai-runtime",
-    "public_runtime_commit": "b36f8112f12408a775ada2f3a5b8b4b67eac0a87",
+    "public_runtime_commit": "c11b9214534c394a2508e236c9fbff5ca2c67054",
     "build_guides": {
       "ios": "docs/quickstart.md",
       "android": "android/README.md"
@@ -153,8 +245,65 @@
       "scripts/prepare-ios-native-dependencies.sh",
       "scripts/prepare-ios-embedding-dependencies.sh",
       "android/Package.resolved",
-      "ai/models/runtime-models.json"
+      "ai/models/runtime-models.json",
+      "scripts/litertlm_android_profile.py",
+      "scripts/litertlm_prefix_cursor.py",
+      "ai/models/gemma-e4b-text-only.json",
+      "scripts/prepare-text-only-litertlm.py"
     ],
-    "app_releases": []
+    "app_releases": [
+      {
+        "platform": "ios",
+        "app_version": "1.0.0",
+        "build_number": "100072",
+        "development_commit": "a276caf16359c884f1cd0cbdc34befcdc8f8736b",
+        "public_source_tag": "source-1.0.0-ios-100072"
+      },
+      {
+        "platform": "android",
+        "app_version": "1.0.0",
+        "build_number": "7",
+        "development_commit": "1d6a7f1e51614c66e3ed9b07ee951becb8b92957",
+        "public_source_tag": "source-1.0.0-android-7"
+      }
+    ]
+  },
+  "curation": {
+    "reviewed_source_base": "dd05224a15cff3937bd2bb929b4d10a0feae90fa",
+    "reviewed_source_head": "05c44bbf3d20a79e294baf59a3b523a18a79aa15",
+    "public_base": "0d6e58d8234841bef963912bac9d0c91e693d902",
+    "scope": [
+      "shared dialogue, character sessions and context compaction",
+      "memory database lifecycle",
+      "reaction query gate consumer and synthetic tests",
+      "native CPU/GPU wrappers, patches and build tools",
+      "Android platform tools and standalone tests",
+      "evaluation consumers of the shared runtime",
+      "model-specific inference memory admission and optional E4B profile",
+      "memory recall failure reporting"
+    ],
+    "excluded": [
+      "Unity project, game assets and product distribution infrastructure",
+      "product character content, reaction corpus, learned weights and prototypes",
+      "corpus authoring and product query-gate research data",
+      "current-time product artifact calibration/export experiments and their private baseline inputs"
+    ],
+    "preserved_public_contracts": [
+      "external character content",
+      "explicit learned-router artifact injection",
+      "frozen historical research fixtures"
+    ],
+    "validation": {
+      "model_free_suites": 26,
+      "native_ios_build": "passed",
+      "native_provenance": "passed",
+      "cached_session_stub": "passed",
+      "native_prefill_policy": "passed",
+      "unsigned_simulator_lab_build": "passed",
+      "android_host_java_compile": "passed",
+      "android_native_cross_build": "unverified",
+      "physical_device_and_model_inference": "unverified",
+      "anti_slop_completeness": "passed"
+    }
   }
 }

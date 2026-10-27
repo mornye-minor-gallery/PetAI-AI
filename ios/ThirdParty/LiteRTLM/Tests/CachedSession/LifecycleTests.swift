@@ -67,5 +67,6 @@ import CLiteRTLM
         precondition(session.latestCacheTrace()!.matchingInputPrefixTokens > 0)
         print("cached session native boundary tests passed")
         try await checkpointTests()
+        try await compactionPrefillTests()
     }
 }

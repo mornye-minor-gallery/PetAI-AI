@@ -4,7 +4,8 @@ extension ChatSessionController {
     public func beginDataExport() {
         guard exportTask == nil, !dataExportInProgress,
               activeRequestId == nil, dialogueTasks.isEmpty, captionTask == nil, diaryTask == nil,
-              preparationTask == nil, maintenanceRequestID == nil, !isUnloading,
+              preparationTask == nil, characterActivationTask == nil,
+              maintenanceRequestID == nil, !isUnloading,
               state != .loading, state != .generating else {
             logger.notice("Data export rejected because the runtime is busy")
             Task { await platform.showExportError("대화나 기억 저장이 끝난 뒤 다시 시도해 주세요.") }
@@ -18,11 +19,16 @@ extension ChatSessionController {
             defer { dataExportInProgress = false; exportTask = nil }
             var temporaryFile: TemporaryChatDataExportFile?
             do {
-                let recent = try (recentTurnStore ?? platform.recentTurnStore())
-                    .load()?.recentEntries ?? []
+                var sessions: [String: RoutedPersonaSessionContext] = [:]
+                for characterID in try platform.storedCharacterIDs() {
+                    if let session = try platform.recentTurnStore(characterID: characterID).load() {
+                        sessions[characterID] = session
+                    }
+                }
                 let memories = try await memoryService.allActiveObservations()
                 let diaries = try await memoryService.allDiaries()
-                let data = try ChatDataExport(recentEntries: recent, activeMemories: memories, diaries: diaries)
+                let data = try ChatDataExport(sessions: sessions, activeMemories: memories,
+                    diaries: diaries)
                     .jsonData()
                 let file = try TemporaryChatDataExportFile(data: data,
                     temporaryRoot: FileManager.default.temporaryDirectory)

@@ -5,10 +5,12 @@ import Foundation
 public struct HomeDialogueLine: Codable, Equatable, Sendable {
     public let id: String
     public let text: String
+    public let topic: HomeTopicContext?
 
-    public init(id: String, text: String) {
+    public init(id: String, text: String, topic: HomeTopicContext? = nil) {
         self.id = id
         self.text = text
+        self.topic = topic
     }
 }
 

@@ -349,6 +349,7 @@ public final class Conversation: Sendable {
   /// - Returns: The `OpaquePointer` handle if the conversation is alive.
   /// - Throws: A `LiteRTLMError` if `handle` is nil, indicating the conversation is not alive.
   fileprivate func checkIsAlive() throws -> OpaquePointer {
+    try engine.health.requireUsable()
     guard let handle else {
       throw LiteRTLMError.conversation(.notAlive)
     }

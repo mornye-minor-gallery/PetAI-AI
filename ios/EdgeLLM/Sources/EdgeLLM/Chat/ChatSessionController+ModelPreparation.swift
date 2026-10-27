@@ -5,7 +5,8 @@ extension ChatSessionController {
     public func selectModel() async { await prepareOnce(selectingModel: true) }
 
     func prepareOnce(selectingModel: Bool) async {
-        guard !isUnloading, maintenanceRequestID == nil, !dataExportInProgress, diaryTask == nil else {
+        guard !isUnloading, maintenanceRequestID == nil, !dataExportInProgress,
+              diaryTask == nil, characterActivationTask == nil else {
             emitError(code: "runtime_busy", message: RuntimeError.runtimeBusy.localizedDescription)
             return
         }
@@ -15,7 +16,7 @@ extension ChatSessionController {
             emitState()
             return
         }
-        guard state != .generating else {
+        guard state != .generating, state != .admitting, state != .compacting else {
             emitError(code: "runtime_busy", message: RuntimeError.runtimeBusy.localizedDescription)
             return
         }
@@ -146,7 +147,8 @@ extension ChatSessionController {
         // Recovery and model replacement rebuild inference resources, not the conversation.
         // Keep the committed history, World Info state and clock for the next prompt snapshot.
         // Explicit session teardown (unload) and test data reset own dialogue erasure.
-        embeddingSceneRouter = nil
+        lastDialogueTemplate = nil
+        contextCompactionDeferred = false
         nativeToolRouter = nil
         do {
             routedPersonaPrompts = try loadRoutedPersonaPromptsIfEnabled()
@@ -175,10 +177,45 @@ extension ChatSessionController {
                         : slmConfiguration.generation.responseSampling
                 )
             )
+            do {
+                // Validate authored fixed text before opening Send. This only
+                // renders and tokenizes input; it does not generate a reply.
+                let (prompts, policy) = configuredDialogue()
+                let prepared = try await runtime.prepareDialogue(input: .init(persona: prompts,
+                    profile: .init(characterName: dialogueContent?.name ?? UserProfileContext.defaultCharacterName),
+                    currentMessage: "", exampleDialogue: platform.personaEnabled ? dialogueContent?.exampleDialogue ?? "" : ""),
+                    policy: policy, thinkingEnabled: slmConfiguration.generation.responseThinkingDefault)
+                lastDialogueTemplate = prepared.contextTemplate
+                lastDialogueThinking = slmConfiguration.generation.responseThinkingDefault
+            }
+        } catch let reason as ChatModelProfileError {
+            state = .failed
+            emitError(code: "model_profile_invalid", message: reason.localizedDescription)
+            return
+        } catch let reason as ModelLoadMemoryDeferred {
+            // Files and restored history are valid. Keep the model-download path
+            // separate so Retry re-observes memory rather than re-importing assets.
+            state = .preparationDeferred(reason)
+            emitState()
+            return
         } catch {
             logger.error("Language model preparation failed: \(error.localizedDescription)")
+            if error is DialogueInputLimitError || error is DialogueTokenBudgetError || error is DialogueContextOverflow {
+                state = .failed
+                emitError(code: "prompt_configuration_invalid", message: "캐릭터 대화 설정이 입력 상한을 넘었어요.")
+                return
+            }
             forcedAssetSelections = [.languageModel]
             requireAsset(.languageModel)
+            return
+        }
+
+        do {
+            try await reconcileSummary(modelIdentifier: modelURL.lastPathComponent)
+            dialogueModelIdentifier = modelURL.lastPathComponent
+        } catch {
+            state = .failed
+            emitError(code: "chat_turn_storage_failed", message: "대화 문맥을 저장하지 못했어요.")
             return
         }
 
@@ -244,7 +281,7 @@ extension ChatSessionController {
         defer { diagnostics?.mark("retrieval.load.exit", [:]) }
         dialogueContent = nil
         dialogueRetrieval = nil
-        let resources = try platform.loadContent()
+        let resources = try platform.loadContent(characterID: selectedCharacterID)
         dialogueContent = resources.content
         dialogueRetrieval = platform.personaEnabled ? resources.retrieval : nil
         return platform.personaEnabled ? resources.content.promptSet : nil

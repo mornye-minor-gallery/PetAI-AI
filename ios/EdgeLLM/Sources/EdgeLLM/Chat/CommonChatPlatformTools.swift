@@ -16,6 +16,7 @@ struct CommonChatPlatformTools: ChatPlatformTools {
     }
 
     func cancelConfirmation() async { await platform.cancelConfirmation() }
+    func cancelExecution(requestID: String) async { await platform.cancelExecution(requestID: requestID) }
 
     func execute(_ proposal: ValidatedToolProposal) async throws -> JSONValue {
         if proposal.tool == .getCurrentTime {

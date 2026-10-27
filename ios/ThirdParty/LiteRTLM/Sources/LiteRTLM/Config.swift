@@ -61,6 +61,9 @@ public struct EngineConfig: Hashable, Sendable {
   public let loraRank: Int?
   /// The rank of the audio LoRA weights. If 0 or nil, audio LoRA is disabled.
   public let audioLoraRank: Int?
+  /// CPU prefill graph token limit. This does not change the KV-cache capacity.
+  /// Nil retains the engine's graph-selection policy.
+  public let prefillChunkSize: Int?
 
   /// - Parameters:
   ///   - modelPath: The file path to the LiteRT-LM model.
@@ -76,17 +79,25 @@ public struct EngineConfig: Hashable, Sendable {
   ///     application has write access. If `nil`, it uses the directory of the `modelPath`.
   ///   - loraRank: The rank of the text LoRA weights.
   ///   - audioLoraRank: The rank of the audio LoRA weights.
+  ///   - prefillChunkSize: Maximum CPU prefill graph size. Nil uses engine selection.
   /// - Throws: `LiteRTLMError` if `maxNumTokens` is less than or equal to 0.
+  ///   A configured prefill size must be positive, fit Int32, and use the CPU backend.
   public init(
     modelPath: String, backend: Backend = .cpu(), visionBackend: Backend? = nil,
     audioBackend: Backend? = nil,
     maxNumTokens: Int? = nil,
     cacheDir: String? = nil,
     loraRank: Int? = nil,
-    audioLoraRank: Int? = nil
+    audioLoraRank: Int? = nil,
+    prefillChunkSize: Int? = nil
   ) throws {
     if let maxNumTokens, maxNumTokens <= 0 {
       throw LiteRTLMError.config(.invalidMaxNumTokens)
+    }
+    if case .cpu = backend {
+      try EnginePrefillSettings.validate(prefillChunkSize, isCPU: true)
+    } else {
+      try EnginePrefillSettings.validate(prefillChunkSize, isCPU: false)
     }
     self.modelPath = modelPath
     self.backend = backend
@@ -96,6 +107,7 @@ public struct EngineConfig: Hashable, Sendable {
     self.cacheDir = cacheDir
     self.loraRank = loraRank
     self.audioLoraRank = audioLoraRank
+    self.prefillChunkSize = prefillChunkSize
   }
 }
 

@@ -51,12 +51,34 @@ public struct KVCheckpointStore: Sendable {
         }
     }
 
-    public static func modelIdentity(at url: URL) -> String {
-        url.lastPathComponent
+    public static func modelIdentity(at url: URL) throws -> String {
+        let file = try FileHandle(forReadingFrom: url)
+        defer { try? file.close() }
+        var digest = SHA256()
+        func consumeChunk() throws -> Bool {
+            guard let chunk = try file.read(upToCount: 1024 * 1024), !chunk.isEmpty else { return false }
+            digest.update(data: chunk)
+            return true
+        }
+        while true {
+#if canImport(ObjectiveC)
+            // Foundation read buffers can survive until the enclosing task's
+            // pool drains. Release each chunk before the next read so model
+            // verification does not consume the headroom checked before loading.
+            let hasChunk = try autoreleasepool(invoking: consumeChunk)
+#else
+            let hasChunk = try consumeChunk()
+#endif
+            if !hasChunk { break }
+        }
+        return digest.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
-    public static func identity(modelIdentity: String, contextTokens: Int) -> String {
-        ["app-kv-v3", modelIdentity, String(contextTokens)].joined(separator: ":")
+    public static func identity(modelIdentity: String, contextTokens: Int,
+                                backend: String = "cpu", engineIdentity: String = "cpu-kv2-prefix-cursor1") -> String {
+        // Rebuild disposable KV after the prefix-cursor fix: old snapshots may
+        // contain a suffix written over retained prefix state. User data stays.
+        ["app-kv-v4", backend, engineIdentity, modelIdentity, String(contextTokens)].joined(separator: ":")
     }
 
     public typealias Transfer = (UnsafeMutableRawPointer?, Int) throws -> Void

@@ -31,7 +31,7 @@ actor MemoryService: ChatMemoryService {
   private let embedder = EmbeddingGemmaEmbedder()
   private var worldInfoEmbeddingIdentity: String?
   private var worldInfoIndex: WorldInfoVectorIndex?
-  private var observationStore: SQLiteObservationStore?
+  private var database: MemoryDatabase?
   private var engine: MemoryEngine?
   private var preparationTask: Task<Void, Error>?
   private let supportDirectory: URL?
@@ -108,7 +108,7 @@ actor MemoryService: ChatMemoryService {
 
       let identity = try WorldInfoEmbeddingIdentity.make(modelURL: modelURL, tokenizerURL: tokenizerURL,
         preprocessing: "embeddinggemma-seq256-query-document-v1:768")
-      let store = try makeStore()
+      let store = try await preparedStore()
       let retriever = DenseMemoryRetriever(
         candidateLoader: store,
         embedder: embedder
@@ -129,11 +129,10 @@ actor MemoryService: ChatMemoryService {
         try await candidate.prepare()
         try Task.checkCancellation()
       } catch {
-        await candidate.close()
+        await candidate.suspend()
         throw error
       }
       worldInfoEmbeddingIdentity = identity
-      observationStore = store
       engine = candidate
     } catch {
       await embedder.unload()
@@ -191,7 +190,7 @@ actor MemoryService: ChatMemoryService {
     _ request: MemorySearchRequest
   ) async throws -> [RetrievedMemoryObservation] {
     let engine = try requirePrepared()
-    return await engine.recall(request)
+    return try await engine.recall(request)
   }
 
   func searchWorldInfo(entries: [WorldInfoEntry], newestMessages: [String], settings: WorldInfoVectorSettings) async throws -> [WorldInfoVectorMatch] {
@@ -237,19 +236,7 @@ actor MemoryService: ChatMemoryService {
 
   /// Data export must work without a downloaded or loaded embedding model.
   func allActiveObservations() async throws -> [MemoryObservation] {
-    if let observationStore {
-      return try await observationStore.allActiveObservations()
-    }
-    let store = try makeStore()
-    do {
-      try await store.initialize()
-      let observations = try await store.allActiveObservations()
-      await store.close()
-      return observations
-    } catch {
-      await store.close()
-      throw error
-    }
+    try await withStore { try await $0.allActiveObservations() }
   }
 
   func activeObservations(in scope: MemoryScope, from start: Date, to end: Date) async throws -> [MemoryObservation] {
@@ -271,17 +258,8 @@ actor MemoryService: ChatMemoryService {
   private func withStore<Value: Sendable>(
     _ operation: @Sendable (SQLiteObservationStore) async throws -> Value
   ) async throws -> Value {
-    if let observationStore { return try await operation(observationStore) }
-    let store = try makeStore()
-    do {
-      try await store.initialize()
-      let result = try await operation(store)
-      await store.close()
-      return result
-    } catch {
-      await store.close()
-      throw error
-    }
+    let store = try await preparedStore()
+    return try await operation(store)
   }
 
   func close() async {
@@ -291,27 +269,16 @@ actor MemoryService: ChatMemoryService {
     preparationTask = nil
     let activeEngine = engine
     engine = nil
-    await activeEngine?.close()
-    observationStore = nil
+    // The controller drains inference work before unloading. Diary reads and exports
+    // remain available even with no model loaded, so storage lives with this service.
+    await activeEngine?.suspend()
     await embedder.unload()
   }
 
   /// Bridge admission is closed and all conversations/captions have drained before this call.
   /// Opening SQLite alone works even when the model has never been downloaded.
   func eraseAllMemories() async throws {
-    if let observationStore {
-      try await observationStore.eraseAllMemories()
-    } else {
-      let store = try makeStore()
-      do {
-        try await store.initialize()
-        try await store.eraseAllMemories()
-        await store.close()
-      } catch {
-        await store.close()
-        throw error
-      }
-    }
+    try await withStore { try await $0.eraseAllMemories() }
   }
 
   private func requirePrepared() throws -> MemoryEngine {
@@ -321,7 +288,20 @@ actor MemoryService: ChatMemoryService {
     return engine
   }
 
-  private func makeStore() throws -> SQLiteObservationStore {
+  private func preparedStore() async throws -> SQLiteObservationStore {
+    // Publish ownership before awaiting initialization; callers arriving during
+    // that suspension must queue on the same store, not open another connection.
+    let owner: MemoryDatabase
+    if let database {
+      owner = database
+    } else {
+      owner = try makeDatabase()
+      database = owner
+    }
+    return try await owner.preparedStore()
+  }
+
+  private func makeDatabase() throws -> MemoryDatabase {
     let applicationSupport = try applicationSupportDirectory()
     let databaseURL =
       applicationSupport
@@ -336,6 +316,6 @@ actor MemoryService: ChatMemoryService {
         isDirectory: false
       )
     try SQLiteObservationStore.removeDatabase(at: legacyDatabaseURL)
-    return SQLiteObservationStore(databaseURL: databaseURL)
+    return MemoryDatabase(databaseURL: databaseURL)
   }
 }

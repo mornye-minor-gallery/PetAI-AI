@@ -33,7 +33,8 @@ public enum DialoguePromptComposer {
 
     static func assemble(input: DialoguePromptInput, policy: DialoguePromptPolicy,
                          memory: DialogueMemoryContext, memoryByteBudget: Int?, note: AuthorsNoteResolution?,
-                         worldInfo: WorldInfoPromptProjection? = nil, authoredContext: WorldInfoTextContext? = nil) throws -> PreparedDialogue {
+                         worldInfo: WorldInfoPromptProjection? = nil, authoredContext: WorldInfoTextContext? = nil,
+                         profileText: String? = nil) throws -> PreparedDialogue {
         var macroContext = worldInfo?.selection.textContext ?? authoredContext ?? authoredTextContext(input)
         macroContext.outlets = worldInfo?.outlets ?? [:]
         var random = WorldInfoRandom(state: DialogueSeedPolicy.worldInfo(base: input.worldInfoContext.randomSeed, completedMessages: input.session?.completedMessages ?? 0))
@@ -61,7 +62,7 @@ public enum DialoguePromptComposer {
         var systemPolicy = policy.persona
         if policy.nameRulePlacement != .system { systemPolicy.enforceCharacterName = false }
         let baseParts = try DialoguePromptRenderer.systemSections(prompts: input.persona, activeCard: input.activeCard,
-            userProfileContext: input.profile, configuration: systemPolicy).map { section in
+            userProfileContext: input.profile, configuration: systemPolicy, profileText: profileText).map { section in
                 DialoguePromptSection(id: section.id,
                     text: try (["persona", "scene"].contains(section.id) ? authored(section.text) : section.text),
                     role: .system, cacheStability: section.cacheStability)
@@ -76,19 +77,22 @@ public enum DialoguePromptComposer {
         let systemParts = baseParts.filter { $0.cacheStability == .sessionStable } + exampleParts
         let dynamicCharacterParts = baseParts.prefix(characterEnd).filter { $0.cacheStability == .requestDynamic }
         let dynamicRemainingParts = baseParts.dropFirst(characterEnd).filter { $0.cacheStability == .requestDynamic }
+        let topicParts: [DialoguePromptSection] = input.topicGuidance.flatMap { text -> DialoguePromptSection? in
+            text.isEmpty ? nil : .init(id: "topic", text: text, role: .system)
+        }.map { [$0] } ?? []
         let contextParts = layout.beforeSystem + layout.beforePersona + dynamicCharacterParts
-            + layout.afterPersona + dynamicRemainingParts + layout.afterSystem
-        let historyParts = DialoguePromptRenderer.historySections(input.history, insertions: layout.history)
-        let groups: [(DialoguePromptRole, [DialoguePromptSection])] = [
-            (.system, systemParts), (.user, historyParts), (.system, contextParts)
-        ]
-        let initialMessages = groups.compactMap { role, parts -> DialoguePromptMessage? in
-            guard !parts.isEmpty else { return nil }
-            return .init(role: role, text: parts.map(\.text).joined(separator: "\n\n"))
+            + layout.afterPersona + dynamicRemainingParts + layout.afterSystem + topicParts
+        let historyBlocks = layout.history.keys.sorted().flatMap { index in
+            layout.history[index, default: []].map { section in
+                DialogueContextTemplate.HistoryBlock(
+                    depth: layout.trace.first(where: { $0.id == section.id })?.depth ?? input.history.count + 1 - index,
+                    section: section)
+            }
         }
-        let currentText = positionedParts.map(\.text).joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        let modelInput = DialogueModelInput(initialMessages: initialMessages,
-            currentUserMessage: "## 현재 사용자 입력과 회수 기억\n" + currentText)
+        let template = DialogueContextTemplate(system: systemParts, context: contextParts, memory: memory.section,
+            before: layout.before, after: layout.after, historyBlocks: historyBlocks, topicID: input.session?.topicContext?.id)
+        let historyParts = template.historySections(input.history, summary: input.session?.summary)
+        let modelInput = template.input(history: input.history, summary: input.session?.summary, currentMessage: input.currentMessage)
         let systemText = modelInput.messages.filter { $0.role == .system }.map(\.text).joined(separator: "\n\n")
         let userText = modelInput.messages.filter { $0.role == .user }.map(\.text).joined(separator: "\n\n")
         // Random rolls are request-local evidence, not session memory. Stable pick
@@ -96,6 +100,7 @@ public enum DialoguePromptComposer {
         macroContext.randomRolls = []; macroContext.randomIndex = 0
         return PreparedDialogue(
             modelInput: modelInput,
+            contextTemplate: template,
             unpositionedUserPrompt: DialoguePromptRenderer.historyInput(history: input.history, currentText: unpositioned),
             memoryAugmentedInput: unpositioned,
             nameInstruction: instruction,

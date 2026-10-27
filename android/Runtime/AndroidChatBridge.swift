@@ -38,15 +38,28 @@ final class AndroidChatHost: @unchecked Sendable {
             return
         }
         let paths = try JSONDecoder().decode(AndroidChatPaths.self, from: Data(json.utf8))
+        let profileURL = URL(fileURLWithPath: paths.assetsDirectory).appendingPathComponent("native-engine.json")
+        let nativeProfile = try Data(contentsOf: profileURL)
+        let profile = try JSONDecoder().decode(AndroidEngineProfile.self, from: nativeProfile)
+        guard let backend = ChatInferenceBackend(rawValue: paths.inferenceBackend),
+              profile.supports(backend.rawValue) else {
+            throw AndroidHostError.engineProfileMismatch
+        }
+        let engineIdentity = try KVCheckpointStore.modelIdentity(at: profileURL)
         try EdgeLLMResources.configure(bundleURL: URL(fileURLWithPath: paths.assetsDirectory)
             .appendingPathComponent("EdgeLLM_EdgeLLM.bundle"))
+        let content = try DialogueContent.load(url: URL(fileURLWithPath: paths.assetsDirectory)
+            .appendingPathComponent("dialogue-content.json"))
+        _ = try DialogueCharacterID(content.id)
         controller = ChatRuntimeAssembly.makeController(configuration: .production,
-            platform: AndroidChatPlatform(paths: paths),
+            platform: AndroidChatPlatform(paths: paths, defaultCharacterID: content.id),
             cacheDirectory: URL(fileURLWithPath: paths.cacheDirectory),
             supportDirectory: URL(fileURLWithPath: paths.supportDirectory),
+            backend: backend, engineIdentity: engineIdentity, modelProfile: paths.chatModel,
             eventSink: { [weak self] in self?.emit($0) },
             log: { Logger(subsystem: "PetAI", category: "AndroidChat").notice("\($0, privacy: .public)") })
         configuration = json
+        print("ANDROID_CHAT configured build=\(profile.backend) selected=\(backend.rawValue)")
     }
     func use(_ operation: @escaping @Sendable (ChatSessionController) async -> Void) {
         lock.lock()
@@ -90,6 +103,18 @@ public func android_select_model(_ pointer: UnsafePointer<CChar>?) {
     let id = String(cString: pointer)
     AndroidChatHost.shared.use { controller in
         await NativePreparationContext.$requestID.withValue(id) { await controller.selectModel() }
+    }
+}
+@_cdecl("petai_activate_character")
+public func android_activate_character(_ characterPointer: UnsafePointer<CChar>?,
+                                       _ preparationPointer: UnsafePointer<CChar>?) {
+    guard let characterPointer, let preparationPointer else { return }
+    let characterID = String(cString: characterPointer)
+    let preparationID = String(cString: preparationPointer)
+    AndroidChatHost.shared.use { controller in
+        await NativePreparationContext.$requestID.withValue(preparationID) {
+            await controller.activateCharacter(characterID)
+        }
     }
 }
 @_cdecl("petai_send")
