@@ -40,13 +40,13 @@ public final class PetAIStepConfirmationActivity extends Activity {
             layout = new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL);
             int pad = (int)(20 * getResources().getDisplayMetrics().density); layout.setPadding(pad,pad,pad,pad);
             ScrollView scroll = new ScrollView(this); scroll.addView(layout); setContentView(scroll);
-            text("기록을 켜면 이 휴대폰이 센서로 걸음을 기록해요. 앱을 닫아도 기록하며, 최근 10일 안의 기록을 조회할 수 있어요.");
+            text("기록을 켜면 이 휴대폰 센서가 걸음을 기록해요. 앱을 닫아도 계속 기록하고, 최근 10일 기록까지 볼 수 있어요.");
             text("시작하기 전의 걸음이나 다른 건강 앱과 워치의 기록은 가져오지 않아요.");
             date("startDate", "시작 날짜"); date("endDate", "마지막 날짜");
             aggregation = new Spinner(this);
             aggregation.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new String[]{"기간 합계", "날짜별 걸음"}));
             aggregation.setSelection("daily".equals(arguments.getString("aggregation")) ? 1 : 0); layout.addView(aggregation);
-            text("걸음 기록은 이 휴대폰에서 조회해요. 음성으로 듣기를 누르면 답변에 들어간 걸음 수도 별무리 서버와 ElevenLabs로 전송돼요.");
+            text("걸음 기록은 이 휴대폰에서 읽어요. 음성으로 듣기를 누르면 답변에 들어간 걸음 수도 별무리 서버와 ElevenLabs로 전송돼요.");
             status = text(""); error = text(""); approve = button("조회", this::approve);
             button("걸음 기록 중지", () -> new AlertDialog.Builder(this).setMessage("기록을 중지하면 지금까지 기록한 걸음도 더 이상 조회할 수 없어요. 중지할까요?")
                 .setPositiveButton("중지", (dialog, which) -> change(false)).setNegativeButton("돌아가기", null).show());
