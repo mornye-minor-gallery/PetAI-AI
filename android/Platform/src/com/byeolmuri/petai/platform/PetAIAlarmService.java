@@ -104,7 +104,8 @@ public final class PetAIAlarmService extends Service {
             .setContentIntent(AndroidAlarmScheduler.managementIntent(this))
             .addAction(new Notification.Action.Builder(null, "중지", stopAction).build())
             .setOngoing(true).setOnlyAlertOnce(true).build();
-        if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+        // systemExempted 는 API 34 에 생긴 유형이다. 그 아래에서는 매니페스트의 유형을 그대로 쓴다.
+        if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED);
         else startForeground(NOTIFICATION_ID, notification);
     }
     private void refreshNotification() {
