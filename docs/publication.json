@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source_base": "27b742513543a3e5b8cda8e34107117e468fd9ee",
-  "source_head": "9a093dbdcd4d6b98fa1a70bd56182c24eba23897",
+  "source_head": "05c44bbf3d20a79e294baf59a3b523a18a79aa15",
   "public_base": "316d252582e543bf401591c7808db5d9ea6f409d",
   "method": "Curated path patches; source author and author date retained. Public integration changes follow the replayed commits.",
   "commits": [
@@ -216,11 +216,27 @@
     {
       "source": "e682e9983a1cad0581d2840f8545bebfb9f98726",
       "public": "308f1fa08f64ee364843db1c4227b8be4d4dfa4b"
+    },
+    {
+      "source": "afb632e4f0be048d40407d6ef2e9a4c6c1ee4215",
+      "public": "95c7ab4ab8a86935f2e5814f7f6f4f587ab17cd6"
+    },
+    {
+      "source": "f46ecc10251fa1d63f2a7c9b71dc5b9abfd4ea87",
+      "public": "1185ac846e1f431cd706b0ed8fe7f5a541b69388"
+    },
+    {
+      "source": "6b6feaf80dcfa05f0f16734abe280abf27eb6084",
+      "public": "900fc93e8881c9abce3f4eb2be169517e7d6870b"
+    },
+    {
+      "source": "5d8bfda3ce1c43465d06933c32cb745c02fe5431",
+      "public": "c11b9214534c394a2508e236c9fbff5ca2c67054"
     }
   ],
   "distribution": {
     "scope": "ai-runtime",
-    "public_runtime_commit": "a752df7fdae5b3cdce2c065f23cd68b5e631aeea",
+    "public_runtime_commit": "c11b9214534c394a2508e236c9fbff5ca2c67054",
     "build_guides": {
       "ios": "docs/quickstart.md",
       "android": "android/README.md"
@@ -231,13 +247,30 @@
       "android/Package.resolved",
       "ai/models/runtime-models.json",
       "scripts/litertlm_android_profile.py",
-      "scripts/litertlm_prefix_cursor.py"
+      "scripts/litertlm_prefix_cursor.py",
+      "ai/models/gemma-e4b-text-only.json",
+      "scripts/prepare-text-only-litertlm.py"
     ],
-    "app_releases": []
+    "app_releases": [
+      {
+        "platform": "ios",
+        "app_version": "1.0.0",
+        "build_number": "100072",
+        "development_commit": "a276caf16359c884f1cd0cbdc34befcdc8f8736b",
+        "public_source_tag": "source-1.0.0-ios-100072"
+      },
+      {
+        "platform": "android",
+        "app_version": "1.0.0",
+        "build_number": "7",
+        "development_commit": "1d6a7f1e51614c66e3ed9b07ee951becb8b92957",
+        "public_source_tag": "source-1.0.0-android-7"
+      }
+    ]
   },
   "curation": {
     "reviewed_source_base": "dd05224a15cff3937bd2bb929b4d10a0feae90fa",
-    "reviewed_source_head": "9a093dbdcd4d6b98fa1a70bd56182c24eba23897",
+    "reviewed_source_head": "05c44bbf3d20a79e294baf59a3b523a18a79aa15",
     "public_base": "0d6e58d8234841bef963912bac9d0c91e693d902",
     "scope": [
       "shared dialogue, character sessions and context compaction",
@@ -245,7 +278,9 @@
       "reaction query gate consumer and synthetic tests",
       "native CPU/GPU wrappers, patches and build tools",
       "Android platform tools and standalone tests",
-      "evaluation consumers of the shared runtime"
+      "evaluation consumers of the shared runtime",
+      "model-specific inference memory admission and optional E4B profile",
+      "memory recall failure reporting"
     ],
     "excluded": [
       "Unity project, game assets and product distribution infrastructure",
