@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source_base": "27b742513543a3e5b8cda8e34107117e468fd9ee",
-  "source_head": "05c44bbf3d20a79e294baf59a3b523a18a79aa15",
+  "source_head": "70e94a521bd9f6271e54b10916d18f69c082168c",
   "public_base": "316d252582e543bf401591c7808db5d9ea6f409d",
   "method": "Curated path patches; source author and author date retained. Public integration changes follow the replayed commits.",
   "commits": [
@@ -232,11 +232,19 @@
     {
       "source": "5d8bfda3ce1c43465d06933c32cb745c02fe5431",
       "public": "c11b9214534c394a2508e236c9fbff5ca2c67054"
+    },
+    {
+      "source": "93249070dc730e47fa50ad0be7c1ce47584069b3",
+      "public": "935a56f4280166f2516107b6c0cd0c84d0110295"
+    },
+    {
+      "source": "713b8e2af09d0d789f3baa92033650752f8529f9",
+      "public": "97d5cb03819c842e9b8469b7a13a60a30ca9b5e3"
     }
   ],
   "distribution": {
     "scope": "ai-runtime",
-    "public_runtime_commit": "c11b9214534c394a2508e236c9fbff5ca2c67054",
+    "public_runtime_commit": "97d5cb03819c842e9b8469b7a13a60a30ca9b5e3",
     "build_guides": {
       "ios": "docs/quickstart.md",
       "android": "android/README.md"
@@ -269,18 +277,12 @@
     ]
   },
   "curation": {
-    "reviewed_source_base": "dd05224a15cff3937bd2bb929b4d10a0feae90fa",
-    "reviewed_source_head": "05c44bbf3d20a79e294baf59a3b523a18a79aa15",
-    "public_base": "0d6e58d8234841bef963912bac9d0c91e693d902",
+    "reviewed_source_base": "05c44bbf3d20a79e294baf59a3b523a18a79aa15",
+    "reviewed_source_head": "70e94a521bd9f6271e54b10916d18f69c082168c",
+    "public_base": "03cd98420a60d0a16393f5dd75300b4ed315b00b",
     "scope": [
-      "shared dialogue, character sessions and context compaction",
-      "memory database lifecycle",
-      "reaction query gate consumer and synthetic tests",
-      "native CPU/GPU wrappers, patches and build tools",
-      "Android platform tools and standalone tests",
-      "evaluation consumers of the shared runtime",
-      "model-specific inference memory admission and optional E4B profile",
-      "memory recall failure reporting"
+      "Android alarm foreground service type (systemExempted)",
+      "Android step confirmation dialog copy"
     ],
     "excluded": [
       "Unity project, game assets and product distribution infrastructure",
@@ -295,15 +297,14 @@
     ],
     "validation": {
       "model_free_suites": 26,
-      "native_ios_build": "passed",
-      "native_provenance": "passed",
-      "cached_session_stub": "passed",
       "native_prefill_policy": "passed",
-      "unsigned_simulator_lab_build": "passed",
       "android_host_java_compile": "passed",
+      "unsigned_simulator_lab_build": "pull request CI",
+      "native_ios_build": "not rerun; no iOS source change",
+      "native_provenance": "not rerun; no native dependency change",
+      "cached_session_stub": "not rerun; no runtime change",
       "android_native_cross_build": "unverified",
-      "physical_device_and_model_inference": "unverified",
-      "anti_slop_completeness": "passed"
+      "physical_device_and_model_inference": "unverified"
     }
   }
 }
