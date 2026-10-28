@@ -32,7 +32,14 @@ public struct ChatDataExport: Codable, Sendable {
         public let sessionSummary: String?
     }
 
+    /// AI 기본법 제31조 2항: 내보낸 파일은 서비스 밖으로 나가므로, 생성형 AI가 만든 항목을 파일 안에 사람이 읽을 수 있게 밝힌다.
+    /// 홈 고정 대사(`homeLine`)와 사용자의 말·기억 원문은 사람이 쓴 글이라 대상이 아니다.
+    public static let generatedContentNoticeText =
+        "conversations[].recentEntries[].assistantMessage, conversations[].sessionSummary, diaries[]는 " +
+        "생성형 AI가 만든 내용입니다. homeLine 항목의 text와 사용자가 쓴 글은 생성형 AI가 만든 내용이 아닙니다."
+
     public let formatVersion: Int
+    public let generatedContentNotice: String
     public let exportedAt: Date
     public let conversations: [Conversation]
     public let longTermMemories: [LongTermMemory]
@@ -43,7 +50,8 @@ public struct ChatDataExport: Codable, Sendable {
         if let invalid = activeMemories.first(where: { $0.state != .active || $0.labels.isEmpty }) {
             throw ChatDataExportError.invalidMemory(invalid.id)
         }
-        formatVersion = 5
+        formatVersion = 6
+        generatedContentNotice = Self.generatedContentNoticeText
         self.exportedAt = exportedAt
         self.diaries = diaries
         conversations = sessions.sorted { $0.key < $1.key }.map { characterID, session in
