@@ -273,6 +273,20 @@
         "build_number": "7",
         "development_commit": "1d6a7f1e51614c66e3ed9b07ee951becb8b92957",
         "public_source_tag": "source-1.0.0-android-7"
+      },
+      {
+        "platform": "ios",
+        "app_version": "1.0.0",
+        "build_number": "100075",
+        "development_commit": "8aa04c768116eb72bb8603204a2a3d98e800a971",
+        "public_source_tag": "source-1.0.0-ios-100075"
+      },
+      {
+        "platform": "android",
+        "app_version": "1.0.0",
+        "build_number": "8",
+        "development_commit": "8aa04c768116eb72bb8603204a2a3d98e800a971",
+        "public_source_tag": "source-1.0.0-android-8"
       }
     ]
   },
