@@ -51,7 +51,13 @@ func chatDataExportKeepsOnlyRetainedTurnsAndActiveMemories() throws {
     let turns = conversations[0]["recentEntries"] as! [[String: Any]]
     let memories = json["longTermMemories"] as! [[String: Any]]
 
-    #expect(json["formatVersion"] as? Int == 5)
+    #expect(json["formatVersion"] as? Int == 6)
+    // AI 기본법 제31조 2항: 서비스 밖으로 나가는 파일 안에 생성형 AI가 만든 항목을 밝힌다.
+    let notice = json["generatedContentNotice"] as? String
+    #expect(notice?.contains("생성형 AI") == true)
+    #expect(notice?.contains("assistantMessage") == true)
+    #expect(notice?.contains("sessionSummary") == true)
+    #expect(notice?.contains("diaries") == true)
     #expect(conversations[0]["characterID"] as? String == "elena")
     #expect((json["diaries"] as? [[String: Any]])?.first?["title"] as? String == "산책한 날")
     #expect(turns.map { $0["id"] as! String } == ["turn-3", "turn-4"])
